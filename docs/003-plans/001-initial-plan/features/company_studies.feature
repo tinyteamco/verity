@@ -2,7 +2,7 @@ Feature: Manage studies
 
   Scenario: Create a study
 
-    Given a signed-in company user
+    Given a signed-in organization user
 
     When they POST /studies with title "Onboarding Feedback"
 
@@ -23,4 +23,3 @@ Feature: Manage studies
     Then the response status is 200
 
     And the study title is "New Name"
-

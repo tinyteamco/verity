@@ -7,7 +7,7 @@
 ## Scope (what’s in)
 - FastAPI app with health, auth whoami, org bootstrap, studies & guides, share-link landing, interviews (create via share-link resolve), recording upload, transcript finalize (single segment), summary generation (async-shaped, fake-async runner).
 - MinIO as object storage via a swappable `StoragePort`.
-- Firebase Auth **emulator** with **two tenants**: `company`, `interviewee`.
+- Firebase Auth **emulator** with **two tenants**: `organization`, `interviewee`.
 - Postgres + Alembic migrations for MVP entities and `job` table.
 - BDD test suite (pytest-bdd) covering happy paths and basic auth failures.
 - Docker Compose for all services; `make test` spins & runs end-to-end.
@@ -39,7 +39,7 @@ Highlights, invites, legacy audio import, auto study summary triggers, Redis/Cel
 
 **3) DB + migrations**: MVP IA entities + `job`; add `org_id` to tenant-scoped rows; RLS optional.
 
-**4) Auth & tenancy**: Firebase emulator; assert `tenant in {company, interviewee}`; map tenant→table; derive `org_id` from `users.company_id`.
+**4) Auth & tenancy**: Firebase emulator; assert `tenant in {organization, interviewee}`; map tenant→table; derive `org_id` from `users.organization_id`.
 
 **5) Storage**: `StoragePort` + MinIO adapter; bucket bootstrap; key scheme.
 
@@ -61,7 +61,7 @@ APP_ENV=local
 DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/uxr
 FIREBASE_PROJECT_ID=uxr-local
 FIREBASE_EMULATOR_HOST=firebase:9099
-FIREBASE_ALLOWED_TENANTS=company,interviewee
+FIREBASE_ALLOWED_TENANTS=organization,interviewee
 JWT_SECRET=local-dev-secret-change-me
 STORAGE_DRIVER=minio
 MINIO_ENDPOINT=http://minio:9000

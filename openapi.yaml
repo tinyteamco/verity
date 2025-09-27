@@ -290,7 +290,7 @@ paths:
 
                   role: { type: string, enum: [owner, admin, member] }
 
-                  tenant: { type: string, enum: [company, interviewee] }
+                  tenant: { type: string, enum: [organization, interviewee] }
 
                 required: [user_id, org_id, role, tenant]
 
@@ -1146,4 +1146,3 @@ paths:
             application/json:
 
               schema: { $ref: '#/components/schemas/Job' }
-

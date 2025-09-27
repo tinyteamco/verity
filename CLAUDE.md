@@ -117,7 +117,7 @@ act --container-architecture linux/amd64  # Test GitHub Actions locally
 ### API Specification
 The `openapi.yaml` file defines:
 - Authentication using Firebase JWT tokens with bearer auth
-- Two tenant types: `company` and `interviewee`
+- Two tenant types: `organization` and `interviewee`
 - Endpoints for studies, interviews, recordings, transcripts, and summaries
 - Role-based access with roles: owner|admin|member
 

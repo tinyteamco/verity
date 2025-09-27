@@ -1,8 +1,8 @@
-Feature: Org roles on company API
+Feature: Org roles for organization users
 
-  Scenario: Members cannot list company users
+  Scenario: Members cannot list organization users
 
-    Given a signed-in company user with role "member"
+    Given a signed-in organization user with role "member"
 
     When they GET /orgs/current/users
 
@@ -10,11 +10,10 @@ Feature: Org roles on company API
 
 
 
-  Scenario: Owner can list company users
+  Scenario: Owner can list organization users
 
-    Given a signed-in company user with role "owner"
+    Given a signed-in organization user with role "owner"
 
     When they GET /orgs/current/users
 
     Then the response status is 200
-

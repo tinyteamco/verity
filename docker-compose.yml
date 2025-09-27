@@ -76,19 +76,8 @@ services:
 
 
 
-  firebase-auth-emulator:
-
-    image: evolutecx/firebase-emulator
-
-    ports: ["9099:9099"]
-
-    environment:
-
-      PORT: 9099
-
-      FB_PROJECT_ID: ${FIREBASE_PROJECT_ID}
-
-    # Note: provide a firebase.json and auth export if needed
+  # Firebase emulator is now managed via Makefile using Firebase CLI
+  # Run: make start-firebase
 
 
 
@@ -102,7 +91,7 @@ services:
 
     env_file: [.env.development]
 
-    depends_on: [postgres, minio, minio-setup, firebase-auth-emulator]
+    depends_on: [postgres, minio, minio-setup]
 
     ports: ["8000:8000"]
 

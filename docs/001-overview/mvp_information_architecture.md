@@ -6,25 +6,25 @@ This document captures the **minimum viable information architecture** for the U
 
 ## Core Entities
 
-### Company
-- `company_id`
+### Organization
+- `organization_id`
 - `name`
 - **Relationships:** has many **Users**, **Studies**
 
-### User (Company-side)
+### User (Organization-side)
 - `user_id`
-- `company_id` (FK)
+- `organization_id` (FK)
 - `email`, `password_hash`, `name`
 - `created_at`, `last_login_at`
-- **Relationships:** belongs to **Company**
+- **Relationships:** belongs to **Organization**
 
 ### Study
 - `study_id`
-- `company_id` (FK)
+- `organization_id` (FK)
 - `title`
 - `created_by_user_id` (FK to User)
 - `created_at`, `updated_at`
-- **Relationships:** belongs to **Company**; has **one InterviewGuide**; has many **Interviews**; has **one StudySummary**
+- **Relationships:** belongs to **Organization**; has **one InterviewGuide**; has many **Interviews**; has **one StudySummary**
 
 ### InterviewGuide (1:1 with Study)
 - `guide_id`
@@ -83,8 +83,8 @@ This document captures the **minimum viable information architecture** for the U
 ---
 
 ## Relationships (Cardinalities)
-- **Company 1—n Users**
-- **Company 1—n Studies**
+- **Organization 1—n Users**
+- **Organization 1—n Studies**
 - **Study 1—1 InterviewGuide**
 - **Study 1—n Interviews**
 - **Study 1—1 StudySummary**
@@ -97,13 +97,13 @@ This document captures the **minimum viable information architecture** for the U
 ---
 
 ## Access & Flows (MVP)
-- **Company users**: login → Studies list → create Study → define InterviewGuide (markdown) → share study link → view incoming Interviews → read Interview Summaries → view Study Summary.
+- **Organization users**: login → Studies list → create Study → define InterviewGuide (markdown) → share study link → view incoming Interviews → read Interview Summaries → view Study Summary.
 - **Interviewees**: login → complete Interview → view past Interviews (basic list + transcript, audio if permitted).
 
 ---
 
 ## Intentionally Omitted (Until Needed)
-- Company billing & plans (`plan_tier`, subscription state).
+- Organization billing & plans (`plan_tier`, subscription state).
 - User roles/permissions (all same for now).
 - Versioning/history (multiple Study Summary versions, audit trails).
 - Video recordings, video highlights, video reels.
@@ -119,4 +119,3 @@ This document captures the **minimum viable information architecture** for the U
 ---
 
 **Next steps:** This doc can be archived as the canonical MVP IA. Another LLM can pick up here and extend as new requirements are added.
-
