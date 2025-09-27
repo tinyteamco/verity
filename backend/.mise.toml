@@ -1,0 +1,12 @@
+[tools]
+python = "3.12"
+uv = "latest"
+
+[env]
+_.python.venv = { path = ".venv", create = true }
+DATABASE_URL = "postgresql+psycopg://postgres:postgres@localhost:5432/uxr"
+FIREBASE_EMULATOR_HOST = "localhost:9099"
+MINIO_ENDPOINT = "http://localhost:9000"
+MINIO_ACCESS_KEY = "minioadmin"
+MINIO_SECRET_KEY = "minioadmin"
+APP_ENV = "development"
