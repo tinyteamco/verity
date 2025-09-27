@@ -11,13 +11,13 @@ setup: ## Install dependencies
 	uv sync --locked
 
 dev: ## Start development server
-	docker-compose -f ../docker-compose.yml up -d postgres minio
+	docker compose -f ../docker-compose.yml up -d postgres minio
 	$(MAKE) start-firebase
 	$(MAKE) seed-admin
 	uv run uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
 
 test: ## Run tests (with services)
-	docker-compose -f ../docker-compose.yml up -d postgres minio
+	docker compose -f ../docker-compose.yml up -d postgres minio
 	$(MAKE) start-firebase
 	$(MAKE) seed-admin
 	APP_ENV=local uv run pytest
@@ -96,7 +96,7 @@ seed-admin: start-firebase ## Seed super admin user in Firebase emulator
 
 clean: ## Clean up
 	$(MAKE) stop-firebase
-	docker-compose -f ../docker-compose.yml down -v
+	docker compose -f ../docker-compose.yml down -v
 	rm -rf .venv/
 	rm -rf __pycache__/
 	rm -rf .pytest_cache/
