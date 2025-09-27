@@ -45,11 +45,21 @@ class StudyResponse(BaseModel):
     study_id: str
     title: str
     description: str | None
-    organization_id: str
+    org_id: str
     created_at: datetime
+    updated_at: datetime | None
 
     class Config:
         from_attributes = True
+
+
+class StudyUpdate(BaseModel):
+    title: str | None = None
+    description: str | None = None
+
+
+class StudyList(BaseModel):
+    items: list[StudyResponse]
 
 
 class HealthResponse(BaseModel):

@@ -11,8 +11,17 @@ from ..auth import (
     require_super_admin,
 )
 from ..database import get_db
-from ..models import Organization, User
-from ..schemas import HealthResponse, OrganizationCreate, OrganizationResponse, UserResponse
+from ..models import Organization, Study, User
+from ..schemas import (
+    HealthResponse,
+    OrganizationCreate,
+    OrganizationResponse,
+    StudyCreate,
+    StudyList,
+    StudyResponse,
+    StudyUpdate,
+    UserResponse,
+)
 
 app = FastAPI(
     title="Verity API",
@@ -87,3 +96,139 @@ async def list_organization_users(
         )
         for user in users
     ]
+
+
+# Study Management Endpoints
+
+
+@app.post("/studies", response_model=StudyResponse, status_code=201)
+async def create_study(
+    study_data: StudyCreate,
+    org_user: Annotated[OrgUser, Depends(get_org_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> StudyResponse:
+    """Create a new study for the current organization"""
+    study = Study(
+        title=study_data.title,
+        description=study_data.description,
+        organization_id=org_user.organization_id,
+    )
+    db.add(study)
+    db.commit()
+    db.refresh(study)
+
+    return StudyResponse(
+        study_id=str(study.id),
+        title=study.title,
+        description=study.description,
+        org_id=str(study.organization_id),
+        created_at=study.created_at,
+        updated_at=study.updated_at,
+    )
+
+
+@app.get("/studies", response_model=StudyList)
+async def list_studies(
+    org_user: Annotated[OrgUser, Depends(get_org_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> StudyList:
+    """List all studies for the current organization"""
+    studies = db.query(Study).filter(Study.organization_id == org_user.organization_id).all()
+
+    study_responses = [
+        StudyResponse(
+            study_id=str(study.id),
+            title=study.title,
+            description=study.description,
+            org_id=str(study.organization_id),
+            created_at=study.created_at,
+            updated_at=study.updated_at,
+        )
+        for study in studies
+    ]
+
+    return StudyList(items=study_responses)
+
+
+@app.get("/studies/{study_id}", response_model=StudyResponse)
+async def get_study(
+    study_id: int,
+    org_user: Annotated[OrgUser, Depends(get_org_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> StudyResponse:
+    """Get a specific study by ID"""
+    study = (
+        db.query(Study)
+        .filter(Study.id == study_id, Study.organization_id == org_user.organization_id)
+        .first()
+    )
+
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
+
+    return StudyResponse(
+        study_id=str(study.id),
+        title=study.title,
+        description=study.description,
+        org_id=str(study.organization_id),
+        created_at=study.created_at,
+        updated_at=study.updated_at,
+    )
+
+
+@app.patch("/studies/{study_id}", response_model=StudyResponse)
+async def update_study(
+    study_id: int,
+    study_update: StudyUpdate,
+    org_user: Annotated[OrgUser, Depends(get_org_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> StudyResponse:
+    """Update a study"""
+    study = (
+        db.query(Study)
+        .filter(Study.id == study_id, Study.organization_id == org_user.organization_id)
+        .first()
+    )
+
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
+
+    # Update fields if provided
+    if study_update.title is not None:
+        study.title = study_update.title
+    if study_update.description is not None:
+        study.description = study_update.description
+
+    db.commit()
+    db.refresh(study)
+
+    return StudyResponse(
+        study_id=str(study.id),
+        title=study.title,
+        description=study.description,
+        org_id=str(study.organization_id),
+        created_at=study.created_at,
+        updated_at=study.updated_at,
+    )
+
+
+@app.delete("/studies/{study_id}")
+async def delete_study(
+    study_id: int,
+    org_user: Annotated[OrgUser, Depends(get_org_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, str]:
+    """Delete a study"""
+    study = (
+        db.query(Study)
+        .filter(Study.id == study_id, Study.organization_id == org_user.organization_id)
+        .first()
+    )
+
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
+
+    db.delete(study)
+    db.commit()
+
+    return {"message": "Study deleted successfully"}
