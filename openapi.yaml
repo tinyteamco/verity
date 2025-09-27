@@ -1,0 +1,1149 @@
+openapi: 3.0.3
+
+info:
+
+  title: UXR Company API (MVP)
+
+  version: 0.1.0
+
+servers:
+
+  - url: http://localhost:8000
+
+security:
+
+  - firebaseAuth: []
+
+components:
+
+  securitySchemes:
+
+    firebaseAuth:
+
+      type: http
+
+      scheme: bearer
+
+      bearerFormat: JWT
+
+  schemas:
+
+    Error:
+
+      type: object
+
+      properties:
+
+        error:
+
+          type: object
+
+          properties:
+
+            code: { type: string }
+
+            message: { type: string }
+
+          required: [code, message]
+
+      required: [error]
+
+    Study:
+
+      type: object
+
+      properties:
+
+        study_id: { type: string, format: uuid }
+
+        org_id: { type: string, format: uuid }
+
+        title: { type: string }
+
+        created_at: { type: string, format: date-time }
+
+        updated_at: { type: string, format: date-time }
+
+      required: [study_id, org_id, title, created_at, updated_at]
+
+    StudyList:
+
+      type: object
+
+      properties:
+
+        items:
+
+          type: array
+
+          items: { $ref: '#/components/schemas/Study' }
+
+        total: { type: integer }
+
+        limit: { type: integer }
+
+        offset: { type: integer }
+
+      required: [items, total, limit, offset]
+
+    InterviewGuide:
+
+      type: object
+
+      properties:
+
+        study_id: { type: string, format: uuid }
+
+        content_md: { type: string }
+
+        updated_at: { type: string, format: date-time }
+
+      required: [study_id, content_md, updated_at]
+
+    ShareLink:
+
+      type: object
+
+      properties:
+
+        link_id: { type: string, format: uuid }
+
+        study_id: { type: string, format: uuid }
+
+        url: { type: string }
+
+        expires_at:
+
+          type: string
+
+          format: date-time
+
+          nullable: true
+
+      required: [link_id, study_id, url]
+
+    Interview:
+
+      type: object
+
+      properties:
+
+        interview_id: { type: string, format: uuid }
+
+        study_id: { type: string, format: uuid }
+
+        interviewee_id: { type: string, format: uuid }
+
+        started_at: { type: string, format: date-time, nullable: true }
+
+        completed_at: { type: string, format: date-time, nullable: true }
+
+      required: [interview_id, study_id, interviewee_id]
+
+    Recording:
+
+      type: object
+
+      properties:
+
+        recording_id: { type: string, format: uuid }
+
+        interview_id: { type: string, format: uuid }
+
+        uri: { type: string }
+
+        duration_ms: { type: integer }
+
+      required: [recording_id, interview_id, uri]
+
+    TranscriptSegment:
+
+      type: object
+
+      properties:
+
+        start_ms: { type: integer }
+
+        end_ms: { type: integer }
+
+        text: { type: string }
+
+        confidence:
+
+          type: number
+
+          format: float
+
+          nullable: true
+
+      required: [start_ms, end_ms, text]
+
+    TranscriptFinalizeRequest:
+
+      type: object
+
+      properties:
+
+        lang: { type: string, example: en }
+
+        source: { type: string, enum: [client] }
+
+        segments:
+
+          type: array
+
+          items: { $ref: '#/components/schemas/TranscriptSegment' }
+
+      required: [lang, source, segments]
+
+    InterviewSummary:
+
+      type: object
+
+      properties:
+
+        interview_id: { type: string, format: uuid }
+
+        summary_text: { type: string }
+
+        created_at: { type: string, format: date-time }
+
+      required: [interview_id, summary_text, created_at]
+
+    StudySummary:
+
+      type: object
+
+      properties:
+
+        study_id: { type: string, format: uuid }
+
+        summary_text: { type: string }
+
+        created_at: { type: string, format: date-time }
+
+        updated_at: { type: string, format: date-time }
+
+      required: [study_id, summary_text, created_at, updated_at]
+
+    Job:
+
+      type: object
+
+      properties:
+
+        job_id: { type: string, format: uuid }
+
+        kind: { type: string, enum: [interview_summary, study_summary] }
+
+        status: { type: string, enum: [queued, running, succeeded, failed] }
+
+        progress: { type: integer, minimum: 0, maximum: 100 }
+
+        error_code:
+
+          type: string
+
+          nullable: true
+
+        error_msg:
+
+          type: string
+
+          nullable: true
+
+        result_ref:
+
+          type: string
+
+          nullable: true
+
+      required: [job_id, kind, status]
+
+paths:
+
+  /auth/me:
+
+    get:
+
+      summary: Who am I
+
+      responses:
+
+        '200':
+
+          description: Ok
+
+          content:
+
+            application/json:
+
+              schema:
+
+                type: object
+
+                properties:
+
+                  user_id: { type: string }
+
+                  org_id: { type: string }
+
+                  role: { type: string, enum: [owner, admin, member] }
+
+                  tenant: { type: string, enum: [company, interviewee] }
+
+                required: [user_id, org_id, role, tenant]
+
+  /orgs:
+
+    post:
+
+      summary: Create org
+
+      responses:
+
+        '201':
+
+          description: Created
+
+          content:
+
+            application/json:
+
+              schema:
+
+                type: object
+
+                properties:
+
+                  org_id: { type: string }
+
+                required: [org_id]
+
+        '400':
+
+          description: Bad Request
+
+          content:
+
+            application/json:
+
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /orgs/current:
+
+    get:
+
+      summary: Get current org
+
+      responses:
+
+        '200':
+
+          description: Ok
+
+          content:
+
+            application/json:
+
+              schema:
+
+                type: object
+
+                properties:
+
+                  org_id: { type: string }
+
+                  name: { type: string }
+
+                required: [org_id, name]
+
+  /orgs/current/users:
+
+    get:
+
+      summary: List users in org
+
+      responses:
+
+        '200':
+
+          description: Ok
+
+          content:
+
+            application/json:
+
+              schema:
+
+                type: object
+
+                properties:
+
+                  items:
+
+                    type: array
+
+                    items:
+
+                      type: object
+
+                      properties:
+
+                        user_id: { type: string }
+
+                        email: { type: string }
+
+                        name: { type: string }
+
+                        role: { type: string }
+
+                      required: [user_id, email, role]
+
+                  total: { type: integer }
+
+                  limit: { type: integer }
+
+                  offset: { type: integer }
+
+                required: [items, total, limit, offset]
+
+        '403':
+
+          description: Forbidden
+
+          content:
+
+            application/json:
+
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /studies:
+
+    get:
+
+      summary: List studies
+
+      parameters:
+
+        - in: query
+
+          name: limit
+
+          schema: { type: integer, default: 20 }
+
+        - in: query
+
+          name: offset
+
+          schema: { type: integer, default: 0 }
+
+      responses:
+
+        '200':
+
+          description: Ok
+
+          content:
+
+            application/json:
+
+              schema: { $ref: '#/components/schemas/StudyList' }
+
+    post:
+
+      summary: Create study
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              type: object
+
+              properties:
+
+                title: { type: string }
+
+              required: [title]
+
+      responses:
+
+        '201':
+
+          description: Created
+
+          content:
+
+            application/json:
+
+              schema: { $ref: '#/components/schemas/Study' }
+
+  /studies/{study_id}:
+
+    get:
+
+      summary: Get study
+
+      parameters:
+
+        - in: path
+
+          name: study_id
+
+          required: true
+
+          schema: { type: string, format: uuid }
+
+      responses:
+
+        '200':
+
+          description: Ok
+
+          content:
+
+            application/json:
+
+              schema: { $ref: '#/components/schemas/Study' }
+
+    patch:
+
+      summary: Update study
+
+      parameters:
+
+        - in: path
+
+          name: study_id
+
+          required: true
+
+          schema: { type: string, format: uuid }
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              type: object
+
+              properties:
+
+                title: { type: string }
+
+      responses:
+
+        '200':
+
+          description: Ok
+
+          content:
+
+            application/json:
+
+              schema: { $ref: '#/components/schemas/Study' }
+
+  /studies/{study_id}/guide:
+
+    put:
+
+      summary: Upsert interview guide (markdown)
+
+      parameters:
+
+        - in: path
+
+          name: study_id
+
+          required: true
+
+          schema: { type: string, format: uuid }
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              type: object
+
+              properties:
+
+                content_md: { type: string }
+
+              required: [content_md]
+
+      responses:
+
+        '200':
+
+          description: Ok
+
+          content:
+
+            application/json:
+
+              schema: { $ref: '#/components/schemas/InterviewGuide' }
+
+    get:
+
+      summary: Get guide
+
+      parameters:
+
+        - in: path
+
+          name: study_id
+
+          required: true
+
+          schema: { type: string, format: uuid }
+
+      responses:
+
+        '200':
+
+          description: Ok
+
+          content:
+
+            application/json:
+
+              schema: { $ref: '#/components/schemas/InterviewGuide' }
+
+  /studies/{study_id}/share-links:
+
+    post:
+
+      summary: Create/rotate share link
+
+      parameters:
+
+        - in: path
+
+          name: study_id
+
+          required: true
+
+          schema: { type: string, format: uuid }
+
+      requestBody:
+
+        required: false
+
+        content:
+
+          application/json:
+
+            schema:
+
+              type: object
+
+              properties:
+
+                expires_at:
+
+                  type: string
+
+                  format: date-time
+
+                  nullable: true
+
+      responses:
+
+        '201':
+
+          description: Created
+
+          content:
+
+            application/json:
+
+              schema: { $ref: '#/components/schemas/ShareLink' }
+
+    get:
+
+      summary: List active share links
+
+      parameters:
+
+        - in: path
+
+          name: study_id
+
+          required: true
+
+          schema: { type: string, format: uuid }
+
+      responses:
+
+        '200':
+
+          description: Ok
+
+          content:
+
+            application/json:
+
+              schema:
+
+                type: object
+
+                properties:
+
+                  items:
+
+                    type: array
+
+                    items: { $ref: '#/components/schemas/ShareLink' }
+
+                required: [items]
+
+  /share/join:
+
+    get:
+
+      summary: Public landing for a share link
+
+      parameters:
+
+        - in: query
+
+          name: token
+
+          required: true
+
+          schema: { type: string }
+
+      responses:
+
+        '200':
+
+          description: Landing content (public)
+
+          content:
+
+            application/json:
+
+              schema:
+
+                type: object
+
+                properties:
+
+                  study_title: { type: string }
+
+                  consent_blurb: { type: string }
+
+                required: [study_title]
+
+        '400':
+
+          description: Invalid/expired
+
+          content:
+
+            application/json:
+
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /share/join/resolve:
+
+    post:
+
+      summary: After auth, create interview from share link
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              type: object
+
+              properties:
+
+                token: { type: string }
+
+              required: [token]
+
+      responses:
+
+        '201':
+
+          description: Interview created
+
+          content:
+
+            application/json:
+
+              schema:
+
+                type: object
+
+                properties:
+
+                  interview_id: { type: string, format: uuid }
+
+                required: [interview_id]
+
+        '400':
+
+          description: Invalid
+
+          content:
+
+            application/json:
+
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /interviews/{interview_id}:
+
+    get:
+
+      summary: Get interview (company-side view)
+
+      parameters:
+
+        - in: path
+
+          name: interview_id
+
+          required: true
+
+          schema: { type: string, format: uuid }
+
+      responses:
+
+        '200':
+
+          description: Ok
+
+          content:
+
+            application/json:
+
+              schema: { $ref: '#/components/schemas/Interview' }
+
+  /interviews/{interview_id}/recording:
+
+    get:
+
+      summary: Get recording metadata
+
+      parameters:
+
+        - in: path
+
+          name: interview_id
+
+          required: true
+
+          schema: { type: string, format: uuid }
+
+      responses:
+
+        '200':
+
+          description: Ok
+
+          content:
+
+            application/json:
+
+              schema: { $ref: '#/components/schemas/Recording' }
+
+  /recordings:upload:
+
+    post:
+
+      summary: Upload audio file (multipart)
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          multipart/form-data:
+
+            schema:
+
+              type: object
+
+              properties:
+
+                interview_id: { type: string }
+
+                file:
+
+                  type: string
+
+                  format: binary
+
+                mime:
+
+                  type: string
+
+                  nullable: true
+
+                sample_rate_hz:
+
+                  type: integer
+
+                  nullable: true
+
+                duration_ms:
+
+                  type: integer
+
+                  nullable: true
+
+              required: [interview_id, file]
+
+      responses:
+
+        '201':
+
+          description: Created
+
+          content:
+
+            application/json:
+
+              schema: { $ref: '#/components/schemas/Recording' }
+
+        '413':
+
+          description: Payload too large
+
+          content:
+
+            application/json:
+
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /interviews/{interview_id}/transcript:finalize:
+
+    post:
+
+      summary: Finalize a transcript (single or multi-segment)
+      parameters:
+
+        - in: path
+
+          name: interview_id
+
+          required: true
+
+          schema: { type: string, format: uuid }
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema: { $ref: '#/components/schemas/TranscriptFinalizeRequest' }
+
+      responses:
+
+        '201':
+
+          description: Created
+
+          content:
+
+            application/json:
+
+              schema:
+
+                type: object
+
+                properties:
+
+                  transcript_id: { type: string, format: uuid }
+
+                required: [transcript_id]
+
+  /interviews/{interview_id}/summary:generate:
+
+    post:
+
+      summary: Generate interview summary (async)
+
+      parameters:
+
+        - in: path
+
+          name: interview_id
+
+          required: true
+
+          schema: { type: string, format: uuid }
+
+      responses:
+
+        '202':
+
+          description: Accepted
+
+          content:
+
+            application/json:
+
+              schema: { $ref: '#/components/schemas/Job' }
+
+  /interviews/{interview_id}/summary:
+
+    get:
+
+      summary: Get latest interview summary
+
+      parameters:
+
+        - in: path
+
+          name: interview_id
+
+          required: true
+
+          schema: { type: string, format: uuid }
+
+      responses:
+
+        '200':
+
+          description: Ok
+
+          content:
+
+            application/json:
+
+              schema: { $ref: '#/components/schemas/InterviewSummary' }
+
+        '404':
+
+          description: Not found
+
+          content:
+
+            application/json:
+
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /studies/{study_id}/summary:generate:
+
+    post:
+
+      summary: Generate study summary (async)
+
+      parameters:
+
+        - in: path
+
+          name: study_id
+
+          required: true
+
+          schema: { type: string, format: uuid }
+
+      responses:
+
+        '202':
+
+          description: Accepted
+
+          content:
+
+            application/json:
+
+              schema: { $ref: '#/components/schemas/Job' }
+
+  /studies/{study_id}/summary:
+
+    get:
+
+      summary: Get study summary
+
+      parameters:
+
+        - in: path
+
+          name: study_id
+
+          required: true
+
+          schema: { type: string, format: uuid }
+
+      responses:
+
+        '200':
+
+          description: Ok
+
+          content:
+
+            application/json:
+
+              schema: { $ref: '#/components/schemas/StudySummary' }
+
+        '404':
+
+          description: Not found
+
+          content:
+
+            application/json:
+
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /jobs/{job_id}:
+
+    get:
+
+      summary: Job status
+
+      parameters:
+
+        - in: path
+
+          name: job_id
+
+          required: true
+
+          schema: { type: string, format: uuid }
+
+      responses:
+
+        '200':
+
+          description: Ok
+
+          content:
+
+            application/json:
+
+              schema: { $ref: '#/components/schemas/Job' }
+
