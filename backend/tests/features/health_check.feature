@@ -4,7 +4,7 @@ Feature: API Health Check
   So that I know the service is running
 
   Scenario: Service is healthy
-    When I GET /healthz
+    When I GET /health
     Then the response status is 200
     And the response contains "healthy" as true
     And the response contains "service" as "verity-backend"

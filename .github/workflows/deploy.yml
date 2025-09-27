@@ -1,0 +1,54 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+env:
+  PROJECT_ID: verity-platform-473406
+  SERVICE: verity-backend
+  REGION: europe-west1
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker europe-west1-docker.pkg.dev
+
+      - name: Build and push Docker image
+        run: |
+          IMAGE_URI="europe-west1-docker.pkg.dev/${{ env.PROJECT_ID }}/verity/backend:${{ github.sha }}"
+          docker build --platform linux/amd64 -t $IMAGE_URI ./backend
+          docker push $IMAGE_URI
+          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE }} \
+            --image ${{ env.IMAGE_URI }} \
+            --platform managed \
+            --region ${{ env.REGION }} \
+            --memory 512Mi \
+            --cpu 1 \
+            --min-instances 0 \
+            --max-instances 10 \
+            --timeout 300 \
+            --concurrency 80 \
+            --port 8000 \
+            --use-http2 \
+            --cpu-throttling \
+            --execution-environment gen2 \
+            --startup-probe="httpGet.path=/health,httpGet.port=8000,initialDelaySeconds=30,timeoutSeconds=5,periodSeconds=10,failureThreshold=3" \
+            --liveness-probe="httpGet.path=/health,httpGet.port=8000,timeoutSeconds=5,periodSeconds=30,failureThreshold=3"
