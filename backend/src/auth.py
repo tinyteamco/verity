@@ -6,6 +6,7 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from firebase_admin import auth, credentials
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 # Initialize Firebase Admin for local/production
 if not firebase_admin._apps:
@@ -28,9 +29,13 @@ class AuthUser(BaseModel):
     is_super_admin: bool = False
 
 
-class AuthContext(BaseModel):
-    user: AuthUser
-    org_id: str | None = None
+class OrgUser(BaseModel):
+    firebase_uid: str
+    email: str
+    role: str
+    organization_id: int
+    organization_name: str
+    organization_created_at: Any
 
 
 def verify_firebase_token(token: str) -> dict[str, Any]:
@@ -80,3 +85,24 @@ def require_organization_user(user: Annotated[AuthUser, Depends(get_current_user
     if user.tenant_id != "organization":
         raise HTTPException(status_code=403, detail="Organization user access required")
     return user
+
+
+def get_org_user_impl(user: AuthUser, db: Session) -> OrgUser:
+    """Get organization user with full context from database"""
+    # Import here to avoid circular import
+    from .models import User
+
+    # Look up user in database
+    db_user = db.query(User).filter(User.firebase_uid == user.firebase_uid).first()
+
+    if not db_user:
+        raise HTTPException(status_code=403, detail="User not associated with any organization")
+
+    return OrgUser(
+        firebase_uid=db_user.firebase_uid,
+        email=db_user.email,
+        role=db_user.role,
+        organization_id=db_user.organization_id,
+        organization_name=db_user.organization.name,
+        organization_created_at=db_user.organization.created_at,
+    )

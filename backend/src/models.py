@@ -18,6 +18,25 @@ class Organization(Base):
     )
 
     studies: Mapped[list["Study"]] = relationship("Study", back_populates="organization")
+    users: Mapped[list["User"]] = relationship("User", back_populates="organization")
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    firebase_uid: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
+    email: Mapped[str] = mapped_column(String, nullable=False)
+    role: Mapped[str] = mapped_column(String, nullable=False)  # owner, admin, member
+    organization_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("organizations.id"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), onupdate=func.now()
+    )
+
+    organization: Mapped["Organization"] = relationship("Organization", back_populates="users")
 
 
 class Study(Base):

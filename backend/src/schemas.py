@@ -16,6 +16,26 @@ class OrganizationResponse(BaseModel):
         from_attributes = True
 
 
+class UserResponse(BaseModel):
+    user_id: str
+    email: str
+    role: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class OrganizationWithUsersResponse(BaseModel):
+    org_id: str
+    name: str
+    created_at: datetime
+    users: list[UserResponse]
+
+    class Config:
+        from_attributes = True
+
+
 class StudyCreate(BaseModel):
     title: str
     description: str | None = None
