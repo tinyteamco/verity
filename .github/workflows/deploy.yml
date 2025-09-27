@@ -1,10 +1,7 @@
 name: Deploy
 
 on:
-  workflow_run:
-    workflows: ["CI"]
-    types:
-      - completed
+  push:
     branches: [main]
 
 env:
@@ -13,9 +10,28 @@ env:
   REGION: europe-west1
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install mise
+        uses: jdx/mise-action@v2
+
+      - name: Bootstrap development environment
+        run: make bootstrap
+
+      - name: Run backend checks
+        run: make backend-check
+
+      - name: Run backend tests
+        run: cd backend && make test-ci
+
   deploy:
     runs-on: ubuntu-latest
-    if: github.event.workflow_run.conclusion == 'success'
+    needs: test
+    if: github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout code
