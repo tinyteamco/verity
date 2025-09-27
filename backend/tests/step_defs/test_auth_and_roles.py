@@ -72,6 +72,53 @@ def create_member_user(client: TestClient, auth_headers):
             auth.delete_user("test-member")
 
 
+@given('a signed-in organization user with role "admin"')
+def create_admin_user(client: TestClient, auth_headers):
+    """Create an admin organization user"""
+    try:
+        auth.create_user(
+            uid="test-admin",
+            email="admin@example.com",
+            password="testpass123",
+            email_verified=True,
+        )
+        auth.set_custom_user_claims("test-admin", {"tenant": "organization", "role": "admin"})
+
+        # Get token for API requests
+        from tests.test_helpers import sign_in_user
+
+        token = sign_in_user("admin@example.com", "testpass123")
+        auth_headers["Authorization"] = f"Bearer {token}"
+
+        # Create organization and user in database
+        from tests.conftest import TestingSessionLocal
+
+        db_session = TestingSessionLocal()
+        try:
+            # Create organization first
+            org = Organization(name="Test Organization")
+            db_session.add(org)
+            db_session.commit()
+            db_session.refresh(org)
+
+            # Create user record
+            db_user = User(
+                firebase_uid="test-admin",
+                email="admin@example.com",
+                role="admin",
+                organization_id=org.id,
+            )
+            db_session.add(db_user)
+            db_session.commit()
+        finally:
+            db_session.close()
+
+        yield
+    finally:
+        with contextlib.suppress(Exception):
+            auth.delete_user("test-admin")
+
+
 @given('a signed-in organization user with role "owner"')
 def create_owner_user(client: TestClient, auth_headers):
     """Create an owner organization user"""
