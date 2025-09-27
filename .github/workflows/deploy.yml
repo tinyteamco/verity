@@ -60,7 +60,7 @@ jobs:
           fi
 
       - name: Seed Firebase emulator
-        run: cd backend && python scripts/seed_firebase.py
+        run: cd backend && make seed-admin
 
       - name: Run backend tests
         run: cd backend && make test-ci
