@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install mise
+        run: |
+          curl https://mise.run | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Bootstrap development environment
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          make bootstrap
+
+      - name: Run backend checks
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          cd backend
+          make check
+
+      - name: Run backend tests
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          cd backend
+          make test-ci
+
+      - name: Verify git hooks work
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          # Test that hk check passes (validates our setup)
+          mise exec -- hk check

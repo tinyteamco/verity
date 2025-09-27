@@ -42,18 +42,22 @@ verity/
 All commands use `make` (which transparently uses mise for tool management):
 
 ```bash
+# 🚀 One-time setup (CI/fresh machines):
+make bootstrap       # Install tools + deps + git hooks
+
 # From backend/ directory:
-make setup      # Install tools & dependencies
-make dev        # Start dev server with hot-reload
-make test       # Run BDD tests
-make test-ci    # Run tests without services
-make lint       # Run linters
-make format     # Format code
-make clean      # Clean up temp files
+make setup          # Install tools & dependencies
+make dev            # Start dev server with hot-reload
+make test           # Run BDD tests
+make test-ci        # Run tests without services
+make lint           # Run linters
+make format         # Format code
+make clean          # Clean up temp files
 
 # From root directory:
 make backend-dev    # Start backend dev
 make backend-test   # Run backend tests
+make install-hooks  # Install git hooks with mise integration
 ```
 
 ### Key Architectural Decisions
@@ -64,6 +68,7 @@ make backend-test   # Run backend tests
 4. **Container-First Deployment**: Target Cloud Run for serverless container hosting
 5. **Local Development**: Python runs locally for speed, services in Docker
 6. **Zero Warnings Policy**: All code must pass ruff + ty with zero warnings/errors
+7. **Git Hooks with hk**: Pre-commit hooks enforce code quality automatically using hk + mise
 
 ### Code Quality Standards
 

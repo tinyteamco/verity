@@ -1,0 +1,50 @@
+amends "package://github.com/jdx/hk/releases/download/v1.2.0/hk@1.2.0#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v1.2.0/hk@1.2.0#/Builtins.pkl"
+
+local defaultChecks = new Mapping<String, Step> {
+    // Backend code quality checks
+    ["ruff:format"] = (Builtins.ruff) {
+        dir = "backend"
+        glob = List("*.py")
+        stage = List("*")
+        check = "mise run check:format"
+        fix = "mise run fix:format"
+    }
+    ["ruff:lint"] = (Builtins.ruff) {
+        dir = "backend"
+        glob = List("*.py")
+        stage = List("*")
+        check = "mise run check:lint"
+        fix = "mise run fix:lint"
+    }
+    ["ty"] = (Builtins.mypy) {
+        dir = "backend"
+        glob = List("src/**/*.py")
+        check = "mise run check:types"
+    }
+    ["test:backend"] {
+        dir = "backend"
+        glob = List("*.py")
+        check = "mise run test-ci"
+    }
+}
+
+hooks {
+    ["pre-commit"] {
+        fix = true              // runs the fix step to make modifications
+        stash = "patch-file"    // stashes unstaged changes before running fix steps
+        steps = defaultChecks
+    }
+    ["pre-push"] {
+        steps = defaultChecks
+    }
+
+    // "fix" and "check" are special steps for `hk fix` and `hk check` commands
+    ["fix"] {
+        fix = true
+        steps = defaultChecks
+    }
+    ["check"] {
+        steps = defaultChecks
+    }
+}

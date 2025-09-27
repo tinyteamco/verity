@@ -40,6 +40,22 @@ check: ## Run all checks (read-only validation)
 	uv run ruff check .
 	uv run ty check
 
+# Aliases for hk integration
+check-format: ## Check formatting only
+	uv run ruff format . --check
+
+check-lint: ## Check linting only
+	uv run ruff check .
+
+check-types: ## Check types only
+	uv run ty check
+
+fix-format: ## Fix formatting
+	uv run ruff format .
+
+fix-lint: ## Fix linting issues
+	uv run ruff check . --fix
+
 clean: ## Clean up
 	docker-compose -f ../docker-compose.yml down -v
 	rm -rf .venv/

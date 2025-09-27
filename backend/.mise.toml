@@ -10,3 +10,27 @@ MINIO_ENDPOINT = "http://localhost:9000"
 MINIO_ACCESS_KEY = "minioadmin"
 MINIO_SECRET_KEY = "minioadmin"
 APP_ENV = "development"
+
+[tasks."check:format"]
+description = "Check code formatting"
+run = "make check-format"
+
+[tasks."check:lint"]
+description = "Check linting"
+run = "make check-lint"
+
+[tasks."check:types"]
+description = "Check types"
+run = "make check-types"
+
+[tasks."fix:format"]
+description = "Fix formatting"
+run = "make fix-format"
+
+[tasks."fix:lint"]
+description = "Fix linting issues"
+run = "make fix-lint"
+
+[tasks.test-ci]
+description = "Run tests in CI mode"
+run = "make test-ci"
