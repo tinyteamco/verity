@@ -65,6 +65,19 @@ jobs:
           docker push $IMAGE_URI
           echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
 
+      - name: Run database migrations
+        run: |
+          # Run migrations using Cloud Run Jobs for one-time execution
+          gcloud run jobs create verity-migrate-${{ github.sha }} \
+            --image ${{ env.IMAGE_URI }} \
+            --region ${{ env.REGION }} \
+            --task-timeout 300 \
+            --set-env-vars DATABASE_URL="postgresql+psycopg://uxr:${{ secrets.DATABASE_PASSWORD }}@/uxr?unix_sock=/cloudsql/${{ env.PROJECT_ID }}:${{ env.REGION }}:verity-postgres/.s.PGSQL.5432" \
+            --add-cloudsql-instances ${{ env.PROJECT_ID }}:${{ env.REGION }}:verity-postgres \
+            --command="uv,run,alembic,upgrade,head" \
+            --execute-now \
+            --wait
+
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy ${{ env.SERVICE }} \
@@ -81,5 +94,7 @@ jobs:
             --use-http2 \
             --cpu-throttling \
             --execution-environment gen2 \
+            --set-env-vars DATABASE_URL="postgresql+psycopg://uxr:${{ secrets.DATABASE_PASSWORD }}@/uxr?unix_sock=/cloudsql/${{ env.PROJECT_ID }}:${{ env.REGION }}:verity-postgres/.s.PGSQL.5432" \
+            --add-cloudsql-instances ${{ env.PROJECT_ID }}:${{ env.REGION }}:verity-postgres \
             --startup-probe="httpGet.path=/health,httpGet.port=8000,initialDelaySeconds=30,timeoutSeconds=5,periodSeconds=10,failureThreshold=3" \
             --liveness-probe="httpGet.path=/health,httpGet.port=8000,timeoutSeconds=5,periodSeconds=30,failureThreshold=3"
