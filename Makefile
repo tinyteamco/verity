@@ -1,7 +1,7 @@
 # Root Makefile for verity monorepo
 SHELL := /bin/bash
 
-.PHONY: bootstrap setup backend-setup backend-dev backend-test help
+.PHONY: bootstrap setup backend-setup backend-dev backend-test backend-check help
 
 bootstrap: ## One-shot setup for CI/fresh machines (tools + deps + hooks)
 	@echo "🚀 Bootstrapping Verity development environment..."
@@ -28,6 +28,9 @@ backend-dev: ## Run backend in development mode
 
 backend-test: ## Run backend tests
 	cd backend && $(MAKE) test
+
+backend-check: ## Run backend code quality checks
+	cd backend && $(MAKE) check
 
 backend-clean: ## Clean backend
 	cd backend && $(MAKE) clean
