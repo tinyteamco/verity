@@ -13,6 +13,13 @@ dependencies = [
     "ruff>=0.13.2",
     "ty>=0.0.1a21",
     "uvicorn[standard]>=0.37.0",
+    "sqlalchemy>=2.0.0",
+    "alembic>=1.13.0",
+    "psycopg[binary]>=3.1.0",
+    "python-jose[cryptography]>=3.3.0",
+    "python-multipart>=0.0.6",
+    "firebase-admin>=6.2.0",
+    "requests>=2.31.0",
 ]
 
 [build-system]

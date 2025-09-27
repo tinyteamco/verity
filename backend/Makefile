@@ -16,10 +16,10 @@ dev: ## Start development server
 
 test: ## Run tests
 	docker-compose -f ../docker-compose.yml up -d postgres minio firebase
-	uv run pytest
+	APP_ENV=local uv run pytest
 
 test-ci: ## Run tests in CI
-	uv run pytest
+	APP_ENV=local uv run pytest
 
 build: ## Build Docker image
 	docker build -t gcr.io/verity-platform/verity-backend:latest .
@@ -55,6 +55,9 @@ fix-format: ## Fix formatting
 
 fix-lint: ## Fix linting issues
 	uv run ruff check . --fix
+
+seed-admin: ## Seed super admin user in Firebase emulator
+	uv run python scripts/seed_firebase.py
 
 clean: ## Clean up
 	docker-compose -f ../docker-compose.yml down -v
