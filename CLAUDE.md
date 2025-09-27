@@ -43,21 +43,32 @@ All commands use `make` (which transparently uses mise for tool management):
 
 ```bash
 # 🚀 One-time setup (CI/fresh machines):
-make bootstrap       # Install tools + deps + git hooks
+make bootstrap       # Install tools + deps + git hooks (complete setup)
 
 # From backend/ directory:
 make setup          # Install tools & dependencies
 make dev            # Start dev server with hot-reload
 make test           # Run BDD tests
-make test-ci        # Run tests without services
-make lint           # Run linters
-make format         # Format code
+make test-ci        # Run tests without services (CI-friendly)
+make check          # Run all checks (format + lint + types)
+make lint           # Run linters and type checking
+make format         # Format code and fix auto-fixable issues
 make clean          # Clean up temp files
+
+# Individual checks (for hk integration):
+make check-format   # Check formatting only
+make check-lint     # Check linting only
+make check-types    # Check types only
+make fix-format     # Fix formatting
+make fix-lint       # Fix linting issues
 
 # From root directory:
 make backend-dev    # Start backend dev
 make backend-test   # Run backend tests
 make install-hooks  # Install git hooks with mise integration
+
+# CI/Local testing:
+act --container-architecture linux/amd64  # Test GitHub Actions locally
 ```
 
 ### Key Architectural Decisions
@@ -69,6 +80,7 @@ make install-hooks  # Install git hooks with mise integration
 5. **Local Development**: Python runs locally for speed, services in Docker
 6. **Zero Warnings Policy**: All code must pass ruff + ty with zero warnings/errors
 7. **Git Hooks with hk**: Pre-commit hooks enforce code quality automatically using hk + mise
+8. **CI/CD with GitHub Actions**: Automated validation on every push/PR with local testing via act
 
 ### Code Quality Standards
 
@@ -87,6 +99,8 @@ make install-hooks  # Install git hooks with mise integration
 - **ruff**: Linting and formatting (10-100x faster than flake8/black)
 - **ty**: Static type checking (Astral's replacement for mypy, faster and more accurate)
 - **pytest-bdd**: BDD testing with Gherkin scenarios
+- **hk**: Git hooks management (integrates with mise for consistent environments)
+- **act**: Local GitHub Actions testing (validates CI before pushing)
 
 ## Current Implementation Status
 
@@ -95,6 +109,10 @@ make install-hooks  # Install git hooks with mise integration
 - ✅ BDD test infrastructure with working health check test
 - ✅ mise + uv + make workflow fully integrated
 - ✅ Project structure with src/tests layout
+- ✅ Git hooks with hk (pre-commit validation)
+- ✅ GitHub Actions CI workflow with local testing via act
+- ✅ Zero warnings policy enforcement (ruff + ty)
+- ✅ Complete bootstrap command for CI/fresh machines
 
 ### API Specification
 The `openapi.yaml` file defines:
