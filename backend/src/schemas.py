@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class OrganizationCreate(BaseModel):
@@ -8,32 +8,29 @@ class OrganizationCreate(BaseModel):
 
 
 class OrganizationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     org_id: str
     name: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
-
 
 class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     user_id: str
     email: str
     role: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
-
 
 class OrganizationWithUsersResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     org_id: str
     name: str
     created_at: datetime
     users: list[UserResponse]
-
-    class Config:
-        from_attributes = True
 
 
 class StudyCreate(BaseModel):
@@ -42,15 +39,14 @@ class StudyCreate(BaseModel):
 
 
 class StudyResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     study_id: str
     title: str
     description: str | None
     org_id: str
     created_at: datetime
     updated_at: datetime | None
-
-    class Config:
-        from_attributes = True
 
 
 class StudyUpdate(BaseModel):
