@@ -21,6 +21,10 @@ RUN uv sync --frozen --no-dev
 # Copy source code
 COPY src/ ./src/
 
+# Copy Alembic configuration for database migrations
+COPY alembic.ini ./
+COPY alembic/ ./alembic/
+
 # Copy startup script
 COPY start.sh ./
 RUN chmod +x start.sh

@@ -9,6 +9,11 @@ def response_data():
     return {}
 
 
+# Database connectivity scenarios are environment-dependent:
+# - Test environment: SQLite always available via dependency injection
+# - Production: PostgreSQL connectivity can fail and should be monitored
+
+
 @when(parsers.parse("I GET {path}"))
 def make_get_request(client, response_data, path):
     response = client.get(path)
@@ -36,3 +41,24 @@ def check_field_value(response_data, field, value):
         expected = value.strip('"')
 
     assert json_data[field] == expected
+
+
+@then("the response contains database status information")
+def check_database_status_exists(response_data):
+    """Check that database status information is present"""
+    json_data = response_data["json"]
+    assert json_data is not None
+    assert "database" in json_data
+    assert "connected" in json_data["database"]
+
+
+@then("the database status is connected")
+def check_database_connected(response_data):
+    """Check that database status shows connected"""
+    json_data = response_data["json"]
+    assert json_data["database"]["connected"] is True
+    assert json_data["database"].get("error") is None
+
+
+# Note: "database not connected" scenarios would be tested in production/staging
+# where actual PostgreSQL connection failures could occur

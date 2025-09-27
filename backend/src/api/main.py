@@ -1,3 +1,5 @@
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -11,6 +13,7 @@ from ..auth import (
     require_super_admin,
 )
 from ..database import get_db
+from ..database_utils import check_database_connectivity_with_session, ensure_database_connectivity
 from ..models import Organization, Study, User
 from ..schemas import (
     HealthResponse,
@@ -23,10 +26,20 @@ from ..schemas import (
     UserResponse,
 )
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    # Startup
+    ensure_database_connectivity()
+    yield
+    # Shutdown - nothing needed for now
+
+
 app = FastAPI(
     title="Verity API",
     version="0.1.0",
     description="UXR Platform Backend",
+    lifespan=lifespan,
 )
 
 
@@ -48,8 +61,16 @@ def require_owner_or_admin(
 
 
 @app.get("/health", response_model=HealthResponse)
-async def health_check() -> HealthResponse:
-    return HealthResponse(healthy=True, service="verity-backend", version="0.1.0")
+async def health_check(db: Annotated[Session, Depends(get_db)]) -> HealthResponse:
+    """Health check endpoint with database connectivity status"""
+    db_status = check_database_connectivity_with_session(db)
+
+    # Overall health is healthy only if database is connected
+    overall_healthy = db_status.connected
+
+    return HealthResponse(
+        healthy=overall_healthy, service="verity-backend", version="0.1.0", database=db_status
+    )
 
 
 @app.post("/orgs", response_model=OrganizationResponse, status_code=201)

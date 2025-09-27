@@ -62,7 +62,13 @@ class StudyList(BaseModel):
     items: list[StudyResponse]
 
 
+class DatabaseStatus(BaseModel):
+    connected: bool
+    error: str | None = None
+
+
 class HealthResponse(BaseModel):
     healthy: bool
     service: str
     version: str
+    database: DatabaseStatus
