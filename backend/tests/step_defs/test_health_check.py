@@ -1,6 +1,5 @@
 import pytest
-from pytest_bdd import scenarios, when, then, parsers
-
+from pytest_bdd import parsers, scenarios, then, when
 
 scenarios("../features/health_check.feature")
 

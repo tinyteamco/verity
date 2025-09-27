@@ -24,11 +24,21 @@ test-ci: ## Run tests in CI
 build: ## Build Docker image
 	docker build -t gcr.io/verity-platform/verity-backend:latest .
 
-lint: ## Run linters
+lint: ## Run linters and type checking
 	uv run ruff check .
+	uv run ty check
 
-format: ## Format code
+format: ## Format code and fix auto-fixable issues
 	uv run ruff format .
+	uv run ruff check . --fix
+
+typecheck: ## Run type checking only
+	uv run ty check
+
+check: ## Run all checks (read-only validation)
+	uv run ruff format . --check
+	uv run ruff check .
+	uv run ty check
 
 clean: ## Clean up
 	docker-compose -f ../docker-compose.yml down -v
