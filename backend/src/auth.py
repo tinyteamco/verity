@@ -11,9 +11,10 @@ from sqlalchemy.orm import Session
 # Initialize Firebase Admin for local/production
 if not firebase_admin._apps:
     if os.getenv("APP_ENV") == "local":
-        # Local development: use emulator with explicit project ID
+        # Local development: use emulator with explicit project ID and no credentials
         os.environ["FIREBASE_AUTH_EMULATOR_HOST"] = "localhost:9099"
-        firebase_admin.initialize_app(options={"projectId": "verity-local"})
+        # Use None credentials to avoid default credential interference
+        firebase_admin.initialize_app(credential=None, options={"projectId": "verity-local"})
     else:
         # Production: use default credentials (gcloud project)
         cred = credentials.ApplicationDefault()

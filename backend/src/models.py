@@ -54,3 +54,22 @@ class Study(Base):
     )
 
     organization: Mapped["Organization"] = relationship("Organization", back_populates="studies")
+    interview_guide: Mapped["InterviewGuide | None"] = relationship(
+        "InterviewGuide", back_populates="study", uselist=False
+    )
+
+
+class InterviewGuide(Base):
+    __tablename__ = "interview_guides"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    study_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("studies.id"), nullable=False, unique=True, index=True
+    )
+    content_md: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    study: Mapped["Study"] = relationship("Study", back_populates="interview_guide")

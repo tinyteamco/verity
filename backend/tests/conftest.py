@@ -6,18 +6,27 @@ import contextlib
 import os
 from collections.abc import Generator
 
+# Set test environment FIRST, before any imports
+os.environ["APP_ENV"] = "local"
+os.environ["FIREBASE_AUTH_EMULATOR_HOST"] = "localhost:9099"
+
 import firebase_admin
 import pytest
 from fastapi.testclient import TestClient
 from firebase_admin import auth
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
-from src.api.main import app
-from src.database import Base, get_db
 
-# Set test environment
-os.environ["APP_ENV"] = "local"
-os.environ["FIREBASE_AUTH_EMULATOR_HOST"] = "localhost:9099"
+# Clear any existing Firebase apps to ensure clean initialization
+firebase_admin._apps = {}
+
+# Force Firebase initialization with test settings before any other imports
+if not firebase_admin._apps:
+    firebase_admin.initialize_app(credential=None, options={"projectId": "verity-local"})
+
+# Now import the app
+from src.api.main import app  # noqa: E402
+from src.database import Base, get_db  # noqa: E402
 
 # Test database setup
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
@@ -84,6 +93,16 @@ def test_interviewee_user(firebase_app):
         # Clean up after test
         with contextlib.suppress(Exception):
             auth.delete_user("test-interviewee")
+
+
+@pytest.fixture
+def ensure_firebase_initialized():
+    """Ensure Firebase is initialized for tests that need it"""
+    # The app import triggers Firebase initialization
+    # This fixture forces that initialization to happen
+    from src.api.main import app  # noqa: F401
+
+    return True
 
 
 @pytest.fixture

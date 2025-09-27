@@ -14,9 +14,11 @@ from ..auth import (
 )
 from ..database import get_db
 from ..database_utils import check_database_connectivity_with_session, ensure_database_connectivity
-from ..models import Organization, Study, User
+from ..models import InterviewGuide, Organization, Study, User
 from ..schemas import (
     HealthResponse,
+    InterviewGuideCreate,
+    InterviewGuideResponse,
     OrganizationCreate,
     OrganizationResponse,
     StudyCreate,
@@ -253,3 +255,80 @@ async def delete_study(
     db.commit()
 
     return {"message": "Study deleted successfully"}
+
+
+# Study Guide Management Endpoints
+
+
+@app.put("/studies/{study_id}/guide", response_model=InterviewGuideResponse)
+async def upsert_study_guide(
+    study_id: int,
+    guide_data: InterviewGuideCreate,
+    org_user: Annotated[OrgUser, Depends(get_org_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> InterviewGuideResponse:
+    """Create or update an interview guide for a study"""
+    # Check if study exists and belongs to user's organization
+    study = (
+        db.query(Study)
+        .filter(Study.id == study_id, Study.organization_id == org_user.organization_id)
+        .first()
+    )
+
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
+
+    # Check if guide already exists
+    existing_guide = db.query(InterviewGuide).filter(InterviewGuide.study_id == study_id).first()
+
+    if existing_guide:
+        # Update existing guide
+        existing_guide.content_md = guide_data.content_md
+        db.commit()
+        db.refresh(existing_guide)
+        guide = existing_guide
+    else:
+        # Create new guide
+        guide = InterviewGuide(
+            study_id=study_id,
+            content_md=guide_data.content_md,
+        )
+        db.add(guide)
+        db.commit()
+        db.refresh(guide)
+
+    return InterviewGuideResponse(
+        study_id=str(guide.study_id),
+        content_md=guide.content_md,
+        updated_at=guide.updated_at,
+    )
+
+
+@app.get("/studies/{study_id}/guide", response_model=InterviewGuideResponse)
+async def get_study_guide(
+    study_id: int,
+    org_user: Annotated[OrgUser, Depends(get_org_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> InterviewGuideResponse:
+    """Get the interview guide for a study"""
+    # Check if study exists and belongs to user's organization
+    study = (
+        db.query(Study)
+        .filter(Study.id == study_id, Study.organization_id == org_user.organization_id)
+        .first()
+    )
+
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
+
+    # Get the interview guide
+    guide = db.query(InterviewGuide).filter(InterviewGuide.study_id == study_id).first()
+
+    if not guide:
+        raise HTTPException(status_code=404, detail="Interview guide not found")
+
+    return InterviewGuideResponse(
+        study_id=str(guide.study_id),
+        content_md=guide.content_md,
+        updated_at=guide.updated_at,
+    )

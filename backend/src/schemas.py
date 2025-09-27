@@ -58,6 +58,18 @@ class StudyList(BaseModel):
     items: list[StudyResponse]
 
 
+class InterviewGuideCreate(BaseModel):
+    content_md: str
+
+
+class InterviewGuideResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    study_id: str
+    content_md: str
+    updated_at: datetime
+
+
 class DatabaseStatus(BaseModel):
     connected: bool
     error: str | None = None
