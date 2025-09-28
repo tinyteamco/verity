@@ -132,13 +132,21 @@ components:
 
         study_id: { type: string, format: uuid }
 
-        interviewee_id: { type: string, format: uuid }
+        access_token: { type: string, format: uuid }
 
-        started_at: { type: string, format: date-time, nullable: true }
+        interviewee_firebase_uid: { type: string, nullable: true }
+
+        status: { type: string, enum: [pending, completed] }
+
+        created_at: { type: string, format: date-time }
 
         completed_at: { type: string, format: date-time, nullable: true }
 
-      required: [interview_id, study_id, interviewee_id]
+        transcript_url: { type: string, nullable: true }
+
+        recording_url: { type: string, nullable: true }
+
+      required: [interview_id, study_id, access_token, status, created_at]
 
     Recording:
 
@@ -625,6 +633,116 @@ paths:
             application/json:
 
               schema: { $ref: '#/components/schemas/InterviewGuide' }
+
+  /studies/{study_id}/interviews:
+
+    post:
+
+      summary: Generate new interview link
+
+      parameters:
+
+        - in: path
+
+          name: study_id
+
+          required: true
+
+          schema: { type: string, format: uuid }
+
+      responses:
+
+        '201':
+
+          description: Interview link created
+
+          content:
+
+            application/json:
+
+              schema:
+
+                type: object
+
+                properties:
+
+                  interview: { $ref: '#/components/schemas/Interview' }
+
+                  interview_url: { type: string }
+
+                required: [interview, interview_url]
+
+    get:
+
+      summary: List all interviews for a study
+
+      parameters:
+
+        - in: path
+
+          name: study_id
+
+          required: true
+
+          schema: { type: string, format: uuid }
+
+      responses:
+
+        '200':
+
+          description: Ok
+
+          content:
+
+            application/json:
+
+              schema:
+
+                type: object
+
+                properties:
+
+                  items: 
+                    type: array
+                    items: { $ref: '#/components/schemas/Interview' }
+
+                required: [items]
+
+  /studies/{study_id}/interviews/{interview_id}:
+
+    get:
+
+      summary: Get interview details
+
+      parameters:
+
+        - in: path
+
+          name: study_id
+
+          required: true
+
+          schema: { type: string, format: uuid }
+
+        - in: path
+
+          name: interview_id  
+
+          required: true
+
+          schema: { type: string, format: uuid }
+
+      responses:
+
+        '200':
+
+          description: Ok
+
+          content:
+
+            application/json:
+
+              schema: { $ref: '#/components/schemas/Interview' }
 
   /studies/{study_id}/share-links:
 
@@ -1146,3 +1264,135 @@ paths:
             application/json:
 
               schema: { $ref: '#/components/schemas/Job' }
+  # Public Interview Endpoints (No Auth Required)
+
+  /interview/{access_token}:
+
+    get:
+
+      summary: Access interview via link (public)
+      
+      security: []  # No auth required
+
+      parameters:
+
+        - in: path
+
+          name: access_token
+
+          required: true
+
+          schema: { type: string, format: uuid }
+
+      responses:
+
+        '200':
+
+          description: Interview details
+
+          content:
+
+            application/json:
+
+              schema:
+
+                type: object
+
+                properties:
+
+                  interview: { $ref: '#/components/schemas/Interview' }
+
+                  study:
+
+                    type: object
+
+                    properties:
+
+                      title: { type: string }
+
+                      interview_guide: { $ref: '#/components/schemas/InterviewGuide' }
+
+                    required: [title, interview_guide]
+
+                required: [interview, study]
+
+        '404':
+
+          description: Interview not found or already completed
+
+  /interview/{access_token}/complete:
+
+    post:
+
+      summary: Submit interview completion (public)
+      
+      security: []  # No auth required
+
+      parameters:
+
+        - in: path
+
+          name: access_token
+
+          required: true
+
+          schema: { type: string, format: uuid }
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              type: object
+
+              properties:
+
+                transcript_url: { type: string }
+
+                recording_url: { type: string }
+
+                notes: { type: string, nullable: true }
+
+              required: [transcript_url]
+
+      responses:
+
+        '200':
+
+          description: Interview completed
+
+        '400':
+
+          description: Interview already completed
+
+  /interview/{access_token}/claim:
+
+    post:
+
+      summary: Associate interview with authenticated user
+
+      parameters:
+
+        - in: path
+
+          name: access_token
+
+          required: true
+
+          schema: { type: string, format: uuid }
+
+      responses:
+
+        '200':
+
+          description: Interview claimed
+
+        '400':
+
+          description: Invalid or already claimed
+EOF < /dev/null

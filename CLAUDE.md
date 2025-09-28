@@ -113,12 +113,22 @@ act --container-architecture linux/amd64  # Test GitHub Actions locally
 - ✅ GitHub Actions CI workflow with local testing via act
 - ✅ Zero warnings policy enforcement (ruff + ty)
 - ✅ Complete bootstrap command for CI/fresh machines
+- ✅ Organization management (create org, list users)
+- ✅ Study management (CRUD operations with org-level access control)
+- ✅ Interview guide management (markdown-based guides for studies)
+- ✅ Firebase Auth integration with multi-tenancy
+- ✅ Google Cloud SQL deployment with automatic migrations
+
+### In Progress
+- 🔄 Interview management (self-led interview flow with unique links)
 
 ### API Specification
 The `openapi.yaml` file defines:
 - Authentication using Firebase JWT tokens with bearer auth
 - Two tenant types: `organization` and `interviewee`
-- Endpoints for studies, interviews, recordings, transcripts, and summaries
+- Self-led interviews with unique access tokens (no auth required)
+- Organization endpoints for interview link generation and management
+- Public endpoints for interviewee access to interviews
 - Role-based access with roles: owner|admin|member
 
 ### Infrastructure
