@@ -105,6 +105,19 @@ class DatabaseStatus(BaseModel):
     error: str | None = None
 
 
+class AudioRecordingResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    recording_id: str
+    interview_id: str
+    uri: str
+    duration_ms: int | None
+    mime_type: str | None
+    sample_rate_hz: int | None
+    file_size_bytes: int | None
+    created_at: datetime
+
+
 class HealthResponse(BaseModel):
     healthy: bool
     service: str

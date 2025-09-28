@@ -95,3 +95,23 @@ class Interview(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     study: Mapped["Study"] = relationship("Study", back_populates="interviews")
+    audio_recording: Mapped["AudioRecording | None"] = relationship(
+        "AudioRecording", back_populates="interview", uselist=False
+    )
+
+
+class AudioRecording(Base):
+    __tablename__ = "audio_recordings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    interview_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("interviews.id"), nullable=False, unique=True, index=True
+    )
+    uri: Mapped[str] = mapped_column(String, nullable=False)
+    duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    mime_type: Mapped[str | None] = mapped_column(String, nullable=True)
+    sample_rate_hz: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    file_size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    interview: Mapped["Interview"] = relationship("Interview", back_populates="audio_recording")

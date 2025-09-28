@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from ..auth import (
@@ -16,8 +16,9 @@ from ..auth import (
 )
 from ..database import get_db
 from ..database_utils import check_database_connectivity_with_session, ensure_database_connectivity
-from ..models import Interview, InterviewGuide, Organization, Study, User
+from ..models import AudioRecording, Interview, InterviewGuide, Organization, Study, User
 from ..schemas import (
+    AudioRecordingResponse,
     HealthResponse,
     InterviewCompleteRequest,
     InterviewGuideCreate,
@@ -33,6 +34,7 @@ from ..schemas import (
     StudyUpdate,
     UserResponse,
 )
+from ..storage import generate_audio_object_name, get_storage_client
 
 
 @asynccontextmanager
@@ -567,3 +569,83 @@ async def claim_interview(
     db.commit()
 
     return {"message": "Interview claimed successfully"}
+
+
+# Audio Recording Endpoints
+
+
+@app.post("/recordings:upload", response_model=AudioRecordingResponse, status_code=201)
+async def upload_recording(
+    interview_id: Annotated[str, Form()],
+    file: Annotated[UploadFile, File()],
+    db: Annotated[Session, Depends(get_db)],
+    mime: Annotated[str | None, Form()] = None,
+    sample_rate_hz: Annotated[int | None, Form()] = None,
+    duration_ms: Annotated[int | None, Form()] = None,
+) -> AudioRecordingResponse:
+    """Upload audio recording for an interview"""
+
+    # Validate interview exists
+    interview = db.query(Interview).filter(Interview.id == int(interview_id)).first()
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+
+    # Check if recording already exists
+    existing_recording = (
+        db.query(AudioRecording).filter(AudioRecording.interview_id == int(interview_id)).first()
+    )
+    if existing_recording:
+        raise HTTPException(status_code=400, detail="Recording already exists for this interview")
+
+    # Validate file type if provided
+    detected_mime = mime or file.content_type
+    if detected_mime and not detected_mime.startswith("audio/"):
+        raise HTTPException(status_code=400, detail="File must be an audio file")
+
+    # Generate object name and upload to storage
+    storage_client = get_storage_client()
+    object_name = generate_audio_object_name(int(interview_id), file.filename or "recording.wav")
+
+    try:
+        # Get file size
+        file.file.seek(0, 2)  # Seek to end
+        file_size = file.file.tell()
+        file.file.seek(0)  # Reset to beginning
+
+        # Upload to object storage
+        uri = await storage_client.upload_file(
+            bucket="audio-recordings",
+            object_name=object_name,
+            file_data=file.file,
+            content_type=detected_mime,
+            file_size=file_size,
+        )
+
+        # Create database record
+        audio_recording = AudioRecording(
+            interview_id=int(interview_id),
+            uri=uri,
+            duration_ms=duration_ms,
+            mime_type=detected_mime,
+            sample_rate_hz=sample_rate_hz,
+            file_size_bytes=file_size,
+        )
+
+        db.add(audio_recording)
+        db.commit()
+        db.refresh(audio_recording)
+
+        return AudioRecordingResponse(
+            recording_id=str(audio_recording.id),
+            interview_id=str(audio_recording.interview_id),
+            uri=audio_recording.uri,
+            duration_ms=audio_recording.duration_ms,
+            mime_type=audio_recording.mime_type,
+            sample_rate_hz=audio_recording.sample_rate_hz,
+            file_size_bytes=audio_recording.file_size_bytes,
+            created_at=audio_recording.created_at,
+        )
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to upload recording: {e!s}") from e

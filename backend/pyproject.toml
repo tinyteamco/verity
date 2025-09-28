@@ -20,6 +20,7 @@ dependencies = [
     "python-multipart>=0.0.6",
     "firebase-admin>=6.2.0",
     "requests>=2.31.0",
+    "minio>=7.2.0",
 ]
 
 [build-system]
@@ -66,7 +67,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["ANN201", "ANN001"]  # Allow missing return types and arg types in tests
+"tests/**" = ["ANN201", "ANN001", "ANN401"]  # Allow missing types and Any in tests
 
 [tool.ruff.format]
 quote-style = "double"
