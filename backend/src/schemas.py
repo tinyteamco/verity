@@ -70,6 +70,36 @@ class InterviewGuideResponse(BaseModel):
     updated_at: datetime
 
 
+class InterviewResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    interview_id: str
+    study_id: str
+    access_token: str
+    interviewee_firebase_uid: str | None
+    status: str
+    created_at: datetime
+    completed_at: datetime | None
+    transcript_url: str | None
+    recording_url: str | None
+    notes: str | None
+
+
+class InterviewLinkResponse(BaseModel):
+    interview: InterviewResponse
+    interview_url: str
+
+
+class InterviewCompleteRequest(BaseModel):
+    transcript_url: str
+    recording_url: str | None = None
+    notes: str | None = None
+
+
+class InterviewList(BaseModel):
+    items: list[InterviewResponse]
+
+
 class DatabaseStatus(BaseModel):
     connected: bool
     error: str | None = None

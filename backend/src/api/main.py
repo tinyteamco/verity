@@ -1,5 +1,6 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from datetime import UTC
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -9,16 +10,21 @@ from ..auth import (
     AuthUser,
     OrgUser,
     get_org_user_impl,
+    require_interviewee_user,
     require_organization_user,
     require_super_admin,
 )
 from ..database import get_db
 from ..database_utils import check_database_connectivity_with_session, ensure_database_connectivity
-from ..models import InterviewGuide, Organization, Study, User
+from ..models import Interview, InterviewGuide, Organization, Study, User
 from ..schemas import (
     HealthResponse,
+    InterviewCompleteRequest,
     InterviewGuideCreate,
     InterviewGuideResponse,
+    InterviewLinkResponse,
+    InterviewList,
+    InterviewResponse,
     OrganizationCreate,
     OrganizationResponse,
     StudyCreate,
@@ -332,3 +338,232 @@ async def get_study_guide(
         content_md=guide.content_md,
         updated_at=guide.updated_at,
     )
+
+
+# Interview Management Endpoints
+
+
+@app.post("/studies/{study_id}/interviews", response_model=InterviewLinkResponse, status_code=201)
+async def generate_interview_link(
+    study_id: int,
+    org_user: Annotated[OrgUser, Depends(get_org_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> InterviewLinkResponse:
+    """Generate a new interview link for a study"""
+    import uuid
+
+    # Check if study exists and belongs to user's organization
+    study = (
+        db.query(Study)
+        .filter(Study.id == study_id, Study.organization_id == org_user.organization_id)
+        .first()
+    )
+
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
+
+    # Generate unique access token
+    access_token = str(uuid.uuid4())
+
+    # Create interview
+    interview = Interview(
+        study_id=study_id,
+        access_token=access_token,
+        status="pending",
+    )
+    db.add(interview)
+    db.commit()
+    db.refresh(interview)
+
+    # Create interview URL (this would be configurable in production)
+    interview_url = f"https://app.verity.com/interview/{access_token}"
+
+    return InterviewLinkResponse(
+        interview=InterviewResponse(
+            interview_id=str(interview.id),
+            study_id=str(interview.study_id),
+            access_token=interview.access_token,
+            interviewee_firebase_uid=interview.interviewee_firebase_uid,
+            status=interview.status,
+            created_at=interview.created_at,
+            completed_at=interview.completed_at,
+            transcript_url=interview.transcript_url,
+            recording_url=interview.recording_url,
+            notes=interview.notes,
+        ),
+        interview_url=interview_url,
+    )
+
+
+@app.get("/studies/{study_id}/interviews", response_model=InterviewList)
+async def list_interviews(
+    study_id: int,
+    org_user: Annotated[OrgUser, Depends(get_org_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> InterviewList:
+    """List all interviews for a study"""
+    # Check if study exists and belongs to user's organization
+    study = (
+        db.query(Study)
+        .filter(Study.id == study_id, Study.organization_id == org_user.organization_id)
+        .first()
+    )
+
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
+
+    # Get interviews for the study
+    interviews = db.query(Interview).filter(Interview.study_id == study_id).all()
+
+    interview_responses = [
+        InterviewResponse(
+            interview_id=str(interview.id),
+            study_id=str(interview.study_id),
+            access_token=interview.access_token,
+            interviewee_firebase_uid=interview.interviewee_firebase_uid,
+            status=interview.status,
+            created_at=interview.created_at,
+            completed_at=interview.completed_at,
+            transcript_url=interview.transcript_url,
+            recording_url=interview.recording_url,
+            notes=interview.notes,
+        )
+        for interview in interviews
+    ]
+
+    return InterviewList(items=interview_responses)
+
+
+@app.get("/studies/{study_id}/interviews/{interview_id}", response_model=InterviewResponse)
+async def get_interview(
+    study_id: int,
+    interview_id: int,
+    org_user: Annotated[OrgUser, Depends(get_org_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> InterviewResponse:
+    """Get a specific interview by ID"""
+    # Check if study exists and belongs to user's organization
+    study = (
+        db.query(Study)
+        .filter(Study.id == study_id, Study.organization_id == org_user.organization_id)
+        .first()
+    )
+
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
+
+    # Get the interview
+    interview = (
+        db.query(Interview)
+        .filter(Interview.id == interview_id, Interview.study_id == study_id)
+        .first()
+    )
+
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+
+    return InterviewResponse(
+        interview_id=str(interview.id),
+        study_id=str(interview.study_id),
+        access_token=interview.access_token,
+        interviewee_firebase_uid=interview.interviewee_firebase_uid,
+        status=interview.status,
+        created_at=interview.created_at,
+        completed_at=interview.completed_at,
+        transcript_url=interview.transcript_url,
+        recording_url=interview.recording_url,
+        notes=interview.notes,
+    )
+
+
+# Public Interview Endpoints (No Authentication Required)
+
+
+@app.get("/interview/{access_token}")
+async def get_interview_public(
+    access_token: str,
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    """Access interview via link (public endpoint)"""
+    # Get the interview by access token
+    interview = db.query(Interview).filter(Interview.access_token == access_token).first()
+
+    if not interview or interview.status == "completed":
+        raise HTTPException(status_code=404, detail="Interview not found or already completed")
+
+    # Get the study and interview guide
+    study = db.query(Study).filter(Study.id == interview.study_id).first()
+    guide = db.query(InterviewGuide).filter(InterviewGuide.study_id == interview.study_id).first()
+
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
+
+    return {
+        "interview": {
+            "interview_id": str(interview.id),
+            "study_id": str(interview.study_id),
+            "access_token": interview.access_token,
+            "status": interview.status,
+            "created_at": interview.created_at.isoformat(),
+        },
+        "study": {
+            "title": study.title,
+            "interview_guide": {
+                "content_md": guide.content_md if guide else "No guide available",
+                "updated_at": guide.updated_at.isoformat() if guide else None,
+            },
+        },
+    }
+
+
+@app.post("/interview/{access_token}/complete")
+async def complete_interview(
+    access_token: str,
+    completion_data: InterviewCompleteRequest,
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, str]:
+    """Submit interview completion (public endpoint)"""
+    from datetime import datetime
+
+    # Get the interview by access token
+    interview = db.query(Interview).filter(Interview.access_token == access_token).first()
+
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+
+    if interview.status == "completed":
+        raise HTTPException(status_code=400, detail="Interview already completed")
+
+    # Update interview with completion data
+    interview.status = "completed"
+    interview.completed_at = datetime.now(UTC)
+    interview.transcript_url = completion_data.transcript_url
+    interview.recording_url = completion_data.recording_url
+    interview.notes = completion_data.notes
+
+    db.commit()
+
+    return {"message": "Interview completed successfully"}
+
+
+@app.post("/interview/{access_token}/claim")
+async def claim_interview(
+    access_token: str,
+    current_user: Annotated[AuthUser, Depends(require_interviewee_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, str]:
+    """Associate interview with authenticated user"""
+    # Get the interview by access token
+    interview = db.query(Interview).filter(Interview.access_token == access_token).first()
+
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+
+    if interview.interviewee_firebase_uid is not None:
+        raise HTTPException(status_code=400, detail="Interview already claimed")
+
+    # Associate interview with current user
+    interview.interviewee_firebase_uid = current_user.firebase_uid
+    db.commit()
+
+    return {"message": "Interview claimed successfully"}

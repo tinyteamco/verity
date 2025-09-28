@@ -57,6 +57,7 @@ class Study(Base):
     interview_guide: Mapped["InterviewGuide | None"] = relationship(
         "InterviewGuide", back_populates="study", uselist=False
     )
+    interviews: Mapped[list["Interview"]] = relationship("Interview", back_populates="study")
 
 
 class InterviewGuide(Base):
@@ -73,3 +74,24 @@ class InterviewGuide(Base):
     )
 
     study: Mapped["Study"] = relationship("Study", back_populates="interview_guide")
+
+
+class Interview(Base):
+    __tablename__ = "interviews"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    study_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("studies.id"), nullable=False, index=True
+    )
+    access_token: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
+    interviewee_firebase_uid: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    status: Mapped[str] = mapped_column(
+        String, nullable=False, default="pending"
+    )  # pending, completed
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    transcript_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    recording_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    study: Mapped["Study"] = relationship("Study", back_populates="interviews")

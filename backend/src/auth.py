@@ -25,7 +25,7 @@ security = HTTPBearer(auto_error=False)
 
 class AuthUser(BaseModel):
     firebase_uid: str
-    tenant_id: str
+    tenant_type: str
     email: str | None = None
     is_super_admin: bool = False
 
@@ -59,8 +59,8 @@ def get_current_user(
     token_data = verify_firebase_token(credentials.credentials)
 
     # Extract tenant from custom claims (we store it there for emulator)
-    tenant_id = token_data.get("tenant")
-    if not tenant_id:
+    tenant_type = token_data.get("tenant")
+    if not tenant_type:
         raise HTTPException(status_code=401, detail="Invalid tenant")
 
     # Check if user is super admin from custom claims
@@ -68,7 +68,7 @@ def get_current_user(
 
     return AuthUser(
         firebase_uid=token_data["uid"],
-        tenant_id=tenant_id,
+        tenant_type=tenant_type,
         email=token_data.get("email"),
         is_super_admin=is_super_admin,
     )
@@ -83,8 +83,15 @@ def require_super_admin(user: Annotated[AuthUser, Depends(get_current_user)]) ->
 
 def require_organization_user(user: Annotated[AuthUser, Depends(get_current_user)]) -> AuthUser:
     """Dependency that requires organization tenant user"""
-    if user.tenant_id != "organization":
+    if user.tenant_type != "organization":
         raise HTTPException(status_code=403, detail="Organization user access required")
+    return user
+
+
+def require_interviewee_user(user: Annotated[AuthUser, Depends(get_current_user)]) -> AuthUser:
+    """Dependency that requires interviewee tenant user"""
+    if user.tenant_type != "interviewee":
+        raise HTTPException(status_code=403, detail="Interviewee user access required")
     return user
 
 
