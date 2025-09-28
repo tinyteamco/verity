@@ -30,6 +30,9 @@ jobs:
           # Create Firebase project config that Makefile expects
           echo '{"projects":{"default":"verity-local"}}' > .firebaserc
 
+      - name: Start MinIO for audio storage tests
+        run: docker compose up -d minio minio-setup
+
       - name: Start Firebase emulator and seed admin
         run: cd backend && make seed-admin
 
