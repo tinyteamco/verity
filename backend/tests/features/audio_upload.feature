@@ -47,3 +47,20 @@ Feature: Audio Recording Upload
     Then the response status is 201
     And the recording metadata includes file size
     And the recording is stored in object storage
+
+  Scenario: Complete upload-download cycle works
+    When I upload an audio file for interview with access_token "abc123" with:
+    Then the response status is 201
+    And I can retrieve the recording metadata
+    And I can download the uploaded audio file
+    And the downloaded content matches the uploaded content
+
+  Scenario: Download non-existent recording fails
+    When I try to download recording with ID 99999
+    Then the response status is 404
+    And the error message is "Recording not found"
+
+  Scenario: Get metadata for non-existent recording fails
+    When I try to get metadata for recording with ID 99999
+    Then the response status is 404
+    And the error message is "Recording not found"

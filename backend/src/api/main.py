@@ -4,6 +4,7 @@ from datetime import UTC
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from ..auth import (
@@ -649,3 +650,64 @@ async def upload_recording(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to upload recording: {e!s}") from e
+
+
+@app.get("/recordings/{recording_id}/download")
+async def download_recording(
+    recording_id: int,
+    db: Annotated[Session, Depends(get_db)],
+) -> RedirectResponse:
+    """Get download URL for an audio recording"""
+
+    # Get the recording
+    recording = db.query(AudioRecording).filter(AudioRecording.id == recording_id).first()
+    if not recording:
+        raise HTTPException(status_code=404, detail="Recording not found")
+
+    # Generate a presigned download URL from storage
+    storage_client = get_storage_client()
+
+    try:
+        # Extract bucket and object name from the URI
+        # URI format: http://localhost:9000/bucket/object/path
+        uri_parts = recording.uri.replace("http://localhost:9000/", "").split("/", 1)
+        if len(uri_parts) != 2:
+            raise HTTPException(status_code=500, detail="Invalid recording URI format")
+
+        bucket, object_name = uri_parts
+
+        # Generate presigned download URL (valid for 1 hour)
+        download_url = await storage_client.get_download_url(
+            bucket=bucket, object_name=object_name, expires_in=3600
+        )
+
+        # Redirect to the presigned URL
+        return RedirectResponse(url=download_url)
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to generate download URL: {e!s}"
+        ) from e
+
+
+@app.get("/recordings/{recording_id}")
+async def get_recording_metadata(
+    recording_id: int,
+    db: Annotated[Session, Depends(get_db)],
+) -> AudioRecordingResponse:
+    """Get metadata for an audio recording"""
+
+    recording = db.query(AudioRecording).filter(AudioRecording.id == recording_id).first()
+    if not recording:
+        raise HTTPException(status_code=404, detail="Recording not found")
+
+    return AudioRecordingResponse(
+        recording_id=str(recording.id),
+        interview_id=str(recording.interview_id),
+        uri=recording.uri,
+        duration_ms=recording.duration_ms,
+        mime_type=recording.mime_type,
+        sample_rate_hz=recording.sample_rate_hz,
+        file_size_bytes=recording.file_size_bytes,
+        created_at=recording.created_at,
+    )
