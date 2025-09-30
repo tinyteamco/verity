@@ -222,14 +222,19 @@ backend_service = gcp.cloudrunv2.Service(
 # Firebase Hosting proxies /api/** requests to Cloud Run
 # Security is enforced at application level via Firebase Auth JWT validation
 
+# Add GCP project to Firebase
+firebase_project = gcp.firebase.Project(
+    "firebase-project",
+    project=project,
+    opts=pulumi.ResourceOptions(depends_on=enabled_services),
+)
+
 # Firebase Hosting Site
-# Note: Firebase project must be manually initialized first
-# Run: firebase init hosting (select existing project)
 hosting_site = gcp.firebase.HostingSite(
     "hosting-site",
     project=project,
     site_id=resource_name("app"),
-    opts=pulumi.ResourceOptions(depends_on=enabled_services),
+    opts=pulumi.ResourceOptions(depends_on=[firebase_project]),
 )
 
 # Firebase Hosting Config - proxy /api/** to Cloud Run
