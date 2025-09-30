@@ -155,7 +155,6 @@ jobs:
             --timeout 300 \
             --concurrency 80 \
             --port 8000 \
-            --use-http2 \
             --cpu-throttling \
             --execution-environment gen2 \
             --set-secrets="DATABASE_URL=${{ env.DATABASE_URL_SECRET }}:latest" \
