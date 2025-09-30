@@ -132,6 +132,14 @@ github_actions_secrets_binding = gcp.projects.IAMMember(
     member=github_actions_sa.email.apply(lambda email: f"serviceAccount:{email}"),
 )
 
+# Firebase Admin (manage Firebase Auth users)
+github_actions_firebase_binding = gcp.projects.IAMMember(
+    "github-actions-firebase-admin",
+    project=project,
+    role="roles/firebaseauth.admin",
+    member=github_actions_sa.email.apply(lambda email: f"serviceAccount:{email}"),
+)
+
 # =============================================================================
 # Cloud SQL (PostgreSQL 16)
 # =============================================================================
