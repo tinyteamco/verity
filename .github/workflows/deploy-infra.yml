@@ -73,6 +73,7 @@ jobs:
         run: |
           source .venv/bin/activate
           export PYTHONPATH="${PYTHONPATH}:$(pwd)"
+          export PULUMI_PYTHON_CMD="$(pwd)/.venv/bin/python"
           pulumi preview --diff
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
@@ -83,6 +84,7 @@ jobs:
         run: |
           source .venv/bin/activate
           export PYTHONPATH="${PYTHONPATH}:$(pwd)"
+          export PULUMI_PYTHON_CMD="$(pwd)/.venv/bin/python"
           pulumi up --yes --skip-preview
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
