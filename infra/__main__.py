@@ -27,6 +27,31 @@ def resource_name(name: str) -> str:
 
 
 # =============================================================================
+# Enable Required APIs
+# =============================================================================
+
+# Enable required GCP APIs before creating resources
+required_apis = [
+    "run.googleapis.com",              # Cloud Run
+    "sqladmin.googleapis.com",         # Cloud SQL Admin
+    "secretmanager.googleapis.com",    # Secret Manager
+    "vpcaccess.googleapis.com",        # Serverless VPC Access
+    "servicenetworking.googleapis.com", # Service Networking (for Cloud SQL private IP)
+    "compute.googleapis.com",          # Compute Engine (for VPC)
+]
+
+enabled_services = []
+for api in required_apis:
+    service = gcp.projects.Service(
+        f"enable-{api.replace('.googleapis.com', '').replace('.', '-')}",
+        service=api,
+        project=project,
+        # Disable on destroy to clean up
+        disable_on_destroy=False,
+    )
+    enabled_services.append(service)
+
+# =============================================================================
 # Service Accounts
 # =============================================================================
 
@@ -177,6 +202,7 @@ vpc_connector = gcp.vpcaccess.Connector(
     ip_cidr_range="10.8.0.0/28",  # Small range for connector
     min_instances=stack == "prod" and 2 or 0,
     max_instances=3,
+    opts=pulumi.ResourceOptions(depends_on=enabled_services),
 )
 
 # Cloud Run service
