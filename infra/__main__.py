@@ -170,7 +170,7 @@ backend_service = gcp.cloudrunv2.Service(
     "backend-service",
     name=resource_name("backend"),
     location=region,
-    ingress="INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER",  # Access via Firebase Hosting proxy only
+    ingress="INGRESS_TRAFFIC_ALL",  # Public ingress required for Firebase Hosting
     template={
         "service_account": backend_sa.email,
         "scaling": {
@@ -218,16 +218,9 @@ backend_service = gcp.cloudrunv2.Service(
 # Firebase Hosting (Public Frontend & API Proxy)
 # =============================================================================
 
-# Grant Cloud Run Invoker role to allUsers via IAM binding on the service
-# This is needed for Firebase Hosting to invoke the internal Cloud Run service
-backend_invoker_binding = gcp.cloudrunv2.ServiceIamMember(
-    "backend-invoker",
-    project=project,
-    location=region,
-    name=backend_service.name,
-    role="roles/run.invoker",
-    member="allUsers",
-)
+# Note: Cloud Run is publicly accessible with ingress=INGRESS_TRAFFIC_ALL
+# Firebase Hosting proxies /api/** requests to Cloud Run
+# Security is enforced at application level via Firebase Auth JWT validation
 
 # Firebase Hosting Site
 # Note: Firebase project must be manually initialized first
