@@ -168,6 +168,7 @@ backend_service = gcp.cloudrunv2.Service(
     "backend-service",
     name=resource_name("backend"),
     location=region,
+    ingress="INGRESS_TRAFFIC_ALL",  # Allow public access (controlled by org policy)
     template={
         "service_account": backend_sa.email,
         "scaling": {
@@ -211,15 +212,9 @@ backend_service = gcp.cloudrunv2.Service(
     ),
 )
 
-# Allow unauthenticated access (for public interview links)
+# Public access controlled via ingress setting above
+# IAM-based allUsers is blocked by organization policy
 # TODO: Consider Cloud Armor for rate limiting and DDoS protection
-backend_iam = gcp.cloudrunv2.ServiceIamMember(
-    "backend-public-access",
-    location=backend_service.location,
-    name=backend_service.name,
-    role="roles/run.invoker",
-    member="allUsers",
-)
 
 # =============================================================================
 # Outputs
