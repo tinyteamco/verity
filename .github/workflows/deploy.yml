@@ -11,7 +11,6 @@ concurrency:
 
 env:
   PROJECT_ID: verity-platform-473406
-  REGION: europe-west1
 
 jobs:
   test:
@@ -62,9 +61,6 @@ jobs:
         with:
           project_id: ${{ env.PROJECT_ID }}
 
-      - name: Configure Docker for Artifact Registry
-        run: gcloud auth configure-docker europe-west1-docker.pkg.dev
-
       - name: Install Pulumi CLI
         uses: pulumi/actions@v5
 
@@ -74,23 +70,29 @@ jobs:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
         run: |
           # Get outputs from Pulumi stack (single source of truth)
+          REGION=$(pulumi stack output region)
           DB_CONNECTION_NAME=$(pulumi stack output db_connection_name)
           BACKEND_SERVICE_NAME=$(pulumi stack output backend_service_name)
           DATABASE_URL_SECRET=$(pulumi stack output database_url_secret_name)
 
           # Export as environment variables for next steps
+          echo "REGION=$REGION" >> $GITHUB_ENV
           echo "DB_CONNECTION_NAME=$DB_CONNECTION_NAME" >> $GITHUB_ENV
           echo "BACKEND_SERVICE_NAME=$BACKEND_SERVICE_NAME" >> $GITHUB_ENV
           echo "DATABASE_URL_SECRET=$DATABASE_URL_SECRET" >> $GITHUB_ENV
 
           echo "✅ Retrieved from Pulumi:"
+          echo "  REGION=$REGION"
           echo "  DB_CONNECTION_NAME=$DB_CONNECTION_NAME"
           echo "  BACKEND_SERVICE_NAME=$BACKEND_SERVICE_NAME"
           echo "  DATABASE_URL_SECRET=$DATABASE_URL_SECRET"
 
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
       - name: Build and push Docker image
         run: |
-          IMAGE_URI="europe-west1-docker.pkg.dev/${{ env.PROJECT_ID }}/verity/backend:${{ github.sha }}"
+          IMAGE_URI="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/verity/backend:${{ github.sha }}"
           docker build --platform linux/amd64 -t $IMAGE_URI ./backend
           docker push $IMAGE_URI
           echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
