@@ -13,7 +13,8 @@ import pulumi_gcp as gcp
 
 # Configuration
 config = pulumi.Config()
-project = config.require("gcp:project")
+gcp_config = pulumi.Config("gcp")
+project = gcp_config.require("project")
 region = config.get("region") or "us-central1"
 
 # Get current stack name (dev/prod)
