@@ -2,14 +2,15 @@
 
 This module defines the complete infrastructure for the Verity UXR platform:
 - Cloud SQL PostgreSQL database
-- Cloud Run service for backend API
+- Cloud Run service for backend API (internal ingress)
+- Firebase Hosting for public access and API proxy
 - Service accounts with least-privilege IAM
 - Secrets in Secret Manager
-- VPC networking for private connectivity
 """
 
 import pulumi
 import pulumi_gcp as gcp
+import pulumi_firebase as firebase
 
 # Configuration
 config = pulumi.Config()
@@ -35,6 +36,8 @@ required_apis = [
     "run.googleapis.com",              # Cloud Run
     "sqladmin.googleapis.com",         # Cloud SQL Admin
     "secretmanager.googleapis.com",    # Secret Manager
+    "firebase.googleapis.com",         # Firebase
+    "firebasehosting.googleapis.com",  # Firebase Hosting
 ]
 
 enabled_services = []
@@ -212,9 +215,55 @@ backend_service = gcp.cloudrunv2.Service(
     ),
 )
 
-# Access controlled via Firebase Hosting proxy (configured separately)
-# Cloud Run is not directly accessible from internet
-# Firebase Hosting will proxy /api/** requests to this service
+# =============================================================================
+# Firebase Hosting (Public Frontend & API Proxy)
+# =============================================================================
+
+# Grant Cloud Run Invoker role to allUsers via IAM binding on the service
+# This is needed for Firebase Hosting to invoke the internal Cloud Run service
+backend_invoker_binding = gcp.cloudrunv2.ServiceIamMember(
+    "backend-invoker",
+    project=project,
+    location=region,
+    name=backend_service.name,
+    role="roles/run.invoker",
+    member="allUsers",
+)
+
+# Firebase Hosting Site
+# Note: Firebase project must be manually initialized first
+# Run: firebase init hosting (select existing project)
+hosting_site = firebase.HostingSite(
+    "hosting-site",
+    project=project,
+    site_id=resource_name("app"),
+    opts=pulumi.ResourceOptions(depends_on=[enabled_services]),
+)
+
+# Firebase Hosting Config - proxy /api/** to Cloud Run
+hosting_version = firebase.HostingVersion(
+    "hosting-version",
+    site_id=hosting_site.site_id,
+    config=firebase.HostingVersionConfigArgs(
+        rewrites=[
+            firebase.HostingVersionConfigRewriteArgs(
+                glob="/api/**",
+                run=firebase.HostingVersionConfigRewriteRunArgs(
+                    service_id=backend_service.name,
+                    region=region,
+                ),
+            ),
+        ],
+    ),
+)
+
+# Release the hosting version
+hosting_release = firebase.HostingRelease(
+    "hosting-release",
+    site_id=hosting_site.site_id,
+    version_name=hosting_version.name,
+    message=f"Deployed via Pulumi - {stack} stack",
+)
 
 # =============================================================================
 # Outputs
@@ -238,3 +287,7 @@ pulumi.export("backend_service_name", backend_service.name)
 
 # Secrets
 pulumi.export("database_url_secret_name", database_url_secret.secret_id)
+
+# Firebase Hosting
+pulumi.export("hosting_site_id", hosting_site.site_id)
+pulumi.export("hosting_url", hosting_site.default_url)

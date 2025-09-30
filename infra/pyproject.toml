@@ -6,6 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     "pulumi>=3.0.0,<4.0.0",
     "pulumi-gcp>=8.0.0,<9.0.0",
+    "pulumi-firebase>=0.3.0,<1.0.0",
 ]
 
 [build-system]
