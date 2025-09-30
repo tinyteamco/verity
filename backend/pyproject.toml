@@ -21,6 +21,7 @@ dependencies = [
     "firebase-admin>=6.2.0",
     "requests>=2.31.0",
     "minio>=7.2.0",
+    "scalar-fastapi>=1.4.3",
 ]
 
 [build-system]

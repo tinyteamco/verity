@@ -1210,6 +1210,15 @@ wheels = [
 ]
 
 [[package]]
+name = "scalar-fastapi"
+version = "1.4.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b7/73/a219d00b956898f46294150a6ec0a4cf4e29439018e400bdf3763b2f55b9/scalar_fastapi-1.4.3.tar.gz", hash = "sha256:7b2408269699b87cc3936a512aefa5315fc360d29c6b0e0c1933ec52e99196ec", size = 7105 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ed/50/ab0cb0d6022331732d0d032d65fe1f4c3edddd12e46dfe0eda303d28be5f/scalar_fastapi-1.4.3-py3-none-any.whl", hash = "sha256:b19a6be84c78e4e9b83ebd3963a1bb8abdf4598e129a3e27b4989e534505e44e", size = 6639 },
+]
+
+[[package]]
 name = "six"
 version = "1.17.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1396,6 +1405,7 @@ dependencies = [
     { name = "python-multipart" },
     { name = "requests" },
     { name = "ruff" },
+    { name = "scalar-fastapi" },
     { name = "sqlalchemy" },
     { name = "ty" },
     { name = "uvicorn", extra = ["standard"] },
@@ -1417,6 +1427,7 @@ requires-dist = [
     { name = "python-multipart", specifier = ">=0.0.6" },
     { name = "requests", specifier = ">=2.31.0" },
     { name = "ruff", specifier = ">=0.13.2" },
+    { name = "scalar-fastapi", specifier = ">=1.4.3" },
     { name = "sqlalchemy", specifier = ">=2.0.0" },
     { name = "ty", specifier = ">=0.0.1a21" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.37.0" },

@@ -4,7 +4,8 @@ from datetime import UTC
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
+from scalar_fastapi import get_scalar_api_reference
 from sqlalchemy.orm import Session
 
 from ..auth import (
@@ -63,6 +64,9 @@ app = FastAPI(
     version="0.1.0",
     description="UXR Platform Backend",
     lifespan=lifespan,
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json",
 )
 
 # Create API router with /api prefix for Firebase Hosting proxy
@@ -794,3 +798,12 @@ async def finalize_transcript(
 
 # Include the API router with /api prefix
 app.include_router(api_router)
+
+
+# Scalar API documentation endpoint
+@app.get("/api/scalar", include_in_schema=False)
+async def scalar_html() -> HTMLResponse:
+    return get_scalar_api_reference(
+        openapi_url=app.openapi_url,
+        title="Verity API Documentation",
+    )

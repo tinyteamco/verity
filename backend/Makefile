@@ -25,15 +25,15 @@ test: ## Run tests (with services)
 test-ci: .firebase-seeded ## Run tests in CI (ensures Firebase is seeded)
 	APP_ENV=local uv run pytest
 
+.PHONY: .firebase-seeded
 .firebase-seeded: scripts/seed_firebase.py
 	@echo "🌱 Ensuring Firebase is seeded..."
 	@if ! curl -s http://localhost:9099 >/dev/null 2>&1; then \
 		echo "⚠️  Firebase emulator not running, starting it..."; \
 		$(MAKE) start-firebase; \
 	fi
-	uv run python scripts/seed_firebase.py
-	@touch .firebase-seeded
-	@echo "✅ Firebase seeded (sentinel created)"
+	@uv run python scripts/seed_firebase.py
+	@echo "✅ Firebase seeded"
 
 build: ## Build Docker image
 	docker build -t gcr.io/verity-platform/verity-backend:latest .
