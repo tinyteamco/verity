@@ -51,15 +51,10 @@ jobs:
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Install Python dependencies
-        working-directory: infra
-        run: |
-          uv sync --no-dev
-
       - name: Select Pulumi stack
         working-directory: infra
         run: |
-          pulumi stack select ${{ inputs.stack }} --create
+          uv run --with pulumi pulumi stack select ${{ inputs.stack }} --create
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
 
