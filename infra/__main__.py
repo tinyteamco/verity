@@ -287,6 +287,23 @@ firebase_project = gcp.firebase.Project(
     opts=pulumi.ResourceOptions(depends_on=enabled_services),
 )
 
+# =============================================================================
+# Identity Platform (Firebase Auth) Configuration
+# =============================================================================
+
+# Configure Firebase Auth sign-in methods
+identity_config = gcp.identityplatform.Config(
+    "identity-platform-config",
+    project=project,
+    sign_in=gcp.identityplatform.ConfigSignInArgs(
+        email=gcp.identityplatform.ConfigSignInEmailArgs(
+            enabled=True,
+            password_required=True,
+        ),
+    ),
+    opts=pulumi.ResourceOptions(depends_on=[firebase_project]),
+)
+
 # Firebase Hosting Site
 hosting_site = gcp.firebase.HostingSite(
     "hosting-site",
