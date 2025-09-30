@@ -70,7 +70,7 @@ jobs:
         if: inputs.action == 'up'
         working-directory: infra
         run: |
-          pulumi up --yes --skip-preview
+          pulumi up --yes --skip-preview --refresh
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
 
