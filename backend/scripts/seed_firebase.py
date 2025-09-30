@@ -47,16 +47,16 @@ def main() -> None:
 
     # Create single super admin user (used by tests, Postman, and manual testing)
     create_user_with_claims(
-        email="test-superadmin@test.com",
-        password="testpass123",
+        email="admin@tinyteam.co",
+        password="superadmin123",
         uid="test-super-admin",
         custom_claims={"tenant": "organization", "role": "super_admin"},
     )
 
     print("✅ Platform seeding complete!")
     print("\n🔑 Super admin credentials:")
-    print("Email:    test-superadmin@test.com")
-    print("Password: testpass123")
+    print("Email:    admin@tinyteam.co")
+    print("Password: superadmin123")
     print("\n🌐 Emulator UI: http://localhost:4000/auth")
     print("\nNote: Test users will be created by pytest fixtures")
 

@@ -61,7 +61,7 @@ def firebase_app():
 def super_admin_user(firebase_app):
     """Create ONE super admin for entire test session"""
     uid = "test-super-admin"
-    email = "test-superadmin@test.com"
+    email = "admin@tinyteam.co"
 
     # Clean up if exists from previous run
     with contextlib.suppress(Exception):
@@ -71,7 +71,7 @@ def super_admin_user(firebase_app):
     user = auth.create_user(
         uid=uid,
         email=email,
-        password="testpass123",
+        password="superadmin123",
         email_verified=True,
     )
 

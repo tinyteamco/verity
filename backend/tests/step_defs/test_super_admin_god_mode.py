@@ -99,7 +99,7 @@ def super_admin_creates_org_given(client: Any, request: Any, org_name: str) -> N
     from tests.test_helpers import sign_in_user
 
     # Sign in as super admin
-    token = sign_in_user("test-superadmin@test.com", "testpass123")
+    token = sign_in_user("admin@tinyteam.co", "superadmin123")
     headers = {"Authorization": f"Bearer {token}"}
 
     # Create organization
@@ -197,7 +197,7 @@ def super_admin_creates_org(client: Any, request: Any, org_name: str) -> None:
     from tests.test_helpers import sign_in_user
 
     # Sign in as super admin (using session-level super admin)
-    token = sign_in_user("test-superadmin@test.com", "testpass123")
+    token = sign_in_user("admin@tinyteam.co", "superadmin123")
     headers = {"Authorization": f"Bearer {token}"}
 
     # Create organization
@@ -217,7 +217,7 @@ def super_admin_lists_orgs(client: Any, request: Any) -> None:
     from tests.test_helpers import sign_in_user
 
     # Sign in as super admin (using session-level super admin)
-    token = sign_in_user("test-superadmin@test.com", "testpass123")
+    token = sign_in_user("admin@tinyteam.co", "superadmin123")
     headers = {"Authorization": f"Bearer {token}"}
 
     # List organizations
@@ -235,7 +235,7 @@ def super_admin_creates_study(client: Any, request: Any, title: str, org_name: s
     from tests.test_helpers import sign_in_user
 
     # Sign in as super admin (using session-level super admin)
-    token = sign_in_user("test-superadmin@test.com", "testpass123")
+    token = sign_in_user("admin@tinyteam.co", "superadmin123")
     headers = {"Authorization": f"Bearer {token}"}
 
     # Create study (super admin should be able to access org context)
@@ -255,7 +255,7 @@ def super_admin_retrieves_interview(client: Any, request: Any, access_token: str
     from tests.test_helpers import sign_in_user
 
     # Sign in as super admin (using session-level super admin)
-    token = sign_in_user("test-superadmin@test.com", "testpass123")
+    token = sign_in_user("admin@tinyteam.co", "superadmin123")
     headers = {"Authorization": f"Bearer {token}"}
 
     # Get interview using the study_id and interview_id
@@ -276,7 +276,7 @@ def super_admin_accesses_studies(client: Any, request: Any, org_name: str) -> No
     from tests.test_helpers import sign_in_user
 
     # Sign in as super admin (using session-level super admin)
-    token = sign_in_user("test-superadmin@test.com", "testpass123")
+    token = sign_in_user("admin@tinyteam.co", "superadmin123")
     headers = {"Authorization": f"Bearer {token}"}
 
     # Access studies endpoint
@@ -310,7 +310,7 @@ def super_admin_requests_org_details(client: Any, request: Any, org_name: str) -
     from tests.test_helpers import sign_in_user
 
     # Sign in as super admin (using session-level super admin)
-    token = sign_in_user("test-superadmin@test.com", "testpass123")
+    token = sign_in_user("admin@tinyteam.co", "superadmin123")
     headers = {"Authorization": f"Bearer {token}"}
 
     # Request org details
