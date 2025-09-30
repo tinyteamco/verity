@@ -54,7 +54,7 @@ jobs:
       - name: Install Python dependencies
         working-directory: infra
         run: |
-          uv sync
+          uv sync --no-dev
 
       - name: Select Pulumi stack
         working-directory: infra
@@ -67,7 +67,7 @@ jobs:
         if: inputs.action == 'preview'
         working-directory: infra
         run: |
-          uv run pulumi preview --diff
+          uv run --with pulumi --with pulumi-gcp pulumi preview --diff
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
 
@@ -75,7 +75,7 @@ jobs:
         if: inputs.action == 'up'
         working-directory: infra
         run: |
-          uv run pulumi up --yes --skip-preview
+          uv run --with pulumi --with pulumi-gcp pulumi up --yes --skip-preview
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
 
@@ -85,7 +85,7 @@ jobs:
         run: |
           echo "## Stack Outputs" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          uv run pulumi stack output --json | jq . >> $GITHUB_STEP_SUMMARY
+          uv run --with pulumi --with pulumi-gcp pulumi stack output --json | jq . >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
