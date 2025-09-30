@@ -10,7 +10,6 @@ This module defines the complete infrastructure for the Verity UXR platform:
 
 import pulumi
 import pulumi_gcp as gcp
-import pulumi_firebase as firebase
 
 # Configuration
 config = pulumi.Config()
@@ -233,7 +232,7 @@ backend_invoker_binding = gcp.cloudrunv2.ServiceIamMember(
 # Firebase Hosting Site
 # Note: Firebase project must be manually initialized first
 # Run: firebase init hosting (select existing project)
-hosting_site = firebase.HostingSite(
+hosting_site = gcp.firebase.HostingSite(
     "hosting-site",
     project=project,
     site_id=resource_name("app"),
@@ -241,14 +240,14 @@ hosting_site = firebase.HostingSite(
 )
 
 # Firebase Hosting Config - proxy /api/** to Cloud Run
-hosting_version = firebase.HostingVersion(
+hosting_version = gcp.firebase.HostingVersion(
     "hosting-version",
     site_id=hosting_site.site_id,
-    config=firebase.HostingVersionConfigArgs(
+    config=gcp.firebase.HostingVersionConfigArgs(
         rewrites=[
-            firebase.HostingVersionConfigRewriteArgs(
+            gcp.firebase.HostingVersionConfigRewriteArgs(
                 glob="/api/**",
-                run=firebase.HostingVersionConfigRewriteRunArgs(
+                run=gcp.firebase.HostingVersionConfigRewriteRunArgs(
                     service_id=backend_service.name,
                     region=region,
                 ),
@@ -258,7 +257,7 @@ hosting_version = firebase.HostingVersion(
 )
 
 # Release the hosting version
-hosting_release = firebase.HostingRelease(
+hosting_release = gcp.firebase.HostingRelease(
     "hosting-release",
     site_id=hosting_site.site_id,
     version_name=hosting_version.name,
