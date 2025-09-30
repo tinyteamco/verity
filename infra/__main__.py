@@ -92,7 +92,8 @@ db_instance = gcp.sql.DatabaseInstance(
     database_version="POSTGRES_16",
     region=region,
     settings=gcp.sql.DatabaseInstanceSettingsArgs(
-        tier="db-f1-micro" if stack == "dev" else "db-n1-standard-1",
+        tier="db-custom-1-3840" if stack == "dev" else "db-n1-standard-1",  # 1 vCPU, 3.75GB RAM for dev
+        edition="ENTERPRISE" if stack == "prod" else None,  # Use default (ENTERPRISE) for dev
         ip_configuration=gcp.sql.DatabaseInstanceSettingsIpConfigurationArgs(
             ipv4_enabled=True,  # Public IP with Cloud SQL Proxy
             # Authorized networks can be added here if needed
