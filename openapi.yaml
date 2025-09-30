@@ -176,14 +176,6 @@ components:
 
         text: { type: string }
 
-        confidence:
-
-          type: number
-
-          format: float
-
-          nullable: true
-
       required: [start_ms, end_ms, text]
 
     TranscriptFinalizeRequest:

@@ -123,3 +123,25 @@ class HealthResponse(BaseModel):
     service: str
     version: str
     database: DatabaseStatus
+
+
+class TranscriptSegment(BaseModel):
+    start_ms: int
+    end_ms: int
+    text: str
+
+
+class TranscriptFinalizeRequest(BaseModel):
+    lang: str
+    source: str
+    segments: list[TranscriptSegment]
+
+
+class TranscriptResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    transcript_id: str
+    interview_id: str
+    language: str
+    full_text: str
+    created_at: datetime

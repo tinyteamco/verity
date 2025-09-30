@@ -17,7 +17,16 @@ from ..auth import (
 )
 from ..database import get_db
 from ..database_utils import check_database_connectivity_with_session, ensure_database_connectivity
-from ..models import AudioRecording, Interview, InterviewGuide, Organization, Study, User
+from ..models import (
+    AudioRecording,
+    Interview,
+    InterviewGuide,
+    Organization,
+    Study,
+    Transcript,
+    TranscriptSegment,
+    User,
+)
 from ..schemas import (
     AudioRecordingResponse,
     HealthResponse,
@@ -33,6 +42,8 @@ from ..schemas import (
     StudyList,
     StudyResponse,
     StudyUpdate,
+    TranscriptFinalizeRequest,
+    TranscriptResponse,
     UserResponse,
 )
 from ..storage import generate_audio_object_name, get_storage_client
@@ -710,4 +721,64 @@ async def get_recording_metadata(
         sample_rate_hz=recording.sample_rate_hz,
         file_size_bytes=recording.file_size_bytes,
         created_at=recording.created_at,
+    )
+
+
+@app.post("/interviews/{interview_id}/transcript:finalize", status_code=201)
+async def finalize_transcript(
+    interview_id: int,
+    request: TranscriptFinalizeRequest,
+    db: Annotated[Session, Depends(get_db)],
+) -> TranscriptResponse:
+    """Finalize transcript for an interview"""
+
+    # Validate segments not empty
+    if not request.segments:
+        raise HTTPException(status_code=400, detail="Request must contain at least one segment")
+
+    # Find interview
+    interview = db.query(Interview).filter(Interview.id == interview_id).first()
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+
+    # Check if transcript already exists
+    existing_transcript = (
+        db.query(Transcript).filter(Transcript.interview_id == interview_id).first()
+    )
+    if existing_transcript:
+        raise HTTPException(status_code=400, detail="Transcript already exists for this interview")
+
+    # Concatenate full text from segments
+    full_text = " ".join(segment.text for segment in request.segments)
+
+    # Create transcript
+    transcript = Transcript(
+        interview_id=interview_id,
+        language=request.lang,
+        source=request.source,
+        full_text=full_text,
+    )
+    db.add(transcript)
+    db.flush()  # Get transcript.id
+
+    # Create segments
+    for idx, segment_data in enumerate(request.segments):
+        segment = TranscriptSegment(
+            transcript_id=transcript.id,
+            start_ms=segment_data.start_ms,
+            end_ms=segment_data.end_ms,
+            text=segment_data.text,
+            sequence=idx,
+        )
+        db.add(segment)
+
+    db.commit()
+    db.refresh(transcript)
+
+    return TranscriptResponse(
+        transcript_id=str(transcript.id),
+        interview_id=str(transcript.interview_id),
+        language=transcript.language,
+        full_text=transcript.full_text,
+        created_at=transcript.created_at,
     )

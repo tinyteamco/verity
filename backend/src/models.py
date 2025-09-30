@@ -98,6 +98,9 @@ class Interview(Base):
     audio_recording: Mapped["AudioRecording | None"] = relationship(
         "AudioRecording", back_populates="interview", uselist=False
     )
+    transcript: Mapped["Transcript | None"] = relationship(
+        "Transcript", back_populates="interview", uselist=False
+    )
 
 
 class AudioRecording(Base):
@@ -115,3 +118,36 @@ class AudioRecording(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     interview: Mapped["Interview"] = relationship("Interview", back_populates="audio_recording")
+
+
+class Transcript(Base):
+    __tablename__ = "transcripts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    interview_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("interviews.id"), nullable=False, unique=True, index=True
+    )
+    language: Mapped[str] = mapped_column(String(10), nullable=False)
+    source: Mapped[str] = mapped_column(String(50), nullable=False)
+    full_text: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    interview: Mapped["Interview"] = relationship("Interview", back_populates="transcript")
+    segments: Mapped[list["TranscriptSegment"]] = relationship(
+        "TranscriptSegment", back_populates="transcript", cascade="all, delete-orphan"
+    )
+
+
+class TranscriptSegment(Base):
+    __tablename__ = "transcript_segments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    transcript_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("transcripts.id"), nullable=False, index=True
+    )
+    start_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    end_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    transcript: Mapped["Transcript"] = relationship("Transcript", back_populates="segments")
