@@ -95,7 +95,8 @@ jobs:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
         run: |
           echo "📦 Deploying infrastructure changes..."
-          uv sync --locked
+          # Install dependencies directly (no need to build the project)
+          uv pip install -r requirements.txt
           pulumi stack select dev
           pulumi up --yes --skip-preview --refresh
           echo "✅ Infrastructure deployment complete"
