@@ -89,11 +89,10 @@ db_password = pulumi.Config().get_secret("db_password") or pulumi.Output.secret(
 db_instance = gcp.sql.DatabaseInstance(
     "postgres-instance",
     name=resource_name("db"),
-    database_version="POSTGRES_16",
+    database_version="POSTGRES_15",  # Using PG15 for broader tier compatibility
     region=region,
-    edition="ENTERPRISE",  # Use ENTERPRISE edition (not ENTERPRISE_PLUS) for cost-effective tier
     settings=gcp.sql.DatabaseInstanceSettingsArgs(
-        tier="db-custom-1-3840" if stack == "dev" else "db-n1-standard-1",  # 1 vCPU, 3.75GB RAM for dev
+        tier="db-f1-micro" if stack == "dev" else "db-n1-standard-1",  # Shared-core for dev, dedicated for prod
         ip_configuration=gcp.sql.DatabaseInstanceSettingsIpConfigurationArgs(
             ipv4_enabled=True,  # Public IP with Cloud SQL Proxy
             # Authorized networks can be added here if needed
