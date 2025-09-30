@@ -179,8 +179,9 @@ backend_service = gcp.cloudrunv2.Service(
             "run.googleapis.com/cloudsql-instances": db_instance.connection_name,
         },
         "containers": [{
-            # Placeholder image, CI/CD will update this
-            "image": f"{region}-docker.pkg.dev/{project}/verity/backend:latest",
+            # Placeholder image - CI/CD will manage actual deployments
+            # Using public Cloud Run hello-world image for initial creation
+            "image": "us-docker.pkg.dev/cloudrun/container/hello",
             "envs": [
                 {
                     "name": "APP_ENV",
@@ -204,6 +205,10 @@ backend_service = gcp.cloudrunv2.Service(
             },
         }],
     },
+    opts=pulumi.ResourceOptions(
+        # Ignore changes to container image - managed by CI/CD deployments
+        ignore_changes=["template.containers[0].image"],
+    ),
 )
 
 # Allow unauthenticated access (for public interview links)
