@@ -25,15 +25,13 @@ COPY src/ ./src/
 COPY alembic.ini ./
 COPY alembic/ ./alembic/
 
-# Copy startup script
-COPY start.sh ./
-RUN chmod +x start.sh
-
 # Expose port
 EXPOSE 8000
 
 # Set environment variables
 ENV PYTHONPATH=/app
+ENV PATH="/app/.venv/bin:$PATH"
 
 # Run the application
-CMD ["./start.sh"]
+# Use /bin/sh to allow PORT env var substitution
+CMD ["sh", "-c", "python -m uvicorn src.api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -65,6 +65,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Create API router with /api prefix for Firebase Hosting proxy
+api_router = APIRouter(prefix="/api")
+
 
 def get_org_user(
     user: Annotated[AuthUser, Depends(require_organization_user)],
@@ -83,7 +86,7 @@ def require_owner_or_admin(
     return org_user
 
 
-@app.get("/health", response_model=HealthResponse)
+@api_router.get("/health", response_model=HealthResponse)
 async def health_check(db: Annotated[Session, Depends(get_db)]) -> HealthResponse:
     """Health check endpoint with database connectivity status"""
     db_status = check_database_connectivity_with_session(db)
@@ -96,7 +99,7 @@ async def health_check(db: Annotated[Session, Depends(get_db)]) -> HealthRespons
     )
 
 
-@app.post("/orgs", response_model=OrganizationResponse, status_code=201)
+@api_router.post("/orgs", response_model=OrganizationResponse, status_code=201)
 async def create_organization(
     org_data: OrganizationCreate,
     current_user: Annotated[AuthUser, Depends(require_super_admin)],
@@ -111,7 +114,7 @@ async def create_organization(
     return OrganizationResponse(org_id=str(org.id), name=org.name, created_at=org.created_at)
 
 
-@app.get("/orgs/current", response_model=OrganizationResponse)
+@api_router.get("/orgs/current", response_model=OrganizationResponse)
 async def get_current_organization(
     org_user: Annotated[OrgUser, Depends(get_org_user)],
 ) -> OrganizationResponse:
@@ -123,7 +126,7 @@ async def get_current_organization(
     )
 
 
-@app.get("/orgs/current/users", response_model=UserList)
+@api_router.get("/orgs/current/users", response_model=UserList)
 async def list_organization_users(
     org_user: Annotated[OrgUser, Depends(require_owner_or_admin)],
     db: Annotated[Session, Depends(get_db)],
@@ -147,7 +150,7 @@ async def list_organization_users(
 # Study Management Endpoints
 
 
-@app.post("/studies", response_model=StudyResponse, status_code=201)
+@api_router.post("/studies", response_model=StudyResponse, status_code=201)
 async def create_study(
     study_data: StudyCreate,
     org_user: Annotated[OrgUser, Depends(get_org_user)],
@@ -173,7 +176,7 @@ async def create_study(
     )
 
 
-@app.get("/studies", response_model=StudyList)
+@api_router.get("/studies", response_model=StudyList)
 async def list_studies(
     org_user: Annotated[OrgUser, Depends(get_org_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -196,7 +199,7 @@ async def list_studies(
     return StudyList(items=study_responses)
 
 
-@app.get("/studies/{study_id}", response_model=StudyResponse)
+@api_router.get("/studies/{study_id}", response_model=StudyResponse)
 async def get_study(
     study_id: int,
     org_user: Annotated[OrgUser, Depends(get_org_user)],
@@ -222,7 +225,7 @@ async def get_study(
     )
 
 
-@app.patch("/studies/{study_id}", response_model=StudyResponse)
+@api_router.patch("/studies/{study_id}", response_model=StudyResponse)
 async def update_study(
     study_id: int,
     study_update: StudyUpdate,
@@ -258,7 +261,7 @@ async def update_study(
     )
 
 
-@app.delete("/studies/{study_id}")
+@api_router.delete("/studies/{study_id}")
 async def delete_study(
     study_id: int,
     org_user: Annotated[OrgUser, Depends(get_org_user)],
@@ -283,7 +286,7 @@ async def delete_study(
 # Study Guide Management Endpoints
 
 
-@app.put("/studies/{study_id}/guide", response_model=InterviewGuideResponse)
+@api_router.put("/studies/{study_id}/guide", response_model=InterviewGuideResponse)
 async def upsert_study_guide(
     study_id: int,
     guide_data: InterviewGuideCreate,
@@ -327,7 +330,7 @@ async def upsert_study_guide(
     )
 
 
-@app.get("/studies/{study_id}/guide", response_model=InterviewGuideResponse)
+@api_router.get("/studies/{study_id}/guide", response_model=InterviewGuideResponse)
 async def get_study_guide(
     study_id: int,
     org_user: Annotated[OrgUser, Depends(get_org_user)],
@@ -360,7 +363,9 @@ async def get_study_guide(
 # Interview Management Endpoints
 
 
-@app.post("/studies/{study_id}/interviews", response_model=InterviewLinkResponse, status_code=201)
+@api_router.post(
+    "/studies/{study_id}/interviews", response_model=InterviewLinkResponse, status_code=201
+)
 async def generate_interview_link(
     study_id: int,
     org_user: Annotated[OrgUser, Depends(get_org_user)],
@@ -412,7 +417,7 @@ async def generate_interview_link(
     )
 
 
-@app.get("/studies/{study_id}/interviews", response_model=InterviewList)
+@api_router.get("/studies/{study_id}/interviews", response_model=InterviewList)
 async def list_interviews(
     study_id: int,
     org_user: Annotated[OrgUser, Depends(get_org_user)],
@@ -451,7 +456,7 @@ async def list_interviews(
     return InterviewList(items=interview_responses)
 
 
-@app.get("/studies/{study_id}/interviews/{interview_id}", response_model=InterviewResponse)
+@api_router.get("/studies/{study_id}/interviews/{interview_id}", response_model=InterviewResponse)
 async def get_interview(
     study_id: int,
     interview_id: int,
@@ -496,7 +501,7 @@ async def get_interview(
 # Public Interview Endpoints (No Authentication Required)
 
 
-@app.get("/interview/{access_token}")
+@api_router.get("/interview/{access_token}")
 async def get_interview_public(
     access_token: str,
     db: Annotated[Session, Depends(get_db)],
@@ -533,7 +538,7 @@ async def get_interview_public(
     }
 
 
-@app.post("/interview/{access_token}/complete")
+@api_router.post("/interview/{access_token}/complete")
 async def complete_interview(
     access_token: str,
     completion_data: InterviewCompleteRequest,
@@ -563,7 +568,7 @@ async def complete_interview(
     return {"message": "Interview completed successfully"}
 
 
-@app.post("/interview/{access_token}/claim")
+@api_router.post("/interview/{access_token}/claim")
 async def claim_interview(
     access_token: str,
     current_user: Annotated[AuthUser, Depends(require_interviewee_user)],
@@ -589,7 +594,7 @@ async def claim_interview(
 # Audio Recording Endpoints
 
 
-@app.post("/recordings:upload", response_model=AudioRecordingResponse, status_code=201)
+@api_router.post("/recordings:upload", response_model=AudioRecordingResponse, status_code=201)
 async def upload_recording(
     interview_id: Annotated[str, Form()],
     file: Annotated[UploadFile, File()],
@@ -666,7 +671,7 @@ async def upload_recording(
         raise HTTPException(status_code=500, detail=f"Failed to upload recording: {e!s}") from e
 
 
-@app.get("/recordings/{recording_id}/download")
+@api_router.get("/recordings/{recording_id}/download")
 async def download_recording(
     recording_id: int,
     db: Annotated[Session, Depends(get_db)],
@@ -704,7 +709,7 @@ async def download_recording(
         ) from e
 
 
-@app.get("/recordings/{recording_id}")
+@api_router.get("/recordings/{recording_id}")
 async def get_recording_metadata(
     recording_id: int,
     db: Annotated[Session, Depends(get_db)],
@@ -727,7 +732,7 @@ async def get_recording_metadata(
     )
 
 
-@app.post("/interviews/{interview_id}/transcript:finalize", status_code=201)
+@api_router.post("/interviews/{interview_id}/transcript:finalize", status_code=201)
 async def finalize_transcript(
     interview_id: int,
     request: TranscriptFinalizeRequest,
@@ -785,3 +790,7 @@ async def finalize_transcript(
         full_text=transcript.full_text,
         created_at=transcript.created_at,
     )
+
+
+# Include the API router with /api prefix
+app.include_router(api_router)

@@ -112,7 +112,8 @@ def client():
     app.dependency_overrides[get_db] = override_get_db
 
     # Create TestClient AFTER setting overrides
-    test_client = TestClient(app)
+    # Use base_url to prepend /api to all requests (routes are now under /api prefix)
+    test_client = TestClient(app, base_url="http://testserver/api")
 
     yield test_client
 
