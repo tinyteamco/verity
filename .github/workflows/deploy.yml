@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
 
+# Prevent concurrent deployments to avoid race conditions
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   PROJECT_ID: verity-platform-473406
   SERVICE: verity-backend
