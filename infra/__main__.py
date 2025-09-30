@@ -200,7 +200,6 @@ backend_service = gcp.cloudrunv2.Service(
             "image": f"{region}-docker.pkg.dev/{project}/verity/backend:latest",
             "ports": [{
                 "container_port": 8000,
-                "name": "http1",
             }],
             "envs": [
                 {
