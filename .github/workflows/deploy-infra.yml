@@ -56,6 +56,8 @@ jobs:
         run: |
           uv venv
           uv pip install pulumi pulumi-gcp
+          source .venv/bin/activate
+          python -c "import pulumi; import pulumi_gcp; print('✅ Dependencies installed')"
 
       - name: Select Pulumi stack
         working-directory: infra
