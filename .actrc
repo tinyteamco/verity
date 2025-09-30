@@ -1,3 +1,0 @@
-# act configuration for testing workflows locally
---container-architecture linux/amd64
---secret-file .secrets
