@@ -112,7 +112,6 @@ db_instance = gcp.sql.DatabaseInstance(
         ],
     ),
     deletion_protection=stack == "prod",  # Prevent accidental deletion in prod
-    opts=pulumi.ResourceOptions(depends_on=[private_vpc_connection]),
 )
 
 # Database for application
