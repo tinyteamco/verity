@@ -51,10 +51,17 @@ jobs:
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Install Python dependencies
+        working-directory: infra
+        run: |
+          uv venv
+          uv pip install pulumi pulumi-gcp
+
       - name: Select Pulumi stack
         working-directory: infra
         run: |
-          uv run --with pulumi pulumi stack select ${{ inputs.stack }} --create
+          source .venv/bin/activate
+          pulumi stack select ${{ inputs.stack }} --create
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
 
@@ -62,7 +69,8 @@ jobs:
         if: inputs.action == 'preview'
         working-directory: infra
         run: |
-          uv run --with pulumi --with pulumi-gcp pulumi preview --diff
+          source .venv/bin/activate
+          pulumi preview --diff
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
 
@@ -70,7 +78,8 @@ jobs:
         if: inputs.action == 'up'
         working-directory: infra
         run: |
-          uv run --with pulumi --with pulumi-gcp pulumi up --yes --skip-preview
+          source .venv/bin/activate
+          pulumi up --yes --skip-preview
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
 
@@ -78,9 +87,10 @@ jobs:
         if: inputs.action == 'up'
         working-directory: infra
         run: |
+          source .venv/bin/activate
           echo "## Stack Outputs" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          uv run --with pulumi --with pulumi-gcp pulumi stack output --json | jq . >> $GITHUB_STEP_SUMMARY
+          pulumi stack output --json | jq . >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}

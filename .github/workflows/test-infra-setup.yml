@@ -1,0 +1,42 @@
+name: Test Infra Setup
+
+on:
+  push:
+    branches:
+      - test-infra-*  # Only runs on branches named test-infra-*
+  workflow_dispatch:
+
+jobs:
+  test-setup:
+    name: Test Pulumi Environment
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install Pulumi CLI
+        uses: pulumi/actions@v5
+
+      - name: Test Pulumi installation
+        working-directory: infra
+        run: |
+          uv run --with pulumi pulumi version
+
+      - name: Test Python dependencies
+        working-directory: infra
+        run: |
+          uv run --with pulumi --with pulumi-gcp python -c "import pulumi; import pulumi_gcp; print('✅ Dependencies OK')"
+
+      - name: List Pulumi commands available
+        working-directory: infra
+        run: |
+          uv run --with pulumi pulumi --help
