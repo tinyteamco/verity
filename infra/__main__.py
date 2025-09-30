@@ -185,48 +185,46 @@ backend_service = gcp.cloudrunv2.Service(
     "backend-service",
     name=resource_name("backend"),
     location=region,
-    template=gcp.cloudrunv2.ServiceTemplateArgs(
-        service_account=backend_sa.email,
-        scaling=gcp.cloudrunv2.ServiceTemplateScalingArgs(
-            min_instance_count=0 if stack == "dev" else 1,
-            max_instance_count=10 if stack == "dev" else 100,
-        ),
-        vpc_access=gcp.cloudrunv2.ServiceTemplateVpcAccessArgs(
-            connector=vpc_connector.id,
-            egress="PRIVATE_RANGES_ONLY",
-        ),
-        containers=[
-            gcp.cloudrunv2.ServiceTemplateContainerArgs(
-                # Placeholder image, CI/CD will update this
-                image=f"{region}-docker.pkg.dev/{project}/verity/backend:latest",
-                ports=[{
-                    "container_port": 8000,
-                    "name": "http1",
-                }],
-                envs=[
-                    gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
-                        name="APP_ENV",
-                        value=stack,
-                    ),
-                    gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
-                        name="DATABASE_URL",
-                        value_source=gcp.cloudrunv2.ServiceTemplateContainerEnvValueSourceArgs(
-                            secret_key_ref=gcp.cloudrunv2.ServiceTemplateContainerEnvValueSourceSecretKeyRefArgs(
-                                secret=database_url_secret.secret_id,
-                                version="latest",
-                            ),
-                        ),
-                    ),
-                ],
-                resources=gcp.cloudrunv2.ServiceTemplateContainerResourcesArgs(
-                    limits={
-                        "cpu": "1000m",
-                        "memory": "512Mi",
+    template={
+        "service_account": backend_sa.email,
+        "scaling": {
+            "min_instance_count": 0 if stack == "dev" else 1,
+            "max_instance_count": 10 if stack == "dev" else 100,
+        },
+        "vpc_access": {
+            "connector": vpc_connector.id,
+            "egress": "PRIVATE_RANGES_ONLY",
+        },
+        "containers": [{
+            # Placeholder image, CI/CD will update this
+            "image": f"{region}-docker.pkg.dev/{project}/verity/backend:latest",
+            "ports": [{
+                "container_port": 8000,
+                "name": "http1",
+            }],
+            "envs": [
+                {
+                    "name": "APP_ENV",
+                    "value": stack,
+                },
+                {
+                    "name": "DATABASE_URL",
+                    "value_source": {
+                        "secret_key_ref": {
+                            "secret": database_url_secret.secret_id,
+                            "version": "latest",
+                        },
                     },
-                ),
-            )
-        ],
-    ),
+                },
+            ],
+            "resources": {
+                "limits": {
+                    "cpu": "1000m",
+                    "memory": "512Mi",
+                },
+            },
+        }],
+    },
 )
 
 # Allow unauthenticated access (for public interview links)
