@@ -202,6 +202,12 @@ def check_401_status(test_response):
     assert test_response["response"].status_code == 401
 
 
+@then("the response status is 404")
+def check_404_status(test_response):
+    """Check response has 404 status"""
+    assert test_response["response"].status_code == 404
+
+
 @then("the response contains their organization details")
 def check_org_details(test_response):
     """Check response contains organization details"""
@@ -216,3 +222,10 @@ def check_no_org_error(test_response):
     """Check specific error message"""
     data = test_response["response"].json()
     assert data["detail"] == "User not associated with any organization"
+
+
+@then('the error message is "No organizations exist"')
+def check_no_orgs_error(test_response):
+    """Check no organizations error message"""
+    data = test_response["response"].json()
+    assert data["detail"] == "No organizations exist"

@@ -76,8 +76,8 @@ def get_org_user(
 def require_owner_or_admin(
     org_user: Annotated[OrgUser, Depends(get_org_user)],
 ) -> OrgUser:
-    """Require owner or admin role"""
-    if org_user.role not in ["owner", "admin"]:
+    """Require owner or admin role (super admins automatically pass)"""
+    if org_user.role not in ["owner", "admin", "super_admin"]:
         raise HTTPException(status_code=403, detail="Owner or admin role required")
     return org_user
 

@@ -28,21 +28,27 @@ if not firebase_admin._apps:
 from src.api.main import app  # noqa: E402
 from src.database import Base, get_db  # noqa: E402
 
-# Test database setup
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+# Helper function for step definitions that need direct DB access
+def TestingSessionLocal() -> Session:  # noqa: N802
+    """
+    Get a database session for the current test.
+    This works by using the overridden get_db dependency.
+    """
+    # Import here to avoid circular dependency
+    from src.database import get_db
 
-def override_get_db() -> Generator[Session, None, None]:
-    try:
-        db = TestingSessionLocal()
-        yield db
-    finally:
-        db.close()
-
-
-app.dependency_overrides[get_db] = override_get_db
+    # Get the override function that was set by the client fixture
+    override_fn = app.dependency_overrides.get(get_db)
+    if override_fn:
+        # Call the generator and get the session
+        gen = override_fn()
+        session = next(gen)
+        return session
+    else:
+        # Fallback for tests that don't use client fixture
+        # This shouldn't happen in practice
+        raise RuntimeError("TestingSessionLocal called outside of test context")
 
 
 @pytest.fixture(scope="session")
@@ -51,12 +57,69 @@ def firebase_app():
     return firebase_admin.get_app()
 
 
+@pytest.fixture(scope="session")
+def super_admin_user(firebase_app):
+    """Create ONE super admin for entire test session"""
+    uid = "test-super-admin"
+    email = "test-superadmin@test.com"
+
+    # Clean up if exists from previous run
+    with contextlib.suppress(Exception):
+        auth.delete_user(uid)
+
+    # Create once for all tests
+    user = auth.create_user(
+        uid=uid,
+        email=email,
+        password="testpass123",
+        email_verified=True,
+    )
+
+    auth.set_custom_user_claims(uid, {"tenant": "organization", "role": "super_admin"})
+
+    yield user
+
+    # Cleanup after all tests
+    with contextlib.suppress(Exception):
+        auth.delete_user(uid)
+
+
 @pytest.fixture
 def client():
-    """FastAPI test client with fresh database"""
+    """FastAPI test client with fresh in-memory database per test"""
+    from sqlalchemy.pool import StaticPool
+
+    # Use shared-cache in-memory database that works across threads
+    # StaticPool ensures all connections share the same in-memory database
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,  # Critical: keeps same connection across threads
+    )
+    session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+    # Create fresh schema
     Base.metadata.create_all(bind=engine)
-    yield TestClient(app)
+
+    # Override DB dependency for this test
+    def override_get_db() -> Generator[Session, None, None]:
+        try:
+            db = session_local()
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    # Create TestClient AFTER setting overrides
+    test_client = TestClient(app)
+
+    yield test_client
+
+    # Cleanup
+    app.dependency_overrides.clear()
     Base.metadata.drop_all(bind=engine)
+    engine.dispose()
 
 
 @pytest.fixture

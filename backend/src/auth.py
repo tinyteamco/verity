@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 # Initialize Firebase Admin for local/production
 if not firebase_admin._apps:
-    if os.getenv("APP_ENV") == "local":
+    if os.getenv("APP_ENV") in ("local", "development") or os.getenv("FIREBASE_EMULATOR_HOST"):
         # Local development: use emulator with explicit project ID and no credentials
         os.environ["FIREBASE_AUTH_EMULATOR_HOST"] = "localhost:9099"
         # Use None credentials to avoid default credential interference
@@ -64,7 +64,7 @@ def get_current_user(
         raise HTTPException(status_code=401, detail="Invalid tenant")
 
     # Check if user is super admin from custom claims
-    is_super_admin = token_data.get("super_admin", False)
+    is_super_admin = token_data.get("role") == "super_admin"
 
     return AuthUser(
         firebase_uid=token_data["uid"],
@@ -96,11 +96,34 @@ def require_interviewee_user(user: Annotated[AuthUser, Depends(get_current_user)
 
 
 def get_org_user_impl(user: AuthUser, db: Session) -> OrgUser:
-    """Get organization user with full context from database"""
-    # Import here to avoid circular import
-    from .models import User
+    """Get organization user with full context from database
 
-    # Look up user in database
+    Super admins have god-mode access:
+    - They can access any organization without a User record
+    - Organization context is derived from the resource being accessed
+    - They appear as invisible members (not in user lists)
+    """
+    # Import here to avoid circular import
+    from .models import Organization, User
+
+    # Super admin god-mode: derive org from request context if available
+    if user.is_super_admin:
+        # Try to find any organization (for listing endpoints)
+        # Individual endpoints will validate against specific resources
+        first_org = db.query(Organization).first()
+        if first_org:
+            return OrgUser(
+                firebase_uid=user.firebase_uid,
+                email=user.email or "superadmin@platform.com",
+                role="super_admin",
+                organization_id=first_org.id,
+                organization_name=first_org.name,
+                organization_created_at=first_org.created_at,
+            )
+        # No orgs exist yet, but super admin can still proceed
+        raise HTTPException(status_code=404, detail="No organizations exist")
+
+    # Regular users: look up user in database
     db_user = db.query(User).filter(User.firebase_uid == user.firebase_uid).first()
 
     if not db_user:

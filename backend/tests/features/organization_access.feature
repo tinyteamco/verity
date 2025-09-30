@@ -31,10 +31,11 @@ Feature: Organization Access Control
     When they GET /orgs/current
     Then the response status is 401
 
-  Scenario: Super admin cannot access organization endpoint directly
+  Scenario: Super admin can access organization endpoint with god-mode
     Given a signed-in super admin user
     When they GET /orgs/current
-    Then the response status is 403
+    Then the response status is 404
+    And the error message is "No organizations exist"
 
   Scenario: User not associated with any organization
     Given a signed-in organization user not in database
