@@ -168,7 +168,7 @@ backend_service = gcp.cloudrunv2.Service(
     "backend-service",
     name=resource_name("backend"),
     location=region,
-    ingress="INGRESS_TRAFFIC_ALL",  # Allow public access (controlled by org policy)
+    ingress="INGRESS_TRAFFIC_INTERNAL_AND_CLOUD_LOAD_BALANCING",  # Access via Firebase Hosting proxy only
     template={
         "service_account": backend_sa.email,
         "scaling": {
@@ -212,9 +212,9 @@ backend_service = gcp.cloudrunv2.Service(
     ),
 )
 
-# Public access controlled via ingress setting above
-# IAM-based allUsers is blocked by organization policy
-# TODO: Consider Cloud Armor for rate limiting and DDoS protection
+# Access controlled via Firebase Hosting proxy (configured separately)
+# Cloud Run is not directly accessible from internet
+# Firebase Hosting will proxy /api/** requests to this service
 
 # =============================================================================
 # Outputs
