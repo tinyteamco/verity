@@ -168,7 +168,7 @@ backend_service = gcp.cloudrunv2.Service(
     "backend-service",
     name=resource_name("backend"),
     location=region,
-    ingress="INGRESS_TRAFFIC_INTERNAL_AND_CLOUD_LOAD_BALANCING",  # Access via Firebase Hosting proxy only
+    ingress="INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER",  # Access via Firebase Hosting proxy only
     template={
         "service_account": backend_sa.email,
         "scaling": {
