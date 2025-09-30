@@ -77,7 +77,8 @@ gcloud services enable \
     iamcredentials.googleapis.com \
     cloudresourcemanager.googleapis.com \
     compute.googleapis.com \
-    servicenetworking.googleapis.com
+    servicenetworking.googleapis.com \
+    vpcaccess.googleapis.com
 
 echo -e "${GREEN}✅ APIs enabled${NC}"
 echo ""
