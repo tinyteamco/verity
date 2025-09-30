@@ -82,13 +82,9 @@ backend_secrets_binding = gcp.projects.IAMMember(
 # GitHub Actions Service Account (CI/CD)
 # =============================================================================
 
-# Service account for GitHub Actions CI/CD pipeline
-github_actions_sa = gcp.serviceaccount.Account(
-    "github-actions-sa",
-    account_id="github-actions",
-    display_name="GitHub Actions CI/CD",
-    description="Service account for GitHub Actions deployment pipeline",
-)
+# Note: Service account already exists (created manually), so we just reference it
+# Format: {account_id}@{project}.iam.gserviceaccount.com
+github_actions_sa_email = f"github-actions@{project}.iam.gserviceaccount.com"
 
 # Grant roles needed for CI/CD deployments
 
@@ -97,7 +93,7 @@ github_actions_artifact_binding = gcp.projects.IAMMember(
     "github-actions-artifact-writer",
     project=project,
     role="roles/artifactregistry.writer",
-    member=github_actions_sa.email.apply(lambda email: f"serviceAccount:{email}"),
+    member=f"serviceAccount:{github_actions_sa_email}",
 )
 
 # Cloud Run Admin (deploy services)
@@ -105,7 +101,7 @@ github_actions_run_binding = gcp.projects.IAMMember(
     "github-actions-run-admin",
     project=project,
     role="roles/run.admin",
-    member=github_actions_sa.email.apply(lambda email: f"serviceAccount:{email}"),
+    member=f"serviceAccount:{github_actions_sa_email}",
 )
 
 # Service Account User (act as service accounts)
@@ -113,7 +109,7 @@ github_actions_sa_user_binding = gcp.projects.IAMMember(
     "github-actions-sa-user",
     project=project,
     role="roles/iam.serviceAccountUser",
-    member=github_actions_sa.email.apply(lambda email: f"serviceAccount:{email}"),
+    member=f"serviceAccount:{github_actions_sa_email}",
 )
 
 # Cloud SQL Client (run migrations via proxy)
@@ -121,7 +117,7 @@ github_actions_sql_binding = gcp.projects.IAMMember(
     "github-actions-cloudsql-client",
     project=project,
     role="roles/cloudsql.client",
-    member=github_actions_sa.email.apply(lambda email: f"serviceAccount:{email}"),
+    member=f"serviceAccount:{github_actions_sa_email}",
 )
 
 # Secret Manager Secret Accessor (read database credentials)
@@ -129,7 +125,7 @@ github_actions_secrets_binding = gcp.projects.IAMMember(
     "github-actions-secrets-accessor",
     project=project,
     role="roles/secretmanager.secretAccessor",
-    member=github_actions_sa.email.apply(lambda email: f"serviceAccount:{email}"),
+    member=f"serviceAccount:{github_actions_sa_email}",
 )
 
 # Firebase Admin (manage Firebase Auth users)
@@ -137,7 +133,7 @@ github_actions_firebase_binding = gcp.projects.IAMMember(
     "github-actions-firebase-admin",
     project=project,
     role="roles/firebaseauth.admin",
-    member=github_actions_sa.email.apply(lambda email: f"serviceAccount:{email}"),
+    member=f"serviceAccount:{github_actions_sa_email}",
 )
 
 # =============================================================================
@@ -334,7 +330,7 @@ pulumi.export("stack", stack)
 
 # Service accounts
 pulumi.export("backend_service_account", backend_sa.email)
-pulumi.export("github_actions_service_account", github_actions_sa.email)
+pulumi.export("github_actions_service_account", github_actions_sa_email)
 
 # Database
 pulumi.export("db_instance_name", db_instance.name)
