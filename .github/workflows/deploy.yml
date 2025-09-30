@@ -97,10 +97,45 @@ jobs:
           docker push $IMAGE_URI
           echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
 
-      # TODO: Automate database migrations
-      # For now, migrations are run manually via Pulumi or locally
-      # Future: Set up Cloud SQL Proxy with proper IAM permissions
-      # - name: Run database migrations
+      - name: Run database migrations
+        run: |
+          # Get DATABASE_URL from Secret Manager and convert to localhost format for proxy
+          DATABASE_URL_CLOUDSQL=$(gcloud secrets versions access latest --secret=${{ env.DATABASE_URL_SECRET }})
+
+          # Extract user, password, and database name from the Cloud SQL URL
+          # Format: postgresql+psycopg://user:pass@/dbname?host=/cloudsql/...
+          USER_PASS=$(echo "$DATABASE_URL_CLOUDSQL" | sed -n 's|postgresql+psycopg://\([^@]*\)@.*|\1|p')
+          DB_NAME=$(echo "$DATABASE_URL_CLOUDSQL" | sed -n 's|.*@/\([^?]*\).*|\1|p')
+          DATABASE_URL="postgresql+psycopg://${USER_PASS}@localhost:5432/${DB_NAME}"
+
+          # Install Cloud SQL Proxy
+          curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.2/cloud-sql-proxy.linux.amd64
+          chmod +x cloud-sql-proxy
+
+          # Start Cloud SQL proxy in background
+          ./cloud-sql-proxy ${{ env.DB_CONNECTION_NAME }} &
+          PROXY_PID=$!
+
+          # Wait for proxy to be ready
+          echo "Waiting for Cloud SQL proxy..."
+          for i in {1..30}; do
+            if nc -z localhost 5432 2>/dev/null; then
+              echo "✅ Cloud SQL proxy ready"
+              break
+            fi
+            sleep 2
+          done
+
+          # Run migrations in Docker container with localhost connection
+          docker run --rm \
+            --network host \
+            -e DATABASE_URL="$DATABASE_URL" \
+            ${{ env.IMAGE_URI }} \
+            uv run alembic upgrade head
+
+          # Cleanup
+          kill $PROXY_PID
+          echo "✅ Database migrations completed"
 
       - name: Deploy to Cloud Run
         run: |
