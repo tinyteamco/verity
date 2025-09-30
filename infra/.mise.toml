@@ -1,0 +1,8 @@
+[tools]
+python = "3.12"
+pulumi = "latest"
+
+[env]
+# Use Pulumi Cloud for state management
+# PULUMI_ACCESS_TOKEN should be set in CI via GitHub secrets
+PULUMI_CONFIG_PASSPHRASE = ""  # Not needed for Pulumi Cloud

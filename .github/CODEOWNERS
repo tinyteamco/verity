@@ -1,0 +1,5 @@
+# Infrastructure code requires admin approval
+/infra/ @jkp
+/scripts/bootstrap-*.sh @jkp
+/.github/workflows/deploy-infra.yml @jkp
+/docs/003-plans/002-infrastructure-as-code/ @jkp

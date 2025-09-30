@@ -34,8 +34,17 @@ verity/
 │   └── tests/              # BDD tests with pytest-bdd
 │       ├── features/       # Gherkin feature files
 │       └── step_defs/      # Step implementations
+├── infra/                  # Infrastructure as Code (Pulumi)
+│   ├── .mise.toml         # Pulumi CLI + Python 3.12
+│   ├── Pulumi.yaml        # Pulumi project config
+│   ├── Pulumi.dev.yaml    # Dev stack config
+│   ├── Pulumi.prod.yaml   # Prod stack config
+│   ├── __main__.py        # Infrastructure definition
+│   └── pyproject.toml     # Pulumi dependencies
 ├── frontend/               # (future)
-└── docs/                   # Architecture & planning docs
+├── docs/                   # Architecture & planning docs
+└── scripts/                # Bootstrap and utility scripts
+    └── bootstrap-gcp-pulumi.sh  # One-time GCP setup
 ```
 
 ### Development Commands
@@ -81,6 +90,9 @@ act --container-architecture linux/amd64  # Test GitHub Actions locally
 6. **Zero Warnings Policy**: All code must pass ruff + ty with zero warnings/errors
 7. **Git Hooks with hk**: Pre-commit hooks enforce code quality automatically using hk + mise
 8. **CI/CD with GitHub Actions**: Automated validation on every push/PR with local testing via act
+9. **Infrastructure as Code**: Pulumi in Python for GCP infrastructure management
+10. **CI-Only Deployments**: Infrastructure changes only via GitHub Actions (no local deployments)
+11. **Workload Identity**: GitHub authenticates to GCP without JSON keys (OIDC)
 
 ### Code Quality Standards
 
@@ -118,9 +130,12 @@ act --container-architecture linux/amd64  # Test GitHub Actions locally
 - ✅ Interview guide management (markdown-based guides for studies)
 - ✅ Firebase Auth integration with multi-tenancy
 - ✅ Google Cloud SQL deployment with automatic migrations
+- ✅ Infrastructure as Code with Pulumi (Cloud SQL, Cloud Run, VPC, Secrets)
+- ✅ CI/CD for infrastructure via GitHub Actions
+- ✅ Workload Identity Federation (no JSON keys)
 
 ### In Progress
-- 🔄 Interview management (self-led interview flow with unique links)
+- 🔄 Infrastructure deployment to GCP (Pulumi setup complete, awaiting bootstrap)
 
 ### API Specification
 The `openapi.yaml` file defines:
@@ -132,13 +147,46 @@ The `openapi.yaml` file defines:
 - Role-based access with roles: owner|admin|member
 
 ### Infrastructure
-`docker-compose.yml` defines these services:
+
+**Local Development** (`docker-compose.yml`):
 - PostgreSQL 16 (port 5432)
 - MinIO object storage (ports 9000/9001)
 - Firebase Auth emulator (port 9099)
-- API service (port 8000) - needs Dockerfile implementation
+
+**Production** (Pulumi-managed GCP resources):
+- Cloud SQL PostgreSQL 16 (private IP, automated backups)
+- Cloud Run service (backend API, auto-scaling)
+- VPC with private networking
+- Secret Manager (database credentials, API keys)
+- Service accounts with least-privilege IAM
+- Workload Identity Federation for GitHub Actions
+
+See `/infra/README.md` for deployment instructions.
+
+### Infrastructure as Code
+
+**Bootstrap (one-time, manual):**
+```bash
+# Set GitHub repo for Workload Identity
+export GITHUB_REPO="username/verity"
+
+# Run bootstrap script
+./scripts/bootstrap-gcp-pulumi.sh
+```
+
+**Local Preview (read-only):**
+```bash
+cd infra
+mise exec -- pulumi preview  # View planned changes
+```
+
+**Deploy (CI only):**
+- Go to Actions → Deploy Infrastructure workflow
+- Select stack (dev/prod) and action (preview/up)
+- Manual approval required for `up`
 
 ### Documentation Structure
 - `/docs/001-overview/` - MVP information architecture and UXR project details
 - `/docs/002-architecture/` - Technical architecture decisions and patterns
 - `/docs/003-plans/` - Implementation plans and roadmaps
+  - `/docs/003-plans/002-infrastructure-as-code/` - IaC design decisions

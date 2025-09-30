@@ -1,0 +1,6 @@
+name: verity-infra
+description: Infrastructure as Code for Verity UXR Platform
+runtime:
+  name: python
+  options:
+    virtualenv: venv
