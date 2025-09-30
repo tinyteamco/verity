@@ -16,7 +16,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 PROJECT_ID="${PROJECT_ID:-verity-platform-473406}"
-REGION="${REGION:-us-central1}"
+REGION="${REGION:-europe-west1}"
 GITHUB_REPO="${GITHUB_REPO:-}"  # Format: "username/repo" (e.g., "jkp/verity")
 
 echo -e "${GREEN}🚀 Verity Platform - GCP + Pulumi Bootstrap${NC}"
