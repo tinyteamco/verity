@@ -1,4 +1,4 @@
 config:
-  gcp:project: verity-platform-473406
-  gcp:region: europe-west1
+  verity-infra:gcp:project: verity-platform-473406
+  verity-infra:gcp:region: europe-west1
   verity-infra:region: europe-west1
