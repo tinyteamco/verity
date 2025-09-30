@@ -200,9 +200,9 @@ backend_service = gcp.cloudrunv2.Service(
                 # Placeholder image, CI/CD will update this
                 image=f"{region}-docker.pkg.dev/{project}/verity/backend:latest",
                 ports=[
-                    gcp.cloudrunv2.ServiceTemplateContainerPortsArgs(
-                        container_port=8000,
-                    ),
+                    {
+                        "container_port": 8000,
+                    },
                 ],
                 envs=[
                     gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
