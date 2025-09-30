@@ -73,40 +73,10 @@ jobs:
           docker push $IMAGE_URI
           echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
 
-      - name: Install Cloud SQL Auth Proxy
-        run: |
-          curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.2/cloud-sql-proxy.linux.amd64
-          chmod +x cloud-sql-proxy
-
-      - name: Run database migrations
-        run: |
-          # Start Cloud SQL proxy in background
-          ./cloud-sql-proxy ${{ env.PROJECT_ID }}:${{ env.REGION }}:verity-postgres &
-          PROXY_PID=$!
-
-          # Wait for proxy to be ready
-          echo "Waiting for Cloud SQL proxy to be ready..."
-          for i in {1..30}; do
-            if nc -z localhost 5432 2>/dev/null; then
-              echo "Cloud SQL proxy is ready!"
-              break
-            fi
-            echo "Attempt $i/30: Proxy not ready yet, waiting 2 seconds..."
-            sleep 2
-          done
-
-          # Pull the Docker image
-          docker pull ${{ env.IMAGE_URI }}
-
-          # Run migrations in Docker container with network host mode
-          docker run --rm \
-            --network host \
-            -e DATABASE_URL="postgresql+psycopg://uxr:${{ secrets.DATABASE_PASSWORD }}@localhost:5432/uxr" \
-            ${{ env.IMAGE_URI }} \
-            uv run alembic upgrade head
-
-          # Stop proxy
-          kill $PROXY_PID
+      # TODO: Automate database migrations
+      # For now, migrations are run manually via Pulumi or locally
+      # Future: Set up Cloud SQL Proxy with proper IAM permissions
+      # - name: Run database migrations
 
       - name: Deploy to Cloud Run
         run: |
