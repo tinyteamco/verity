@@ -162,3 +162,14 @@ jobs:
             --set-cloudsql-instances ${{ env.DB_CONNECTION_NAME }} \
             --startup-probe="httpGet.path=/api/health,httpGet.port=8000,initialDelaySeconds=30,timeoutSeconds=5,periodSeconds=10,failureThreshold=3" \
             --liveness-probe="httpGet.path=/api/health,httpGet.port=8000,timeoutSeconds=5,periodSeconds=30,failureThreshold=3"
+
+      - name: Seed Firebase Auth with admin user
+        run: |
+          # Install mise for tool management
+          curl https://mise.run | sh
+          export PATH="$HOME/.local/bin:$PATH"
+
+          cd backend
+          mise install
+          mise exec -- uv run python scripts/seed_firebase.py --production
+          echo "✅ Firebase Auth seeded with admin user"

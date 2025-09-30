@@ -28,12 +28,23 @@
 					"if (!pm.environment.get('firebase_token') || !tokenExpiry || now >= tokenExpiry) {",
 					"    console.log('Authenticating with Firebase...');",
 					"    ",
-					"    const firebaseUrl = pm.environment.get('firebase_emulator_url');",
+					"    // Use emulator URL if available, otherwise use production Firebase Auth",
+					"    const firebaseEmulatorUrl = pm.environment.get('firebase_emulator_url');",
+					"    const firebaseAuthUrl = pm.environment.get('firebase_auth_url') || 'https://identitytoolkit.googleapis.com';",
+					"    const firebaseApiKey = pm.environment.get('firebase_api_key') || 'fake-api-key';",
 					"    const email = pm.environment.get('test_email');",
 					"    const password = pm.environment.get('test_password');",
 					"    ",
+					"    // Construct auth URL - emulator uses different format",
+					"    let authUrl;",
+					"    if (firebaseEmulatorUrl) {",
+					"        authUrl = `${firebaseEmulatorUrl}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=fake-api-key`;",
+					"    } else {",
+					"        authUrl = `${firebaseAuthUrl}/v1/accounts:signInWithPassword?key=${firebaseApiKey}`;",
+					"    }",
+					"    ",
 					"    pm.sendRequest({",
-					"        url: `${firebaseUrl}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=fake-api-key`,",
+					"        url: authUrl,",
 					"        method: 'POST',",
 					"        header: {",
 					"            'Content-Type': 'application/json'",
@@ -100,11 +111,12 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{api_base_url}}/health",
+							"raw": "{{api_base_url}}/api/health",
 							"host": [
 								"{{api_base_url}}"
 							],
 							"path": [
+								"api",
 								"health"
 							]
 						}
@@ -151,11 +163,12 @@
 							"raw": "{\n    \"name\": \"Test Organization via Postman\"\n}"
 						},
 						"url": {
-							"raw": "{{api_base_url}}/orgs",
+							"raw": "{{api_base_url}}/api/orgs",
 							"host": [
 								"{{api_base_url}}"
 							],
 							"path": [
+								"api",
 								"orgs"
 							]
 						}
@@ -187,11 +200,12 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{api_base_url}}/orgs/current",
+							"raw": "{{api_base_url}}/api/orgs/current",
 							"host": [
 								"{{api_base_url}}"
 							],
 							"path": [
+								"api",
 								"orgs",
 								"current"
 							]
@@ -224,11 +238,12 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{api_base_url}}/orgs/current/users",
+							"raw": "{{api_base_url}}/api/orgs/current/users",
 							"host": [
 								"{{api_base_url}}"
 							],
 							"path": [
+								"api",
 								"orgs",
 								"current",
 								"users"
@@ -278,11 +293,12 @@
 							"raw": "{\n    \"title\": \"Test Study via Newman\"\n}"
 						},
 						"url": {
-							"raw": "{{api_base_url}}/studies",
+							"raw": "{{api_base_url}}/api/studies",
 							"host": [
 								"{{api_base_url}}"
 							],
 							"path": [
+								"api",
 								"studies"
 							]
 						}
@@ -315,11 +331,12 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{api_base_url}}/studies",
+							"raw": "{{api_base_url}}/api/studies",
 							"host": [
 								"{{api_base_url}}"
 							],
 							"path": [
+								"api",
 								"studies"
 							]
 						}
@@ -351,11 +368,12 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{api_base_url}}/studies/{{study_id}}",
+							"raw": "{{api_base_url}}/api/studies/{{study_id}}",
 							"host": [
 								"{{api_base_url}}"
 							],
 							"path": [
+								"api",
 								"studies",
 								"{{study_id}}"
 							]
@@ -402,11 +420,12 @@
 							"raw": "{\n    \"content_md\": \"# Interview Guide\\n\\n## Introduction\\nThank you for participating!\\n\\n## Questions\\n1. Tell me about your experience...\\n2. What challenges did you face?\"\n}"
 						},
 						"url": {
-							"raw": "{{api_base_url}}/studies/{{study_id}}/guide",
+							"raw": "{{api_base_url}}/api/studies/{{study_id}}/guide",
 							"host": [
 								"{{api_base_url}}"
 							],
 							"path": [
+								"api",
 								"studies",
 								"{{study_id}}",
 								"guide"
@@ -439,11 +458,12 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{api_base_url}}/studies/{{study_id}}/guide",
+							"raw": "{{api_base_url}}/api/studies/{{study_id}}/guide",
 							"host": [
 								"{{api_base_url}}"
 							],
 							"path": [
+								"api",
 								"studies",
 								"{{study_id}}",
 								"guide"
@@ -486,11 +506,12 @@
 						"method": "POST",
 						"header": [],
 						"url": {
-							"raw": "{{api_base_url}}/studies/{{study_id}}/interviews",
+							"raw": "{{api_base_url}}/api/studies/{{study_id}}/interviews",
 							"host": [
 								"{{api_base_url}}"
 							],
 							"path": [
+								"api",
 								"studies",
 								"{{study_id}}",
 								"interviews"
@@ -525,11 +546,12 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{api_base_url}}/studies/{{study_id}}/interviews",
+							"raw": "{{api_base_url}}/api/studies/{{study_id}}/interviews",
 							"host": [
 								"{{api_base_url}}"
 							],
 							"path": [
+								"api",
 								"studies",
 								"{{study_id}}",
 								"interviews"
@@ -563,11 +585,12 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{api_base_url}}/studies/{{study_id}}/interviews/{{interview_id}}",
+							"raw": "{{api_base_url}}/api/studies/{{study_id}}/interviews/{{interview_id}}",
 							"host": [
 								"{{api_base_url}}"
 							],
 							"path": [
+								"api",
 								"studies",
 								"{{study_id}}",
 								"interviews",
@@ -610,11 +633,12 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{api_base_url}}/interview/{{access_token}}",
+							"raw": "{{api_base_url}}/api/interview/{{access_token}}",
 							"host": [
 								"{{api_base_url}}"
 							],
 							"path": [
+								"api",
 								"interview",
 								"{{access_token}}"
 							]
@@ -665,11 +689,12 @@
 							"raw": "{\n    \"lang\": \"en\",\n    \"source\": \"client\",\n    \"segments\": [\n        {\n            \"start_ms\": 0,\n            \"end_ms\": 2000,\n            \"text\": \"Hello, this is a test interview.\"\n        },\n        {\n            \"start_ms\": 2000,\n            \"end_ms\": 5000,\n            \"text\": \"Thank you for participating in our study.\"\n        }\n    ]\n}"
 						},
 						"url": {
-							"raw": "{{api_base_url}}/interviews/{{interview_id}}/transcript:finalize",
+							"raw": "{{api_base_url}}/api/interviews/{{interview_id}}/transcript:finalize",
 							"host": [
 								"{{api_base_url}}"
 							],
 							"path": [
+								"api",
 								"interviews",
 								"{{interview_id}}",
 								"transcript:finalize"
