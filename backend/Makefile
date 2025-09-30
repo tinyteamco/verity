@@ -22,8 +22,18 @@ test: ## Run tests (with services)
 	$(MAKE) seed-admin
 	APP_ENV=local uv run pytest
 
-test-ci: ## Run tests in CI (no external services)
+test-ci: .firebase-seeded ## Run tests in CI (ensures Firebase is seeded)
 	APP_ENV=local uv run pytest
+
+.firebase-seeded: scripts/seed_firebase.py
+	@echo "🌱 Ensuring Firebase is seeded..."
+	@if ! curl -s http://localhost:9099 >/dev/null 2>&1; then \
+		echo "⚠️  Firebase emulator not running, starting it..."; \
+		$(MAKE) start-firebase; \
+	fi
+	uv run python scripts/seed_firebase.py
+	@touch .firebase-seeded
+	@echo "✅ Firebase seeded (sentinel created)"
 
 build: ## Build Docker image
 	docker build -t gcr.io/verity-platform/verity-backend:latest .
@@ -101,6 +111,7 @@ clean: ## Clean up
 	rm -rf __pycache__/
 	rm -rf .pytest_cache/
 	rm -rf .ruff_cache/
+	rm -f .firebase-seeded
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
