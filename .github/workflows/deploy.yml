@@ -96,5 +96,5 @@ jobs:
             --execution-environment gen2 \
             --set-env-vars DATABASE_URL="postgresql+psycopg://uxr:${{ secrets.DATABASE_PASSWORD }}@/uxr?host=/cloudsql/${{ env.PROJECT_ID }}:${{ env.REGION }}:verity-postgres" \
             --set-cloudsql-instances ${{ env.PROJECT_ID }}:${{ env.REGION }}:verity-postgres \
-            --startup-probe="httpGet.path=/health,httpGet.port=8000,initialDelaySeconds=30,timeoutSeconds=5,periodSeconds=10,failureThreshold=3" \
-            --liveness-probe="httpGet.path=/health,httpGet.port=8000,timeoutSeconds=5,periodSeconds=30,failureThreshold=3"
+            --startup-probe="httpGet.path=/api/health,httpGet.port=8000,initialDelaySeconds=30,timeoutSeconds=5,periodSeconds=10,failureThreshold=3" \
+            --liveness-probe="httpGet.path=/api/health,httpGet.port=8000,timeoutSeconds=5,periodSeconds=30,failureThreshold=3"
