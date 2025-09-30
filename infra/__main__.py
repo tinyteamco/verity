@@ -35,9 +35,6 @@ required_apis = [
     "run.googleapis.com",              # Cloud Run
     "sqladmin.googleapis.com",         # Cloud SQL Admin
     "secretmanager.googleapis.com",    # Secret Manager
-    "vpcaccess.googleapis.com",        # Serverless VPC Access
-    "servicenetworking.googleapis.com", # Service Networking (for Cloud SQL private IP)
-    "compute.googleapis.com",          # Compute Engine (for VPC)
 ]
 
 enabled_services = []
@@ -80,39 +77,10 @@ backend_secrets_binding = gcp.projects.IAMMember(
 )
 
 # =============================================================================
-# Networking (for Cloud SQL private IP)
-# =============================================================================
-
-# Enable VPC access (required for Cloud SQL private IP)
-# Note: Using default VPC for simplicity, can create custom VPC later
-vpc_network = gcp.compute.Network(
-    "vpc-network",
-    name=resource_name("vpc"),
-    auto_create_subnetworks=True,
-    description=f"VPC network for Verity platform ({stack})",
-)
-
-# Allocate IP range for Google services (Cloud SQL, etc.)
-private_ip_range = gcp.compute.GlobalAddress(
-    "private-ip-range",
-    name=resource_name("private-ip"),
-    purpose="VPC_PEERING",
-    address_type="INTERNAL",
-    prefix_length=16,
-    network=vpc_network.id,
-)
-
-# Create private VPC connection for Cloud SQL
-private_vpc_connection = gcp.servicenetworking.Connection(
-    "private-vpc-connection",
-    network=vpc_network.id,
-    service="servicenetworking.googleapis.com",
-    reserved_peering_ranges=[private_ip_range.name],
-)
-
-# =============================================================================
 # Cloud SQL (PostgreSQL 16)
 # =============================================================================
+# Note: Using public IP with Cloud SQL Proxy for secure, cost-effective access
+# Cloud Run connects via unix socket using the Cloud SQL Proxy sidecar
 
 # Generate random password for database
 db_password = pulumi.Config().get_secret("db_password") or pulumi.Output.secret("change-me-in-prod")
@@ -126,8 +94,9 @@ db_instance = gcp.sql.DatabaseInstance(
     settings=gcp.sql.DatabaseInstanceSettingsArgs(
         tier="db-f1-micro" if stack == "dev" else "db-n1-standard-1",
         ip_configuration=gcp.sql.DatabaseInstanceSettingsIpConfigurationArgs(
-            ipv4_enabled=False,  # Private IP only
-            private_network=vpc_network.id,
+            ipv4_enabled=True,  # Public IP with Cloud SQL Proxy
+            # Authorized networks can be added here if needed
+            # Cloud Run uses Cloud SQL Proxy which doesn't need IP whitelist
         ),
         backup_configuration=gcp.sql.DatabaseInstanceSettingsBackupConfigurationArgs(
             enabled=True,
@@ -193,20 +162,9 @@ database_url_secret_version = gcp.secretmanager.SecretVersion(
 # Cloud Run (Backend API)
 # =============================================================================
 
-# VPC connector for Cloud Run to access Cloud SQL
-vpc_connector = gcp.vpcaccess.Connector(
-    "vpc-connector",
-    name=resource_name("vpc-conn"),
-    region=region,
-    network=vpc_network.name,
-    ip_cidr_range="10.8.0.0/28",  # Small range for connector
-    min_instances=stack == "prod" and 2 or 0,
-    max_instances=3,
-    opts=pulumi.ResourceOptions(depends_on=enabled_services),
-)
-
 # Cloud Run service
 # Note: Image is deployed via CI/CD, this just sets up the service configuration
+# Cloud SQL connection uses Cloud SQL Proxy (configured via annotations)
 backend_service = gcp.cloudrunv2.Service(
     "backend-service",
     name=resource_name("backend"),
@@ -217,9 +175,9 @@ backend_service = gcp.cloudrunv2.Service(
             "min_instance_count": 0 if stack == "dev" else 1,
             "max_instance_count": 10 if stack == "dev" else 100,
         },
-        "vpc_access": {
-            "connector": vpc_connector.id,
-            "egress": "PRIVATE_RANGES_ONLY",
+        # Cloud SQL connection via Cloud SQL Proxy
+        "annotations": {
+            "run.googleapis.com/cloudsql-instances": db_instance.connection_name,
         },
         "containers": [{
             # Placeholder image, CI/CD will update this
