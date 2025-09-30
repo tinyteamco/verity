@@ -44,6 +44,7 @@ from ..schemas import (
     StudyUpdate,
     TranscriptFinalizeRequest,
     TranscriptResponse,
+    UserList,
     UserResponse,
 )
 from ..storage import generate_audio_object_name, get_storage_client
@@ -122,23 +123,25 @@ async def get_current_organization(
     )
 
 
-@app.get("/orgs/current/users", response_model=list[UserResponse])
+@app.get("/orgs/current/users", response_model=UserList)
 async def list_organization_users(
     org_user: Annotated[OrgUser, Depends(require_owner_or_admin)],
     db: Annotated[Session, Depends(get_db)],
-) -> list[UserResponse]:
+) -> UserList:
     """List users in the current organization (owner/admin only)"""
     users = db.query(User).filter(User.organization_id == org_user.organization_id).all()
 
-    return [
-        UserResponse(
-            user_id=str(user.id),
-            email=user.email,
-            role=user.role,
-            created_at=user.created_at,
-        )
-        for user in users
-    ]
+    return UserList(
+        items=[
+            UserResponse(
+                user_id=str(user.id),
+                email=user.email,
+                role=user.role,
+                created_at=user.created_at,
+            )
+            for user in users
+        ]
+    )
 
 
 # Study Management Endpoints

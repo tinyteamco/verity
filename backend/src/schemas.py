@@ -58,6 +58,10 @@ class StudyList(BaseModel):
     items: list[StudyResponse]
 
 
+class UserList(BaseModel):
+    items: list[UserResponse]
+
+
 class InterviewGuideCreate(BaseModel):
     content_md: str
 

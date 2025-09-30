@@ -427,7 +427,7 @@ def check_user_list_count(request: Any, count: int) -> None:
 @then(parsers.parse('"{email}" does not appear in the user list'))
 def check_email_not_in_user_list(request: Any, email: str) -> None:
     """Check that email does not appear in user list."""
-    user_emails = [user["email"] for user in request.user_list]
+    user_emails = [user["email"] for user in request.user_list["items"]]
     assert email not in user_emails
 
 

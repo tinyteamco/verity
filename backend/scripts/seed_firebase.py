@@ -45,19 +45,20 @@ def main() -> None:
     # Initialize Firebase Admin SDK
     initialize_firebase()
 
-    # Create ONLY the super admin user (persistent platform admin)
+    # Create single super admin user (used by tests, Postman, and manual testing)
     create_user_with_claims(
-        email="admin@tinyteam.co",
-        password="superadmin123",
-        uid="super-admin-uid",
-        custom_claims={"super_admin": True, "tenant": "organization", "role": "super_admin"},
+        email="test-superadmin@test.com",
+        password="testpass123",
+        uid="test-super-admin",
+        custom_claims={"tenant": "organization", "role": "super_admin"},
     )
 
     print("✅ Platform seeding complete!")
     print("\n🔑 Super admin credentials:")
-    print("Super Admin: admin@tinyteam.co / superadmin123")
+    print("Email:    test-superadmin@test.com")
+    print("Password: testpass123")
     print("\n🌐 Emulator UI: http://localhost:4000/auth")
-    print("\ni️  Test users will be created by pytest fixtures")
+    print("\nNote: Test users will be created by pytest fixtures")
 
 
 if __name__ == "__main__":

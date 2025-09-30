@@ -1,0 +1,684 @@
+{
+	"info": {
+		"_postman_id": "verity-api-collection",
+		"name": "Verity API",
+		"description": "Complete API test suite for Verity UXR platform",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{firebase_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Auto-authenticate with Firebase if token is missing or expired",
+					"const tokenExpiry = pm.environment.get('token_expiry');",
+					"const now = new Date().getTime();",
+					"",
+					"if (!pm.environment.get('firebase_token') || !tokenExpiry || now >= tokenExpiry) {",
+					"    console.log('Authenticating with Firebase...');",
+					"    ",
+					"    const firebaseUrl = pm.environment.get('firebase_emulator_url');",
+					"    const email = pm.environment.get('test_email');",
+					"    const password = pm.environment.get('test_password');",
+					"    ",
+					"    pm.sendRequest({",
+					"        url: `${firebaseUrl}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=fake-api-key`,",
+					"        method: 'POST',",
+					"        header: {",
+					"            'Content-Type': 'application/json'",
+					"        },",
+					"        body: {",
+					"            mode: 'raw',",
+					"            raw: JSON.stringify({",
+					"                email: email,",
+					"                password: password,",
+					"                returnSecureToken: true",
+					"            })",
+					"        }",
+					"    }, (err, response) => {",
+					"        if (err) {",
+					"            console.error('Firebase auth error:', err);",
+					"            return;",
+					"        }",
+					"        ",
+					"        const jsonData = response.json();",
+					"        if (jsonData.idToken) {",
+					"            pm.environment.set('firebase_token', jsonData.idToken);",
+					"            // Set expiry to 55 minutes from now (tokens last 1 hour)",
+					"            const expiryTime = new Date().getTime() + (55 * 60 * 1000);",
+					"            pm.environment.set('token_expiry', expiryTime);",
+					"            console.log('Successfully authenticated with Firebase');",
+					"        } else {",
+					"            console.error('Firebase auth failed:', jsonData);",
+					"        }",
+					"    });",
+					"}"
+				]
+			}
+		}
+	],
+	"item": [
+		{
+			"name": "01 - Health Check",
+			"item": [
+				{
+					"name": "Health Check",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has healthy field', function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('healthy');",
+									"    pm.expect(jsonData.healthy).to.be.true;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{api_base_url}}/health",
+							"host": [
+								"{{api_base_url}}"
+							],
+							"path": [
+								"health"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "02 - Organizations",
+			"item": [
+				{
+					"name": "Create Organization",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 201', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test('Response has org_id', function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('org_id');",
+									"    pm.environment.set('org_id', jsonData.org_id);",
+									"    console.log('Created org_id:', jsonData.org_id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Test Organization via Postman\"\n}"
+						},
+						"url": {
+							"raw": "{{api_base_url}}/orgs",
+							"host": [
+								"{{api_base_url}}"
+							],
+							"path": [
+								"orgs"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Current Org",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has org details', function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('org_id');",
+									"    pm.expect(jsonData).to.have.property('name');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{api_base_url}}/orgs/current",
+							"host": [
+								"{{api_base_url}}"
+							],
+							"path": [
+								"orgs",
+								"current"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Users in Org",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has items array', function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('items');",
+									"    pm.expect(jsonData.items).to.be.an('array');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{api_base_url}}/orgs/current/users",
+							"host": [
+								"{{api_base_url}}"
+							],
+							"path": [
+								"orgs",
+								"current",
+								"users"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "03 - Studies",
+			"item": [
+				{
+					"name": "Create Study",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 201', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test('Response has study details', function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('study_id');",
+									"    pm.expect(jsonData).to.have.property('title');",
+									"    pm.environment.set('study_id', jsonData.study_id);",
+									"    console.log('Created study_id:', jsonData.study_id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Test Study via Newman\"\n}"
+						},
+						"url": {
+							"raw": "{{api_base_url}}/studies",
+							"host": [
+								"{{api_base_url}}"
+							],
+							"path": [
+								"studies"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Studies",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has items array', function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('items');",
+									"    pm.expect(jsonData.items).to.be.an('array');",
+									"    pm.expect(jsonData.items.length).to.be.greaterThan(0);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{api_base_url}}/studies",
+							"host": [
+								"{{api_base_url}}"
+							],
+							"path": [
+								"studies"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Study",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has study details', function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('study_id');",
+									"    pm.expect(jsonData).to.have.property('title');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{api_base_url}}/studies/{{study_id}}",
+							"host": [
+								"{{api_base_url}}"
+							],
+							"path": [
+								"studies",
+								"{{study_id}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "04 - Interview Guides",
+			"item": [
+				{
+					"name": "Create/Update Interview Guide",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has guide content', function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('content_md');",
+									"    pm.expect(jsonData).to.have.property('study_id');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"content_md\": \"# Interview Guide\\n\\n## Introduction\\nThank you for participating!\\n\\n## Questions\\n1. Tell me about your experience...\\n2. What challenges did you face?\"\n}"
+						},
+						"url": {
+							"raw": "{{api_base_url}}/studies/{{study_id}}/guide",
+							"host": [
+								"{{api_base_url}}"
+							],
+							"path": [
+								"studies",
+								"{{study_id}}",
+								"guide"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Interview Guide",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has guide content', function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('content_md');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{api_base_url}}/studies/{{study_id}}/guide",
+							"host": [
+								"{{api_base_url}}"
+							],
+							"path": [
+								"studies",
+								"{{study_id}}",
+								"guide"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "05 - Interviews",
+			"item": [
+				{
+					"name": "Generate Interview Link",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 201', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test('Response has interview details', function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('interview');",
+									"    pm.expect(jsonData).to.have.property('interview_url');",
+									"    pm.environment.set('interview_id', jsonData.interview.interview_id);",
+									"    pm.environment.set('access_token', jsonData.interview.access_token);",
+									"    console.log('Created interview_id:', jsonData.interview.interview_id);",
+									"    console.log('Access token:', jsonData.interview.access_token);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{api_base_url}}/studies/{{study_id}}/interviews",
+							"host": [
+								"{{api_base_url}}"
+							],
+							"path": [
+								"studies",
+								"{{study_id}}",
+								"interviews"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Interviews for Study",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has items array', function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('items');",
+									"    pm.expect(jsonData.items).to.be.an('array');",
+									"    pm.expect(jsonData.items.length).to.be.greaterThan(0);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{api_base_url}}/studies/{{study_id}}/interviews",
+							"host": [
+								"{{api_base_url}}"
+							],
+							"path": [
+								"studies",
+								"{{study_id}}",
+								"interviews"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Interview Details (Auth)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has interview details', function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('interview_id');",
+									"    pm.expect(jsonData).to.have.property('status');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{api_base_url}}/studies/{{study_id}}/interviews/{{interview_id}}",
+							"host": [
+								"{{api_base_url}}"
+							],
+							"path": [
+								"studies",
+								"{{study_id}}",
+								"interviews",
+								"{{interview_id}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "06 - Public Interview Access (No Auth)",
+			"item": [
+				{
+					"name": "Access Interview via Link",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has interview and study', function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('interview');",
+									"    pm.expect(jsonData).to.have.property('study');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{api_base_url}}/interview/{{access_token}}",
+							"host": [
+								"{{api_base_url}}"
+							],
+							"path": [
+								"interview",
+								"{{access_token}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "07 - Transcripts",
+			"item": [
+				{
+					"name": "Finalize Transcript",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 201', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test('Response has transcript_id', function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('transcript_id');",
+									"    pm.environment.set('transcript_id', jsonData.transcript_id);",
+									"    console.log('Created transcript_id:', jsonData.transcript_id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"lang\": \"en\",\n    \"source\": \"client\",\n    \"segments\": [\n        {\n            \"start_ms\": 0,\n            \"end_ms\": 2000,\n            \"text\": \"Hello, this is a test interview.\"\n        },\n        {\n            \"start_ms\": 2000,\n            \"end_ms\": 5000,\n            \"text\": \"Thank you for participating in our study.\"\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{api_base_url}}/interviews/{{interview_id}}/transcript:finalize",
+							"host": [
+								"{{api_base_url}}"
+							],
+							"path": [
+								"interviews",
+								"{{interview_id}}",
+								"transcript:finalize"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}

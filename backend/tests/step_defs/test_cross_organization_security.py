@@ -169,7 +169,7 @@ def check_org_name_not(unexpected_name: str, test_response):
 def check_user_in_list(email: str, test_response):
     """Check if user email appears in the list"""
     data = test_response["response"].json()
-    emails = [user["email"] for user in data]
+    emails = [user["email"] for user in data["items"]]
     assert email in emails
 
 
@@ -177,7 +177,7 @@ def check_user_in_list(email: str, test_response):
 def check_user_not_in_list(email: str, test_response):
     """Check if user email does not appear in the list"""
     data = test_response["response"].json()
-    emails = [user["email"] for user in data]
+    emails = [user["email"] for user in data["items"]]
     assert email not in emails
 
 
