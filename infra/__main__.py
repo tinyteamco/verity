@@ -229,7 +229,7 @@ hosting_site = gcp.firebase.HostingSite(
     "hosting-site",
     project=project,
     site_id=resource_name("app"),
-    opts=pulumi.ResourceOptions(depends_on=[enabled_services]),
+    opts=pulumi.ResourceOptions(depends_on=enabled_services),
 )
 
 # Firebase Hosting Config - proxy /api/** to Cloud Run
