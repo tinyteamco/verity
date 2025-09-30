@@ -33,10 +33,10 @@ jobs:
       - name: Start MinIO for audio storage tests
         run: docker compose up -d minio minio-setup
 
-      - name: Start Firebase emulator and seed admin
-        run: cd backend && make seed-admin
+      - name: Start Firebase emulator
+        run: cd backend && make start-firebase
 
-      - name: Run backend tests
+      - name: Run backend tests (seeds Firebase automatically)
         run: cd backend && make test-ci
 
   deploy:
