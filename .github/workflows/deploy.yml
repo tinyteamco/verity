@@ -73,17 +73,20 @@ jobs:
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
         run: |
-          # Get outputs from Pulumi stack
+          # Get outputs from Pulumi stack (single source of truth)
           DB_CONNECTION_NAME=$(pulumi stack output db_connection_name)
           BACKEND_SERVICE_NAME=$(pulumi stack output backend_service_name)
+          DATABASE_URL_SECRET=$(pulumi stack output database_url_secret_name)
 
           # Export as environment variables for next steps
           echo "DB_CONNECTION_NAME=$DB_CONNECTION_NAME" >> $GITHUB_ENV
           echo "BACKEND_SERVICE_NAME=$BACKEND_SERVICE_NAME" >> $GITHUB_ENV
+          echo "DATABASE_URL_SECRET=$DATABASE_URL_SECRET" >> $GITHUB_ENV
 
           echo "✅ Retrieved from Pulumi:"
           echo "  DB_CONNECTION_NAME=$DB_CONNECTION_NAME"
           echo "  BACKEND_SERVICE_NAME=$BACKEND_SERVICE_NAME"
+          echo "  DATABASE_URL_SECRET=$DATABASE_URL_SECRET"
 
       - name: Build and push Docker image
         run: |
@@ -100,6 +103,7 @@ jobs:
       - name: Deploy to Cloud Run
         run: |
           # Use configuration from Pulumi stack for single source of truth
+          # DATABASE_URL comes from Secret Manager (managed by Pulumi)
           gcloud run deploy ${{ env.BACKEND_SERVICE_NAME }} \
             --image ${{ env.IMAGE_URI }} \
             --platform managed \
@@ -114,7 +118,7 @@ jobs:
             --use-http2 \
             --cpu-throttling \
             --execution-environment gen2 \
-            --set-env-vars DATABASE_URL="postgresql+psycopg://uxr:${{ secrets.DATABASE_PASSWORD }}@/uxr?host=/cloudsql/${{ env.DB_CONNECTION_NAME }}" \
+            --set-secrets="DATABASE_URL=${{ env.DATABASE_URL_SECRET }}:latest" \
             --set-cloudsql-instances ${{ env.DB_CONNECTION_NAME }} \
             --startup-probe="httpGet.path=/api/health,httpGet.port=8000,initialDelaySeconds=30,timeoutSeconds=5,periodSeconds=10,failureThreshold=3" \
             --liveness-probe="httpGet.path=/api/health,httpGet.port=8000,timeoutSeconds=5,periodSeconds=30,failureThreshold=3"
