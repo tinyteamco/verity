@@ -1,8 +1,8 @@
 amends "package://github.com/jdx/hk/releases/download/v1.2.0/hk@1.2.0#/Config.pkl"
 import "package://github.com/jdx/hk/releases/download/v1.2.0/hk@1.2.0#/Builtins.pkl"
 
-local defaultChecks = new Mapping<String, Step> {
-    // Backend code quality checks
+// Fast checks for pre-commit (format, lint, types only)
+local fastChecks = new Mapping<String, Step> {
     ["ruff:format"] = (Builtins.ruff) {
         dir = "backend"
         glob = List("*.py")
@@ -22,10 +22,20 @@ local defaultChecks = new Mapping<String, Step> {
         glob = List("src/**/*.py")
         check = "mise run check:types"
     }
+}
+
+// Comprehensive checks including tests (for pre-push and manual runs)
+local comprehensiveChecks = new Mapping<String, Step> {
+    ...fastChecks
     ["test:backend"] {
         dir = "backend"
         glob = List("*.py")
         check = "mise run test-ci"
+    }
+    ["test:frontend"] {
+        dir = "frontend"
+        glob = List("src/**/*.{ts,tsx}", "tests/**/*.{ts,feature}")
+        check = "make test"
     }
 }
 
@@ -33,18 +43,18 @@ hooks {
     ["pre-commit"] {
         fix = true              // runs the fix step to make modifications
         stash = "patch-file"    // stashes unstaged changes before running fix steps
-        steps = defaultChecks
+        steps = fastChecks      // Only fast checks on pre-commit (< 5 seconds)
     }
     ["pre-push"] {
-        steps = defaultChecks
+        steps = comprehensiveChecks  // Full test suite on pre-push
     }
 
     // "fix" and "check" are special steps for `hk fix` and `hk check` commands
     ["fix"] {
         fix = true
-        steps = defaultChecks
+        steps = comprehensiveChecks
     }
     ["check"] {
-        steps = defaultChecks
+        steps = comprehensiveChecks
     }
 }
