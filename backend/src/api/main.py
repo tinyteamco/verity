@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from firebase_admin import auth
 from scalar_fastapi import get_scalar_api_reference
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..auth import (
@@ -142,8 +143,14 @@ async def create_organization(
     # Create organization
     org = Organization(name=org_data.name)
     db.add(org)
-    db.commit()
-    db.refresh(org)
+    try:
+        db.commit()
+        db.refresh(org)
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=400, detail=f"Organization with name '{org_data.name}' already exists"
+        ) from e
 
     # Create owner user
     try:
