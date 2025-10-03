@@ -37,7 +37,10 @@ def create_test_organization(client, super_admin_token, request):
 
     # Use unique name per test to avoid conflicts
     org_name = f"Test Organization {hash(request.node.name) % 10000}"
-    response = client.post("/orgs", json={"name": org_name}, headers=headers)
+    owner_email = f"owner@testorg{hash(request.node.name) % 10000}.com"
+    response = client.post(
+        "/orgs", json={"name": org_name, "owner_email": owner_email}, headers=headers
+    )
     assert response.status_code == 201
 
 

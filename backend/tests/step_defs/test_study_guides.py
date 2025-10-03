@@ -25,8 +25,18 @@ def current_user_headers():
 @given("a test organization with ID 1 exists")
 def create_test_organization(client, super_admin_token):
     """Create test organization for the scenarios"""
+    import uuid
+
     headers = {"Authorization": f"Bearer {super_admin_token}"}
-    response = client.post("/orgs", json={"name": "Test Organization"}, headers=headers)
+    unique_id = str(uuid.uuid4())[:8]
+    response = client.post(
+        "/orgs",
+        json={
+            "name": "Test Organization",
+            "owner_email": f"owner-{unique_id}@testorganization.com",
+        },
+        headers=headers,
+    )
     assert response.status_code == 201
 
 
@@ -141,8 +151,18 @@ def set_interviewee_user(current_user_headers, interviewee_token):
 def create_study_different_org(client, super_admin_token, study_id):
     """Create a study in a different organization"""
     # Create another organization first
+    import uuid
+
     headers = {"Authorization": f"Bearer {super_admin_token}"}
-    org_response = client.post("/orgs", json={"name": "Other Organization"}, headers=headers)
+    unique_id = str(uuid.uuid4())[:8]
+    org_response = client.post(
+        "/orgs",
+        json={
+            "name": "Other Organization",
+            "owner_email": f"owner-{unique_id}@otherorganization.com",
+        },
+        headers=headers,
+    )
     assert org_response.status_code == 201
 
     # Create user in that org (we'll use a different user for this)

@@ -114,7 +114,11 @@ def get_org_users(client: TestClient, auth_headers, test_response):
 @when('they POST /orgs with name "Hacker Org"')
 def create_org_as_interviewee(client: TestClient, auth_headers, test_response):
     """Try to create an organization as interviewee"""
-    response = client.post("/orgs", json={"name": "Hacker Org"}, headers=auth_headers)
+    response = client.post(
+        "/orgs",
+        json={"name": "Hacker Org", "owner_email": "hacker@hackerorg.com"},
+        headers=auth_headers,
+    )
     test_response["response"] = response
 
 

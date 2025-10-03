@@ -34,13 +34,25 @@ def interviewee_auth(interviewee_token, auth_context):
 
 @when(parsers.parse('I POST /orgs with name "{org_name}"'))
 def post_create_org(client, response, auth_context, org_name):
+    import uuid
+
     headers = auth_context.get("headers", {})
-    response["result"] = client.post("/orgs", json={"name": org_name}, headers=headers)
+    # Generate unique email to avoid conflicts across tests
+    unique_id = str(uuid.uuid4())[:8]
+    owner_email = f"owner-{unique_id}@{org_name.lower().replace(' ', '')}.com"
+    response["result"] = client.post(
+        "/orgs", json={"name": org_name, "owner_email": owner_email}, headers=headers
+    )
 
 
 @when(parsers.parse('an unauthenticated user POST /orgs with name "{org_name}"'))
 def post_create_org_unauth(client, response, org_name):
-    response["result"] = client.post("/orgs", json={"name": org_name})
+    import uuid
+
+    # Generate unique email to avoid conflicts across tests
+    unique_id = str(uuid.uuid4())[:8]
+    owner_email = f"owner-{unique_id}@{org_name.lower().replace(' ', '')}.com"
+    response["result"] = client.post("/orgs", json={"name": org_name, "owner_email": owner_email})
 
 
 @then(parsers.parse("the response status is {status_code:d}"))

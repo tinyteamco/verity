@@ -102,8 +102,14 @@ def super_admin_creates_org_given(client: Any, request: Any, org_name: str) -> N
     token = sign_in_user("admin@tinyteam.co", "superadmin123")
     headers = {"Authorization": f"Bearer {token}"}
 
-    # Create organization
-    response = client.post("/orgs", json={"name": org_name}, headers=headers)
+    # Generate unique owner email using test name hash to avoid collisions
+    test_hash = hash(request.node.name) % 10000
+    owner_email = f"owner-{test_hash}@{org_name.lower().replace(' ', '')}.com"
+
+    # Create organization with owner
+    response = client.post(
+        "/orgs", json={"name": org_name, "owner_email": owner_email}, headers=headers
+    )
     assert response.status_code == 201
 
     # Store org_id for later use
@@ -200,8 +206,14 @@ def super_admin_creates_org(client: Any, request: Any, org_name: str) -> None:
     token = sign_in_user("admin@tinyteam.co", "superadmin123")
     headers = {"Authorization": f"Bearer {token}"}
 
-    # Create organization
-    response = client.post("/orgs", json={"name": org_name}, headers=headers)
+    # Generate unique owner email using test name hash to avoid collisions
+    test_hash = hash(request.node.name) % 10000
+    owner_email = f"owner-{test_hash}@{org_name.lower().replace(' ', '')}.com"
+
+    # Create organization with owner
+    response = client.post(
+        "/orgs", json={"name": org_name, "owner_email": owner_email}, headers=headers
+    )
 
     # Store response and org data
     request.response = response

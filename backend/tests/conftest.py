@@ -170,7 +170,7 @@ def ensure_firebase_initialized():
 
 
 @pytest.fixture
-def super_admin_token():
+def super_admin_token(super_admin_user):
     """Get ID token for the super admin user (seeded in emulator)"""
     from tests.test_helpers import get_super_admin_token
 

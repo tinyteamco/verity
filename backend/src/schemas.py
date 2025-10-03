@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict
 
 class OrganizationCreate(BaseModel):
     name: str
-    owner_email: str | None = None
+    owner_email: str
 
 
 class OwnerCreationResponse(BaseModel):
