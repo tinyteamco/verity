@@ -63,3 +63,26 @@ When('I submit the organization form', async ({ page }) => {
 Then('I don\'t see {string}', async ({ page }, text: string) => {
   await expect(page.getByText(text)).not.toBeVisible()
 })
+
+When('I click on the {string} organization', async ({ page }, orgName: string) => {
+  const orgsList = page.getByTestId('organizations-list')
+  await orgsList.getByText(orgName).click()
+})
+
+Then('I see the organization details page for {string}', async ({ page }, orgName: string) => {
+  // Wait for navigation and verify we're on the org detail page
+  await page.waitForURL(/\/orgs\/[^/]+$/)
+  await expect(page.getByTestId('org-detail-name')).toHaveText(orgName)
+})
+
+Then('I see the organization users section', async ({ page }) => {
+  await expect(page.getByTestId('org-users-section')).toBeVisible()
+})
+
+Then('I see the organization studies section', async ({ page }) => {
+  await expect(page.getByTestId('org-studies-section')).toBeVisible()
+})
+
+When('I reload the page', async ({ page }) => {
+  await page.reload()
+})

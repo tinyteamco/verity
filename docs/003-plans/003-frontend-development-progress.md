@@ -1,7 +1,7 @@
 # Frontend Development Progress
 
 **Last Updated:** 2025-10-03
-**Status:** Super Admin Organization Management - Phase 1
+**Status:** Super Admin Organization Management - Phase 2
 
 ## 🎯 Current Objective
 
@@ -42,23 +42,30 @@ Building out the UX to validate backend implementation, following a super admin 
 - Refresh list after creation
 - Full E2E test coverage
 
+#### 4. Organization Detail Page ✅
+- Click org → navigate to `/orgs/{id}`
+- View organization details (name, created date)
+- Organization users section (UI placeholder)
+- Organization studies section (UI placeholder)
+- "Add User" and "Create Study" buttons
+- Full E2E test coverage
+
 **Test Coverage:**
 ```gherkin
 Scenario: View empty organizations list
 Scenario: View existing organizations
-Scenario: Create a new organization ← New!
+Scenario: Create a new organization
+Scenario: View organization details ← New!
 ```
 
 ## 🚧 In Progress / Next Steps
 
 Following the super admin workflow (working inward):
 
-### Phase 2: Organization Management
-1. **Organization Detail Page** - Click org → navigate to `/orgs/{id}`
-   - View organization details (name, created date)
-   - List organization users (GET `/api/orgs/current/users`)
-   - List organization studies (GET `/api/studies`)
-   - "Add User" button (provision users for the org)
+### Phase 2: Organization Management (continued)
+1. **Backend API for Organization Detail View**
+   - Add `/api/orgs/{id}/users` endpoint (super admin can view any org's users)
+   - Studies endpoint already exists at `/api/studies?org_id={id}`
 
 2. **Add Users to Organization** - Super admin provisions org users
    - Modal with email + role selection (owner/admin/member)
@@ -88,7 +95,8 @@ frontend/
 │   │   ├── firebase.ts           # Firebase config + stub detection
 │   │   └── auth-persistence.ts  # Auth state persistence
 │   └── pages/
-│       └── LoginPage.tsx         # Login UI
+│       ├── LoginPage.tsx                # Login UI
+│       └── OrganizationDetailPage.tsx   # Organization detail view
 │
 ├── tests/
 │   ├── features/
@@ -168,7 +176,7 @@ await this.page.request.post(`http://localhost:${port}/api/orgs`, ...)
 
 ## 📊 Test Status
 
-**Frontend E2E:** 3/3 passing (5.3s)
+**Frontend E2E:** 4/4 passing (3.9s)
 **Backend BDD:** 90/90 passing (2.1s)
 **Code Quality:** Zero warnings (ruff + ty)
 

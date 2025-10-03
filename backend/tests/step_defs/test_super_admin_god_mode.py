@@ -455,3 +455,39 @@ def check_study_not_in_list(request: Any, title: str) -> None:
     """Check that study title does not appear in list."""
     study_titles = [study["title"] for study in request.study_list["items"]]
     assert title not in study_titles
+
+
+@when(parsers.parse('the super admin gets organization by ID for "{org_name}"'))
+def super_admin_gets_org_by_id(client: Any, request: Any, org_name: str) -> None:
+    """Super admin gets organization by ID."""
+    from tests.test_helpers import sign_in_user
+
+    # Sign in as super admin
+    token = sign_in_user("admin@tinyteam.co", "superadmin123")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Get org by ID (use last created org id)
+    org_id = request.last_created_org_id
+    response = client.get(f"/orgs/{org_id}", headers=headers)
+
+    # Store response
+    request.response = response
+    if response.status_code == 200:
+        request.org_details = response.json()
+
+
+@when(parsers.parse('the regular user gets organization by ID for "{org_name}"'))
+def regular_user_gets_org_by_id(client: Any, request: Any, org_name: str) -> None:
+    """Regular user attempts to get organization by ID."""
+    from tests.test_helpers import sign_in_user
+
+    # Sign in as regular user
+    token = sign_in_user(request.regular_user_email, "testpass123")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Try to get the "Other Company" org by ID (stored in last_created_org_id)
+    org_id = request.last_created_org_id
+    response = client.get(f"/orgs/{org_id}", headers=headers)
+
+    # Store response
+    request.response = response

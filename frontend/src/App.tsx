@@ -1,8 +1,9 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom'
 import { useAtom, useSetAtom } from 'jotai'
 import { userAtom, userIdAtom, userEmailAtom, userOrgIdAtom, userOrganizationNameAtom, userRoleAtom, userFirebaseUidAtom } from './atoms/auth'
 import { organizationsAtom } from './atoms/organizations'
 import { LoginPage } from './pages/LoginPage'
+import { OrganizationDetailPage } from './pages/OrganizationDetailPage'
 import { loadAuthState } from './lib/auth-persistence'
 import { useEffect, useState } from 'react'
 
@@ -183,7 +184,7 @@ function Dashboard() {
               <ul>
                 {organizations.map((org) => (
                   <li key={org.org_id} data-testid={`org-${org.org_id}`}>
-                    {org.name}
+                    <Link to={`/orgs/${org.org_id}`}>{org.name}</Link>
                   </li>
                 ))}
               </ul>
@@ -235,6 +236,7 @@ function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/" element={<Dashboard />} />
+        <Route path="/orgs/:id" element={<OrganizationDetailPage />} />
       </Routes>
     </BrowserRouter>
   )

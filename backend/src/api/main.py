@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from ..auth import (
     AuthUser,
     OrgUser,
+    get_current_user,
     get_org_user_impl,
     require_interviewee_user,
     require_organization_user,
@@ -175,6 +176,32 @@ async def list_organization_users(
             for user in users
         ]
     )
+
+
+@api_router.get("/orgs/{org_id}", response_model=OrganizationResponse)
+async def get_organization_by_id(
+    org_id: int,
+    current_user: Annotated[AuthUser, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> OrganizationResponse:
+    """Get organization by ID (super admin can access any, users only their own)"""
+    # Get organization from database
+    org = db.query(Organization).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    # Super admins can access any organization
+    if current_user.is_super_admin:
+        return OrganizationResponse(org_id=str(org.id), name=org.name, created_at=org.created_at)
+
+    # Regular users can only access their own organization
+    user = db.query(User).filter(User.firebase_uid == current_user.firebase_uid).first()
+    if not user or user.organization_id != org_id:
+        raise HTTPException(
+            status_code=403, detail="You don't have permission to access this organization"
+        )
+
+    return OrganizationResponse(org_id=str(org.id), name=org.name, created_at=org.created_at)
 
 
 # Study Management Endpoints

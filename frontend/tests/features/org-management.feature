@@ -23,3 +23,20 @@ Feature: Super Admin Organization Management
     And I submit the organization form
     Then I see "New Startup Inc" in the organizations list
     And I don't see "No organizations yet"
+
+  Scenario: View organization details
+    Given organizations "Acme Corp" and "Beta Inc" exist
+    When I navigate to the admin dashboard
+    And I click on the "Acme Corp" organization
+    Then I see the organization details page for "Acme Corp"
+    And I see the organization users section
+    And I see the organization studies section
+
+  Scenario: Refresh on organization details page
+    Given organizations "Acme Corp" and "Beta Inc" exist
+    When I navigate to the admin dashboard
+    And I click on the "Acme Corp" organization
+    And I reload the page
+    Then I see the organization details page for "Acme Corp"
+    And I see the organization users section
+    And I see the organization studies section

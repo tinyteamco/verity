@@ -63,3 +63,18 @@ Feature: Super Admin God Mode
     Then the response status is 200
     And the study list is empty
     And "Other Study" does not appear in the study list
+
+  Scenario: Super admin can get specific organization by ID
+    Given the super admin creates an organization named "Specific Org"
+    When the super admin gets organization by ID for "Specific Org"
+    Then the response status is 200
+    And the organization name is "Specific Org"
+
+  Scenario: Regular user cannot get organization by ID
+    Given the super admin creates an organization named "Forbidden Org"
+    And the regular user is added to "Forbidden Org" as owner
+    And a second regular user exists with email "outsider@example.com"
+    And the super admin creates an organization named "Other Company"
+    And the second user is added to "Other Company" as owner
+    When the regular user gets organization by ID for "Other Company"
+    Then the response status is 403
