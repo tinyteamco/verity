@@ -16,12 +16,14 @@ Feature: Super Admin Organization Management
     Then I see "Acme Corp" in the organizations list
     And I see "Beta Inc" in the organizations list
 
-  Scenario: Create a new organization
+  Scenario: Create a new organization with owner
     When I navigate to the admin dashboard
     And I click "Create Organization"
     And I enter "New Startup Inc" as the organization name
+    And I enter "owner@newstartup.com" as the owner email
     And I submit the organization form
-    Then I see "New Startup Inc" in the organizations list
+    Then I see a success message with password reset link
+    And I see "New Startup Inc" in the organizations list
     And I don't see "No organizations yet"
 
   Scenario: View organization details

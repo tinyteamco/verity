@@ -167,15 +167,17 @@ async def update_user(project: str, request: Request) -> JSONResponse:
 
 @app.get("/identitytoolkit.googleapis.com/v1/projects/{project}/accounts:lookup")
 @app.post("/identitytoolkit.googleapis.com/v1/accounts:lookup")
+@app.post("/identitytoolkit.googleapis.com/v1/projects/{project}/accounts:lookup")
 async def get_user(request: Request, project: str | None = None) -> JSONResponse:
     """
-    Get user by email or ID token endpoint (used by Firebase SDK getIdTokenResult())
+    Get user by email, ID token, or localId endpoint (used by Firebase SDK)
 
     Query params (GET):
     - email: user email
 
     POST body:
     - idToken: Firebase ID token to lookup user (string)
+    - localId: User ID(s) to lookup (string or array)
     """
     if request.method == "GET":
         params = dict(request.query_params)
@@ -189,10 +191,38 @@ async def get_user(request: Request, project: str | None = None) -> JSONResponse
             raise HTTPException(status_code=404, detail="User not found")
     else:  # POST
         body = await request.json()
-        id_token = body.get("idToken")
 
+        # Handle localId lookup (used by Admin SDK get_user)
+        if "localId" in body:
+            local_ids = body["localId"]
+            if not isinstance(local_ids, list):
+                local_ids = [local_ids]
+
+            # Return all requested users
+            found_users = []
+            for uid in local_ids:
+                if uid in users:
+                    found_users.append(users[uid])
+
+            return JSONResponse(
+                {
+                    "kind": "identitytoolkit#GetAccountInfoResponse",
+                    "users": [
+                        {
+                            "localId": u["uid"],
+                            "email": u["email"],
+                            "emailVerified": u.get("emailVerified", False),
+                            "customAttributes": json.dumps(u.get("customClaims", {})),
+                        }
+                        for u in found_users
+                    ],
+                }
+            )
+
+        # Handle idToken lookup
+        id_token = body.get("idToken")
         if not id_token:
-            raise HTTPException(status_code=400, detail="idToken is required")
+            raise HTTPException(status_code=400, detail="idToken or localId is required")
 
         # Decode token to get user ID
         try:
@@ -288,6 +318,42 @@ async def delete_user(project: str, request: Request) -> JSONResponse:
     return JSONResponse({"kind": "identitytoolkit#DeleteAccountResponse"})
 
 
+@app.post("/identitytoolkit.googleapis.com/v1/projects/{project}/accounts:sendOobCode")
+async def generate_password_reset_link(project: str, request: Request) -> JSONResponse:
+    """
+    Generate password reset link (used by Firebase Admin SDK)
+
+    Request body:
+    {
+        "email": "user@example.com",
+        "requestType": "PASSWORD_RESET"
+    }
+    """
+    body = await request.json()
+    email = body.get("email")
+
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+
+    # Check if user exists
+    user = next((u for u in users.values() if u["email"] == email), None)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Generate a mock OOB code (out-of-band code for password reset)
+    oob_code = f"mock-oob-code-{uuid.uuid4().hex[:16]}"
+
+    # Return Firebase-style response with a mock password reset link
+    return JSONResponse(
+        {
+            "kind": "identitytoolkit#GetOobConfirmationCodeResponse",
+            "email": email,
+            "oobCode": oob_code,
+            "oobLink": f"http://localhost:5173/auth/action?mode=resetPassword&oobCode={oob_code}",
+        }
+    )
+
+
 @app.get("/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com")
 def get_public_keys() -> dict[str, str]:
     """
@@ -317,6 +383,23 @@ async def emulator_clear_accounts(project: str) -> JSONResponse:
     """Clear all accounts (emulator-only endpoint for test isolation)"""
     users.clear()
     return JSONResponse({"status": "ok"})
+
+
+@app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
+async def catch_all(request: Request, path: str) -> JSONResponse:
+    """Catch-all handler to log unimplemented endpoints"""
+    print(f"⚠️  Unimplemented endpoint: {request.method} /{path}")
+    print(f"   Query params: {dict(request.query_params)}")
+    body = None
+    try:
+        body = await request.json()
+        print(f"   Body: {json.dumps(body, indent=2)}")
+    except Exception:
+        pass
+
+    raise HTTPException(
+        status_code=501, detail=f"Endpoint not implemented: {request.method} /{path}"
+    )
 
 
 if __name__ == "__main__":

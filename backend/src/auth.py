@@ -14,9 +14,11 @@ FIREBASE_STUB_SECRET = "firebase-auth-stub-secret-key"
 
 # Initialize Firebase Admin for local/production
 if not firebase_admin._apps:
-    if os.getenv("APP_ENV") in ("local", "development") or os.getenv("FIREBASE_EMULATOR_HOST"):
+    if os.getenv("APP_ENV") in ("local", "development") or os.getenv("FIREBASE_AUTH_EMULATOR_HOST"):
         # Local development: use emulator with explicit project ID and no credentials
-        os.environ["FIREBASE_AUTH_EMULATOR_HOST"] = "localhost:9099"
+        # Only set default if not already configured (E2E tests set dynamic ports)
+        if not os.getenv("FIREBASE_AUTH_EMULATOR_HOST"):
+            os.environ["FIREBASE_AUTH_EMULATOR_HOST"] = "localhost:9099"
         # Use None credentials to avoid default credential interference
         firebase_admin.initialize_app(credential=None, options={"projectId": "verity-local"})
     else:

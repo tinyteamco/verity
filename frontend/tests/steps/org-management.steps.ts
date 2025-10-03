@@ -36,28 +36,29 @@ When('I enter {string} as the organization name', async ({ page }, name: string)
   await page.getByTestId('org-name-input').fill(name)
 })
 
-When('I submit the organization form', async ({ page }) => {
-  // Listen for console messages to debug
-  const consoleMessages: string[] = []
-  page.on('console', msg => {
-    const text = msg.text()
-    consoleMessages.push(text)
-    if (text.includes('[CreateOrg]') || text.includes('Error')) {
-      console.log('Browser:', text)
-    }
-  })
+When('I enter {string} as the owner email', async ({ page }, email: string) => {
+  await page.getByTestId('owner-email-input').fill(email)
+})
 
+When('I submit the organization form', async ({ page }) => {
   await page.getByTestId('create-org-submit').click()
 
-  // Wait a moment for the API call
-  await page.waitForTimeout(2000)
+  // Wait for create modal to close (API call completes)
+  await expect(page.getByTestId('create-org-modal')).not.toBeVisible({ timeout: 10000 })
+})
 
-  // Check if modal closed
-  const modalVisible = await page.getByTestId('create-org-modal').isVisible()
-  if (modalVisible) {
-    console.log('Modal still visible! Console logs:', consoleMessages.join('\n'))
-    throw new Error('Modal did not close - org creation failed')
-  }
+Then('I see a success message with password reset link', async ({ page }) => {
+  // Success modal should be visible
+  await expect(page.getByTestId('success-modal')).toBeVisible()
+
+  // Password reset link should be present
+  await expect(page.getByTestId('password-reset-link')).toBeVisible()
+
+  // Close the success modal
+  await page.getByTestId('success-modal-close').click()
+
+  // Modal should be closed
+  await expect(page.getByTestId('success-modal')).not.toBeVisible()
 })
 
 Then('I don\'t see {string}', async ({ page }, text: string) => {

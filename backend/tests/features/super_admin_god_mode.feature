@@ -78,3 +78,24 @@ Feature: Super Admin God Mode
     And the second user is added to "Other Company" as owner
     When the regular user gets organization by ID for "Other Company"
     Then the response status is 403
+
+  Scenario: Super admin creates organization with owner
+    When the super admin creates an organization named "NewCo" with owner "newowner@newco.com"
+    Then the response status is 201
+    And the organization "NewCo" exists in the database
+    And the owner "newowner@newco.com" exists in the database
+    And the owner is linked to organization "NewCo"
+    And the owner has role "owner"
+    And a password reset link is returned
+
+  Scenario: Organization owner can access their own organization
+    Given the super admin creates an organization named "OwnerOrg" with owner "owner@ownerorg.com"
+    When the owner "owner@ownerorg.com" requests their organization details
+    Then the response status is 200
+    And the organization name is "OwnerOrg"
+
+  Scenario: Organization owner cannot access other organizations
+    Given the super admin creates an organization named "OrgA" with owner "ownerA@orga.com"
+    And the super admin creates an organization named "OrgB" with owner "ownerB@orgb.com"
+    When the owner "ownerA@orga.com" requests organization details for "OrgB"
+    Then the response status is 403

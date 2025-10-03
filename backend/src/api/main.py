@@ -6,6 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
+from firebase_admin import auth
 from scalar_fastapi import get_scalar_api_reference
 from sqlalchemy.orm import Session
 
@@ -41,6 +42,8 @@ from ..schemas import (
     InterviewResponse,
     OrganizationCreate,
     OrganizationResponse,
+    OrganizationWithOwnerResponse,
+    OwnerCreationResponse,
     StudyCreate,
     StudyList,
     StudyResponse,
@@ -130,18 +133,70 @@ async def list_organizations(
     ]
 
 
-@api_router.post("/orgs", response_model=OrganizationResponse, status_code=201)
+@api_router.post("/orgs", status_code=201)
 async def create_organization(
     org_data: OrganizationCreate,
     current_user: Annotated[AuthUser, Depends(require_super_admin)],
     db: Annotated[Session, Depends(get_db)],
-) -> OrganizationResponse:
+) -> OrganizationResponse | OrganizationWithOwnerResponse:
     # Create organization
     org = Organization(name=org_data.name)
     db.add(org)
     db.commit()
     db.refresh(org)
 
+    # If owner_email is provided, create owner user
+    if org_data.owner_email:
+        try:
+            # Create Firebase user without password
+            firebase_user = auth.create_user(
+                email=org_data.owner_email,
+                email_verified=False,
+            )
+
+            # Set custom claims for organization tenant
+            auth.set_custom_user_claims(firebase_user.uid, {"tenant": "organization"})
+
+            # Generate password reset link
+            password_reset_link = auth.generate_password_reset_link(
+                email=org_data.owner_email,
+                action_code_settings=auth.ActionCodeSettings(
+                    url="http://localhost:5173/login",  # TODO: Make this configurable
+                ),
+            )
+
+            # Create User record in database
+            user = User(
+                firebase_uid=firebase_user.uid,
+                email=org_data.owner_email,
+                role="owner",
+                organization_id=org.id,
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+
+            # Return organization with owner details
+            owner_response = OwnerCreationResponse(
+                user_id=str(user.id),
+                email=user.email,
+                role=user.role,
+                password_reset_link=password_reset_link,
+            )
+
+            return OrganizationWithOwnerResponse(
+                org_id=str(org.id),
+                name=org.name,
+                created_at=org.created_at,
+                owner=owner_response,
+            )
+
+        except Exception as e:
+            # Rollback org creation if owner creation fails
+            db.rollback()
+            raise HTTPException(status_code=400, detail=f"Failed to create owner: {e!s}") from e
+
+    # Return basic organization response if no owner email provided
     return OrganizationResponse(org_id=str(org.id), name=org.name, created_at=org.created_at)
 
 

@@ -491,3 +491,157 @@ def regular_user_gets_org_by_id(client: Any, request: Any, org_name: str) -> Non
 
     # Store response
     request.response = response
+
+
+# Steps for organization creation with owner
+
+
+@when(
+    parsers.parse(
+        'the super admin creates an organization named "{org_name}" with owner "{owner_email}"'
+    )
+)
+def super_admin_creates_org_with_owner(
+    client: Any, request: Any, org_name: str, owner_email: str
+) -> None:
+    """Super admin creates an organization with an owner."""
+    from tests.test_helpers import sign_in_user
+
+    # Clean up: Delete Firebase user if it exists from previous tests
+    with suppress(Exception):
+        existing_user = auth.get_user_by_email(owner_email)
+        auth.delete_user(existing_user.uid)
+
+    # Sign in as super admin
+    token = sign_in_user("admin@tinyteam.co", "superadmin123")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Create organization with owner email
+    response = client.post(
+        "/orgs", json={"name": org_name, "owner_email": owner_email}, headers=headers
+    )
+
+    # Store response and org data
+    request.response = response
+    if response.status_code == 201:
+        org_data = response.json()
+        request.last_created_org_id = int(org_data["org_id"])
+        request.last_created_org_name = org_name
+        request.last_created_owner_email = owner_email
+        request.owner_data = org_data.get("owner", {})
+
+
+@given(
+    parsers.parse(
+        'the super admin creates an organization named "{org_name}" with owner "{owner_email}"'
+    )
+)
+def super_admin_creates_org_with_owner_given(
+    client: Any, request: Any, org_name: str, owner_email: str
+) -> None:
+    """Super admin creates an organization with an owner (Given step)."""
+    # Call the same implementation as When step
+    super_admin_creates_org_with_owner(client, request, org_name, owner_email)
+
+
+@then(parsers.parse('the owner "{owner_email}" exists in the database'))
+def check_owner_exists_in_db(request: Any, owner_email: str) -> None:
+    """Check that owner exists in database."""
+    with TestingSessionLocal() as db:
+        # Check that user with this email exists in User table
+        user = db.query(User).filter(User.email == owner_email).first()
+        assert user is not None
+        assert user.email == owner_email
+
+        # Store owner user_id for later checks
+        request.owner_user_id = user.id
+
+
+@then(parsers.parse('the owner is linked to organization "{org_name}"'))
+def check_owner_linked_to_org(request: Any, org_name: str) -> None:
+    """Check that owner is linked to the organization."""
+    with TestingSessionLocal() as db:
+        # Get the owner user
+        user = db.query(User).filter(User.id == request.owner_user_id).first()
+        assert user is not None
+
+        # Check organization link
+        assert user.organization_id == request.last_created_org_id
+
+        # Verify org name matches
+        org = db.query(Organization).filter(Organization.id == user.organization_id).first()
+        assert org is not None
+        assert org.name == org_name
+
+
+@then(parsers.parse('the owner has role "{role}"'))
+def check_owner_role(request: Any, role: str) -> None:
+    """Check that owner has the correct role."""
+    with TestingSessionLocal() as db:
+        user = db.query(User).filter(User.id == request.owner_user_id).first()
+        assert user is not None
+        assert user.role == role
+
+
+@then("a password reset link is returned")
+def check_password_reset_link_returned(request: Any) -> None:
+    """Check that a password reset link is returned in the response."""
+    assert "owner" in request.response.json()
+    owner_data = request.response.json()["owner"]
+    assert "password_reset_link" in owner_data
+    assert owner_data["password_reset_link"].startswith("http")
+
+    # Store for potential later use
+    request.password_reset_link = owner_data["password_reset_link"]
+
+
+@when(parsers.parse('the owner "{owner_email}" requests their organization details'))
+def owner_requests_own_org_details(client: Any, request: Any, owner_email: str) -> None:
+    """Owner requests their own organization details."""
+    from tests.test_helpers import sign_in_user
+
+    # Sign in as owner (Firebase user was created during org creation)
+    # We need to use the password reset link to set a password first,
+    # but for testing purposes, we'll create a password directly
+    with TestingSessionLocal() as db:
+        user = db.query(User).filter(User.email == owner_email).first()
+        assert user is not None
+
+        # Set a password for this user in Firebase
+        firebase_user = auth.get_user_by_email(owner_email)
+        auth.update_user(firebase_user.uid, password="ownerpass123")
+
+    # Now sign in and request org details
+    token = sign_in_user(owner_email, "ownerpass123")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Get organization details (via /orgs/current endpoint)
+    response = client.get("/orgs/current", headers=headers)
+
+    # Store response
+    request.response = response
+    if response.status_code == 200:
+        request.org_details = response.json()
+
+
+@when(parsers.parse('the owner "{owner_email}" requests organization details for "{org_name}"'))
+def owner_requests_other_org_details(
+    client: Any, request: Any, owner_email: str, org_name: str
+) -> None:
+    """Owner attempts to request details for a different organization."""
+    from tests.test_helpers import sign_in_user
+
+    # Set password for owner in Firebase (if not already set)
+    with suppress(Exception):
+        firebase_user = auth.get_user_by_email(owner_email)
+        auth.update_user(firebase_user.uid, password="ownerpass123")
+
+    # Sign in as owner
+    token = sign_in_user(owner_email, "ownerpass123")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Try to get the other organization by ID
+    response = client.get(f"/orgs/{request.last_created_org_id}", headers=headers)
+
+    # Store response
+    request.response = response

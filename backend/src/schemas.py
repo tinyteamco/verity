@@ -5,6 +5,14 @@ from pydantic import BaseModel, ConfigDict
 
 class OrganizationCreate(BaseModel):
     name: str
+    owner_email: str | None = None
+
+
+class OwnerCreationResponse(BaseModel):
+    user_id: str
+    email: str
+    role: str
+    password_reset_link: str
 
 
 class OrganizationResponse(BaseModel):
@@ -13,6 +21,15 @@ class OrganizationResponse(BaseModel):
     org_id: str
     name: str
     created_at: datetime
+
+
+class OrganizationWithOwnerResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    org_id: str
+    name: str
+    created_at: datetime
+    owner: OwnerCreationResponse
 
 
 class UserResponse(BaseModel):
