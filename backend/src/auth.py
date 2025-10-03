@@ -2,11 +2,15 @@ import os
 from typing import Annotated, Any
 
 import firebase_admin
+import jwt as pyjwt
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from firebase_admin import auth, credentials
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+
+# Firebase Auth Stub secret (used when APP_ENV=test)
+FIREBASE_STUB_SECRET = "firebase-auth-stub-secret-key"
 
 # Initialize Firebase Admin for local/production
 if not firebase_admin._apps:
@@ -40,9 +44,20 @@ class OrgUser(BaseModel):
 
 
 def verify_firebase_token(token: str) -> dict[str, Any]:
-    """Verify Firebase ID token using emulator or production"""
+    """Verify Firebase ID token using emulator, stub, or production"""
+    # In test mode with Firebase Auth Stub, verify using shared secret
+    if os.getenv("APP_ENV") == "test" and os.getenv("USE_FIREBASE_STUB") == "true":
+        try:
+            # Skip audience verification to match Firebase stub behavior
+            decoded = pyjwt.decode(
+                token, FIREBASE_STUB_SECRET, algorithms=["HS256"], options={"verify_aud": False}
+            )
+            return decoded
+        except pyjwt.InvalidTokenError as e:
+            raise HTTPException(status_code=401, detail=f"Invalid stub token: {e!s}") from e
+
+    # Otherwise use Firebase Admin SDK (handles emulator vs production)
     try:
-        # Use Firebase Admin SDK - it automatically handles emulator vs production
         decoded_token = auth.verify_id_token(token)
         return decoded_token
     except Exception as e:

@@ -1,0 +1,27 @@
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  padding: 20px;
+}
+
+h1 {
+  color: #333;
+}
+
+button {
+  padding: 8px 16px;
+  margin: 8px 0;
+  cursor: pointer;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+li {
+  padding: 8px;
+  margin: 4px 0;
+  background: #f0f0f0;
+  border-radius: 4px;
+}

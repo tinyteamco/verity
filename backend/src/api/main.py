@@ -4,6 +4,7 @@ from datetime import UTC
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from scalar_fastapi import get_scalar_api_reference
 from sqlalchemy.orm import Session
@@ -69,6 +70,18 @@ app = FastAPI(
     openapi_url="/api/openapi.json",
 )
 
+# Add CORS middleware for local development and E2E tests
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:3000",
+    ],  # Vite dev server + potential prod
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Create API router with /api prefix for Firebase Hosting proxy
 api_router = APIRouter(prefix="/api")
 
@@ -101,6 +114,19 @@ async def health_check(db: Annotated[Session, Depends(get_db)]) -> HealthRespons
     return HealthResponse(
         healthy=overall_healthy, service="verity-backend", version="0.1.0", database=db_status
     )
+
+
+@api_router.get("/orgs", response_model=list[OrganizationResponse])
+async def list_organizations(
+    current_user: Annotated[AuthUser, Depends(require_super_admin)],
+    db: Annotated[Session, Depends(get_db)],
+) -> list[OrganizationResponse]:
+    """List all organizations (super admin only)"""
+    orgs = db.query(Organization).all()
+    return [
+        OrganizationResponse(org_id=str(org.id), name=org.name, created_at=org.created_at)
+        for org in orgs
+    ]
 
 
 @api_router.post("/orgs", response_model=OrganizationResponse, status_code=201)
