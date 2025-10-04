@@ -1,6 +1,6 @@
 # Frontend Development Progress
 
-**Last Updated:** 2025-10-03
+**Last Updated:** 2025-10-04
 **Status:** Super Admin Organization Management - Phase 2
 
 ## 🎯 Current Objective
@@ -11,18 +11,22 @@ Building out the UX to validate backend implementation, following a super admin 
 
 ### E2E Test Infrastructure
 - **Real-mode only testing** - Removed all mock mode logic
-- **Dynamic port allocation** - Each test gets unique backend + Firebase stub ports
-- **Fast parallel execution** - 1.4s setup per test, runs in parallel
+- **Complete test isolation** - Each test gets unique database + backend + Firebase stub
+- **Dynamic port allocation** - Atomic port locking prevents race conditions
+- **Fast parallel execution** - 1s setup per test, runs with 2 workers (8 tests in 8s)
 - **Hydration for speed** - Accumulate test data + real API calls for fast setup
 - **Firebase Auth Stub** - Lightweight FastAPI replacement for emulator (<1s startup vs 12-15s)
-- **All tests passing** - 5 frontend E2E (5.3s total) + 95 backend BDD tests
+- **All tests passing** - 8 frontend E2E (8s total) + 95 backend BDD tests
+- **Pre-push validation** - Build + tests run before allowing push to prevent CI failures
 
 ### Frontend Stack
 - **React** + TypeScript + Vite
 - **Jotai** for state management
 - **Firebase Auth** with stub support for E2E tests
 - **Playwright + playwright-bdd** for BDD-style E2E tests
-- **Hydration test utils** for fast intermediate state setup
+- **Hydration test utils** for fast intermediate state setup (tree-shaken from production)
+- **Zod v4** for schema validation (upgraded for compatibility)
+- **Production build:** 369KB gzipped (test utilities excluded via tree-shaking)
 
 ### Super Admin Features Implemented
 
@@ -60,35 +64,56 @@ Building out the UX to validate backend implementation, following a super admin 
 - "Add User" and "Create Study" buttons
 - Full E2E test coverage
 
+#### 5. Organization Users Management ✅
+- View users in an organization
+- Add admin users to organization
+- Add member users to organization
+- Full E2E test coverage
+
 **Test Coverage:**
 ```gherkin
 Scenario: View empty organizations list
 Scenario: View existing organizations
-Scenario: Create a new organization with owner ← Updated!
+Scenario: Create a new organization with owner
 Scenario: View organization details
+Scenario: Refresh on organization details page
+Scenario: View organization users
+Scenario: Add admin user to organization
+Scenario: Add member user to organization
 ```
 
 ## 🚧 In Progress / Next Steps
 
 Following the super admin workflow (working inward):
 
-### Phase 2: Organization Management (continued)
-1. **Backend API for Organization Detail View**
-   - Add `/api/orgs/{id}/users` endpoint (super admin can view any org's users)
+### Phase 2: Organization Management (completed ✅)
+1. ✅ **Backend API for Organization Detail View**
+   - `/api/orgs/{id}/users` endpoint (super admin can view any org's users)
    - Studies endpoint already exists at `/api/studies?org_id={id}`
 
-2. **Add Additional Users to Organization** - Super admin provisions org admins/members
+2. ✅ **Add Additional Users to Organization** - Super admin provisions org admins/members
    - Modal with email + role selection (admin/member)
    - Create Firebase user + User record in database
    - Associate user with organization
-   - Note: Owner is now automatically created when organization is created
+   - Owner is automatically created when organization is created
 
-3. **Study Management** - Transition to org admin workflow
-   - Create study in organization
-   - View study details
-   - Edit interview guide
+### Phase 3: Study Management
+Next phase - transition to org admin workflow:
+1. **Create study in organization**
+   - Study creation form (name, description)
+   - POST `/api/studies` endpoint
+   - Associate study with organization
 
-### Phase 3: Interview Flow
+2. **View study details**
+   - Study detail page with interview guide
+   - Edit interview guide (markdown)
+
+3. **Interview guide management**
+   - Rich text/markdown editor
+   - Preview mode
+   - Save and publish
+
+### Phase 4: Interview Flow
 - Generate interview link
 - Test interview as participant (link-based access)
 - View interview results
@@ -146,10 +171,13 @@ app.add_middleware(
 )
 ```
 
-### Test Performance
-- **Setup:** 1.4s per test (backend + stub startup)
-- **Execution:** Parallel with dynamic ports
+### Test Performance & Reliability
+- **Setup:** ~1s per test (backend + stub startup)
+- **Execution:** Parallel with 2 workers (8 tests in 8s)
+- **Isolation:** Each test gets unique database file + ports
+- **Port allocation:** Atomic locking prevents race conditions
 - **Scalability:** Can handle 500+ tests before needing test pyramid
+- **CI/CD:** Pre-push hooks validate build + tests before allowing push
 
 ## 🎨 UI Patterns Established
 
@@ -187,9 +215,11 @@ await this.page.request.post(`http://localhost:${port}/api/orgs`, ...)
 
 ## 📊 Test Status
 
-**Frontend E2E:** 5/5 passing (5.3s)
+**Frontend E2E:** 8/8 passing (8s total, 2 workers)
 **Backend BDD:** 95/95 passing (2.1s)
 **Code Quality:** Zero warnings (ruff + ty)
+**Production Build:** ✅ 369KB (test utilities tree-shaken)
+**Pre-push Validation:** ✅ Build + tests must pass before push
 
 ## 🚀 Running the Stack
 
