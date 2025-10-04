@@ -32,6 +32,11 @@ local comprehensiveChecks = new Mapping<String, Step> {
         glob = List("*.py")
         check = "mise run test-ci"
     }
+    ["build:frontend"] {
+        dir = "frontend"
+        glob = List("src/**/*.{ts,tsx}", "package.json", "vite.config.ts", "tsconfig.json")
+        check = "make build"
+    }
     ["test:frontend"] {
         dir = "frontend"
         glob = List("src/**/*.{ts,tsx}", "tests/**/*.{ts,feature}")

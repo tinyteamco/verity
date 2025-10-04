@@ -27,7 +27,7 @@ const organizationSchema = z.object({
 })
 
 // Hydration registry
-export const hydrationRegistry: HydrationRegistry = {
+export const hydrationRegistry = {
   user: {
     schema: userSchema,
     atoms: {
@@ -39,14 +39,14 @@ export const hydrationRegistry: HydrationRegistry = {
       firebaseUid: userFirebaseUidAtom,
     },
   },
-  // For organizations array, use object-storing pattern
+  // For organizations array
   organizations: {
     schema: z.array(organizationSchema),
     atoms: {
       organizations: organizationsAtom, // Atom name matches section name
     },
   },
-}
+} satisfies HydrationRegistry
 
 // Export types
 export type User = z.infer<typeof userSchema>
