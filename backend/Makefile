@@ -44,12 +44,6 @@ test-ci: .docker-services .firebase-stub-seeded ## Run tests in CI (uses lightwe
 .PHONY: .firebase-stub-seeded
 .firebase-stub-seeded: scripts/firebase_auth_stub.py
 	@echo "🌱 Ensuring Firebase stub is running and seeded..."
-	@# Check if stub is running and restart if script was modified
-	@if curl -s http://localhost:9199 >/dev/null 2>&1; then \
-		echo "🔄 Restarting Firebase stub to pick up code changes..."; \
-		$(MAKE) stop-firebase-stub; \
-		sleep 0.5; \
-	fi
 	@if ! curl -s http://localhost:9199 >/dev/null 2>&1; then \
 		echo "⚠️  Firebase stub not running, starting it..."; \
 		$(MAKE) start-firebase-stub; \
