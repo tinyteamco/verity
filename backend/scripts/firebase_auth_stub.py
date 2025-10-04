@@ -169,12 +169,13 @@ async def create_user_no_project(request: Request) -> JSONResponse:
 @app.post("/identitytoolkit.googleapis.com/v1/projects/{project}/accounts:update")
 async def update_user(project: str, request: Request) -> JSONResponse:
     """
-    Update user endpoint (used by Firebase Admin SDK for setting custom claims)
+    Update user endpoint (used by Firebase Admin SDK for setting custom claims and password)
 
     Request body:
     {
         "localId": "user-uid",
-        "customAttributes": "{\"role\":\"admin\",\"tenant\":\"organization\"}"
+        "customAttributes": "{\"role\":\"admin\",\"tenant\":\"organization\"}",
+        "password": "newpassword123"
     }
     """
     body = await request.json()
@@ -189,6 +190,10 @@ async def update_user(project: str, request: Request) -> JSONResponse:
         if isinstance(custom_attrs, str):
             custom_attrs = json.loads(custom_attrs)
         users[uid]["customClaims"] = custom_attrs
+
+    # Update password if provided
+    if "password" in body:
+        users[uid]["password"] = body["password"]
 
     return JSONResponse(
         {
