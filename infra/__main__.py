@@ -78,6 +78,14 @@ backend_secrets_binding = gcp.projects.IAMMember(
     member=backend_sa.email.apply(lambda email: f"serviceAccount:{email}"),
 )
 
+# Grant Firebase Authentication Admin (create/manage users)
+backend_firebase_auth_binding = gcp.projects.IAMMember(
+    "backend-firebase-auth",
+    project=project,
+    role="roles/firebaseauth.admin",
+    member=backend_sa.email.apply(lambda email: f"serviceAccount:{email}"),
+)
+
 # =============================================================================
 # GitHub Actions Service Account (CI/CD)
 # =============================================================================
