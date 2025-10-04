@@ -15,19 +15,6 @@ export const test = base.extend({
     const startTime = Date.now()
     console.log('[Test] Starting backend + Firebase stub with clean state...')
 
-    // Kill existing backend and stub (kill all child processes too)
-    const killStart = Date.now()
-    try {
-      await execAsync('pkill -9 -f firebase_auth_stub || true')
-      await execAsync('pkill -9 -f "uvicorn.*8001" || true')
-      await execAsync('pkill -9 -f "uv run uvicorn" || true')
-      await execAsync('lsof -ti:8001 | xargs kill -9 2>/dev/null || true')
-      await execAsync('lsof -ti:9099 | xargs kill -9 2>/dev/null || true')
-      console.log(`[Test] Killed existing processes (${Date.now() - killStart}ms)`)
-    } catch (e) {
-      console.log('[Test] Kill command failed:', e)
-    }
-
     // Delete any existing database files to ensure clean state
     await execAsync('rm -f ../backend/test.db ../backend/*.db /tmp/verity_e2e_test_*.db').catch(() => {})
 

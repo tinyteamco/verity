@@ -151,7 +151,18 @@ seed-admin: start-firebase ## Seed super admin user in Firebase emulator
 	uv run python scripts/seed_firebase.py
 	@echo "✅ Super admin user seeded"
 
+kill-orphans: ## Kill orphaned test/dev processes (manual cleanup after crashes)
+	@echo "🧹 Cleaning up orphaned processes..."
+	@pkill -f "firebase_auth_stub.py" || echo "  No Firebase stubs found"
+	@pkill -f "firebase emulators:start" || echo "  No Firebase emulators found"
+	@pkill -f "uv run uvicorn" || echo "  No uvicorn processes found"
+	@lsof -ti:8000 | xargs kill -9 2>/dev/null || echo "  Port 8000 clear"
+	@lsof -ti:9099 | xargs kill -9 2>/dev/null || echo "  Port 9099 clear"
+	@lsof -ti:9199 | xargs kill -9 2>/dev/null || echo "  Port 9199 clear"
+	@echo "✅ Cleanup complete"
+
 clean: ## Clean up
+	$(MAKE) kill-orphans
 	$(MAKE) stop-firebase
 	$(MAKE) stop-firebase-stub
 	docker compose -f ../docker-compose.yml down -v
