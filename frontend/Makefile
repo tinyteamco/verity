@@ -1,4 +1,4 @@
-.PHONY: setup dev test test-e2e clean
+.PHONY: setup dev build test test-e2e clean
 
 # Install dependencies
 setup:
@@ -7,6 +7,10 @@ setup:
 # Development server
 dev:
 	mise exec -- npm run dev
+
+# Build production bundle
+build:
+	mise exec -- npm run build
 
 # Run all tests (E2E with dynamic backend/stub orchestration)
 test:
@@ -21,3 +25,4 @@ clean:
 	rm -rf .features-gen
 	rm -rf playwright-report
 	rm -rf test-results
+	rm -rf dist

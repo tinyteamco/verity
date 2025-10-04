@@ -241,3 +241,16 @@ jobs:
           mise install
           mise exec -- uv run python scripts/seed_firebase.py --production
           echo "✅ Firebase Auth seeded with admin user"
+
+      - name: Build and deploy frontend to Firebase Hosting
+        run: |
+          # Build frontend
+          cd frontend
+          npm ci
+          npm run build
+          echo "✅ Frontend built"
+
+          # Deploy to Firebase Hosting
+          cd ..
+          npx firebase-tools deploy --only hosting --project verity-platform-473406
+          echo "✅ Frontend deployed to Firebase Hosting"
