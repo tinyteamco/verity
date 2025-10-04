@@ -5,6 +5,7 @@ import { organizationsAtom } from './atoms/organizations'
 import { LoginPage } from './pages/LoginPage'
 import { OrganizationDetailPage } from './pages/OrganizationDetailPage'
 import { loadAuthState } from './lib/auth-persistence'
+import { getApiUrl } from './lib/api'
 import { useEffect, useState } from 'react'
 
 function Dashboard() {
@@ -22,11 +23,10 @@ function Dashboard() {
     if (!user || user.role !== 'super_admin') return
 
     const token = localStorage.getItem('firebase_token')
-    // Use E2E backend port from localStorage, or default to 8000
-    const backendPort = parseInt(localStorage.getItem('__E2E_BACKEND_PORT__') || '0') || 8000
+    const apiUrl = getApiUrl()
 
     setLoading(true)
-    fetch(`http://localhost:${backendPort}/api/orgs`, {
+    fetch(`${apiUrl}/api/orgs`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },
@@ -52,13 +52,12 @@ function Dashboard() {
 
     setCreating(true)
     const token = localStorage.getItem('firebase_token')
-    // Use E2E backend port from localStorage, or default to 8000
-    const backendPort = parseInt(localStorage.getItem('__E2E_BACKEND_PORT__') || '0') || 8000
+    const apiUrl = getApiUrl()
 
-    console.log('[CreateOrg] Creating org:', orgName, 'with owner:', ownerEmail, 'on port:', backendPort)
+    console.log('[CreateOrg] Creating org:', orgName, 'with owner:', ownerEmail, 'API URL:', apiUrl)
 
     try {
-      const res = await fetch(`http://localhost:${backendPort}/api/orgs`, {
+      const res = await fetch(`${apiUrl}/api/orgs`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

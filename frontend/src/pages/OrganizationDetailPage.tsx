@@ -1,6 +1,7 @@
 import { useParams, Navigate, Link } from 'react-router-dom'
 import { useAtom } from 'jotai'
 import { userAtom } from '../atoms/auth'
+import { getApiUrl } from '../lib/api'
 import { useState, useEffect } from 'react'
 
 interface Organization {
@@ -45,10 +46,10 @@ export function OrganizationDetailPage() {
     if (!user || !id) return
 
     const token = localStorage.getItem('firebase_token')
-    const backendPort = parseInt(localStorage.getItem('__E2E_BACKEND_PORT__') || '0') || 8000
+    const apiUrl = getApiUrl()
 
     setLoadingUsers(true)
-    fetch(`http://localhost:${backendPort}/api/orgs/${id}/users`, {
+    fetch(`${apiUrl}/api/orgs/${id}/users`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },
@@ -73,10 +74,10 @@ export function OrganizationDetailPage() {
 
     setAddingUser(true)
     const token = localStorage.getItem('firebase_token')
-    const backendPort = parseInt(localStorage.getItem('__E2E_BACKEND_PORT__') || '0') || 8000
+    const apiUrl = getApiUrl()
 
     try {
-      const res = await fetch(`http://localhost:${backendPort}/api/orgs/${id}/users`, {
+      const res = await fetch(`${apiUrl}/api/orgs/${id}/users`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -117,10 +118,10 @@ export function OrganizationDetailPage() {
     if (!user || !id) return
 
     const token = localStorage.getItem('firebase_token')
-    const backendPort = parseInt(localStorage.getItem('__E2E_BACKEND_PORT__') || '0') || 8000
+    const apiUrl = getApiUrl()
 
     // Fetch organization details
-    fetch(`http://localhost:${backendPort}/api/orgs/${id}`, {
+    fetch(`${apiUrl}/api/orgs/${id}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },
@@ -147,7 +148,7 @@ export function OrganizationDetailPage() {
     fetchUsers()
 
     // Fetch studies
-    fetch(`http://localhost:${backendPort}/api/studies?org_id=${id}`, {
+    fetch(`${apiUrl}/api/studies?org_id=${id}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },
