@@ -130,7 +130,7 @@ github_actions_secrets_binding = gcp.projects.IAMMember(
 
 # Firebase Admin (manage Firebase Auth users)
 github_actions_firebase_auth_binding = gcp.projects.IAMMember(
-    "github-actions-firebase-auth-admin",
+    "github-actions-firebase-auth",
     project=project,
     role="roles/firebaseauth.admin",
     member=f"serviceAccount:{github_actions_sa_email}",
@@ -138,7 +138,7 @@ github_actions_firebase_auth_binding = gcp.projects.IAMMember(
 
 # Firebase Hosting Admin (deploy to Firebase Hosting)
 github_actions_firebase_hosting_binding = gcp.projects.IAMMember(
-    "github-actions-firebase-hosting-admin",
+    "github-actions-firebase-hosting",
     project=project,
     role="roles/firebasehosting.admin",
     member=f"serviceAccount:{github_actions_sa_email}",
