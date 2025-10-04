@@ -322,3 +322,175 @@ def check_403_status(test_response):
 def check_404_status(test_response):
     """Check response has 404 status"""
     assert test_response["response"].status_code == 404
+
+
+# New step definitions for user creation
+
+
+@pytest.fixture
+def test_user_data():
+    """Store user data for cleanup"""
+    return {"firebase_uids": [], "email": None, "role": None}
+
+
+@given("an organization exists")
+def create_organization(client, test_org_id):
+    """Create a simple organization without users"""
+    import uuid
+
+    from tests.conftest import TestingSessionLocal
+
+    db_session = TestingSessionLocal()
+    try:
+        # Use unique name to avoid conflicts across tests
+        org = Organization(name=f"Test Organization {uuid.uuid4().hex[:8]}")
+        db_session.add(org)
+        db_session.commit()
+        db_session.refresh(org)
+        test_org_id["org_id"] = org.id
+    finally:
+        db_session.close()
+
+
+@when(
+    parsers.parse('they POST /orgs/{{org_id}}/users with email "{email}" and role "{role}"'),
+    converters={"email": str, "role": str},
+)
+def post_create_user(
+    client: TestClient, auth_headers, test_response, test_org_id, test_user_data, email, role
+):
+    """Make POST request to create a new user"""
+    actual_org_id = test_org_id.get("org_id", 1)
+    test_user_data["email"] = email
+    test_user_data["role"] = role
+
+    response = client.post(
+        f"/orgs/{actual_org_id}/users",
+        json={"email": email, "role": role},
+        headers=auth_headers,
+    )
+    test_response["response"] = response
+
+    # Store firebase_uid for cleanup if user was created
+    if response.status_code == 201:
+        data = response.json()
+        test_user_data["firebase_uids"].append(data.get("user_id"))
+
+
+@when('they POST /orgs/{org_id}/users with the owner\'s email and role "admin"')
+def post_create_duplicate_user(
+    client: TestClient, auth_headers, test_response, test_org_id, test_user_data
+):
+    """Try to create a user with the same email as the owner"""
+    from tests.conftest import TestingSessionLocal
+
+    # Get the owner's email from the database
+    db_session = TestingSessionLocal()
+    try:
+        org_id = test_org_id.get("org_id")
+        owner = (
+            db_session.query(User)
+            .filter(User.organization_id == org_id, User.role == "owner")
+            .first()
+        )
+        owner_email = owner.email if owner else "owner@example.com"
+    finally:
+        db_session.close()
+
+    test_user_data["email"] = owner_email
+    test_user_data["role"] = "admin"
+
+    response = client.post(
+        f"/orgs/{org_id}/users",
+        json={"email": owner_email, "role": "admin"},
+        headers=auth_headers,
+    )
+    test_response["response"] = response
+
+
+@then("the response status is 201")
+def check_201_status(test_response):
+    """Check response has 201 status"""
+    assert test_response["response"].status_code == 201
+
+
+@then("the response status is 400")
+def check_400_status(test_response):
+    """Check response has 400 status"""
+    assert test_response["response"].status_code == 400
+
+
+@then("the response contains user_id, email, role, and password_reset_link")
+def verify_user_creation_response(test_response):
+    """Verify response contains all required fields for user creation"""
+    response = test_response["response"]
+    data = response.json()
+    assert "user_id" in data, "Response should contain user_id"
+    assert "email" in data, "Response should contain email"
+    assert "role" in data, "Response should contain role"
+    assert "password_reset_link" in data, "Response should contain password_reset_link"
+
+
+@then(parsers.parse('the user email is "{email}"'))
+def verify_user_email(test_response, email):
+    """Verify the user email in the response"""
+    response = test_response["response"]
+    data = response.json()
+    assert data["email"] == email
+
+
+@then(parsers.parse('the user role is "{role}"'))
+def verify_user_role(test_response, role):
+    """Verify the user role in the response"""
+    response = test_response["response"]
+    data = response.json()
+    assert data["role"] == role
+
+
+@then(parsers.parse('a Firebase user was created with email "{email}"'))
+def verify_firebase_user_created(test_user_data, email):
+    """Verify Firebase user was created"""
+    try:
+        firebase_user = auth.get_user_by_email(email)
+        assert firebase_user is not None
+        assert firebase_user.email == email
+        # Store UID for cleanup
+        if firebase_user.uid not in test_user_data["firebase_uids"]:
+            test_user_data["firebase_uids"].append(firebase_user.uid)
+    except Exception as e:
+        pytest.fail(f"Firebase user not found: {e}")
+
+
+@then(parsers.parse('a database user exists with email "{email}" and role "{role}"'))
+def verify_database_user_exists(test_org_id, email, role):
+    """Verify user exists in database with correct role"""
+    from tests.conftest import TestingSessionLocal
+
+    db_session = TestingSessionLocal()
+    try:
+        user = db_session.query(User).filter(User.email == email).first()
+        assert user is not None, f"User with email {email} not found in database"
+        assert user.role == role, f"Expected role {role}, got {user.role}"
+        assert user.organization_id == test_org_id.get("org_id")
+    finally:
+        db_session.close()
+
+
+@then(parsers.parse('the error message contains "{text}"'))
+def verify_error_message(test_response, text):
+    """Verify error message contains specific text"""
+    response = test_response["response"]
+    data = response.json()
+    error_msg = data.get("detail", "").lower()
+    assert text.lower() in error_msg, f"Expected '{text}' in error message, got: {error_msg}"
+
+
+# Cleanup fixture
+@pytest.fixture(autouse=True)
+def cleanup_test_users(test_user_data):
+    """Clean up Firebase users created during tests"""
+    yield
+    # Cleanup after test
+    for uid in test_user_data.get("firebase_uids", []):
+        with contextlib.suppress(Exception):
+            auth.delete_user(uid)

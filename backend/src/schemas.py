@@ -75,6 +75,18 @@ class StudyList(BaseModel):
     items: list[StudyResponse]
 
 
+class UserCreate(BaseModel):
+    email: str
+    role: str
+
+
+class UserCreationResponse(BaseModel):
+    user_id: str
+    email: str
+    role: str
+    password_reset_link: str
+
+
 class UserList(BaseModel):
     items: list[UserResponse]
 

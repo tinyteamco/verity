@@ -58,3 +58,30 @@ Feature: Super Admin Organization Management
     And I see user "owner@techstartup.io" with role "owner"
     And I see user "admin@techstartup.io" with role "admin"
     And I see user "dev@techstartup.io" with role "member"
+
+  Scenario: Add admin user to organization
+    Given organization "Tech Startup" exists with users:
+      | email                | role   |
+      | owner@techstartup.io | owner  |
+    When I navigate to the admin dashboard
+    And I click on the "Tech Startup" organization
+    And I click "Add User"
+    And I enter "newadmin@techstartup.io" as the user email
+    And I select "admin" as the user role
+    And I submit the add user form
+    Then I see a success message for adding user
+    And I see "newadmin@techstartup.io" in the users list
+    And I see user "newadmin@techstartup.io" with role "admin"
+
+  Scenario: Add member user to organization
+    Given organization "Tech Startup" exists with users:
+      | email                | role   |
+      | owner@techstartup.io | owner  |
+    When I navigate to the admin dashboard
+    And I click on the "Tech Startup" organization
+    And I click "Add User"
+    And I enter "dev@techstartup.io" as the user email
+    And I select "member" as the user role
+    And I submit the add user form
+    Then I see "dev@techstartup.io" in the users list
+    And I see user "dev@techstartup.io" with role "member"

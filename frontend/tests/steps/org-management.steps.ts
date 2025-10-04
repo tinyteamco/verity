@@ -104,3 +104,30 @@ Then('I see user {string} with role {string}', async ({ page }, email: string, r
   const userRow = usersList.locator(`[data-user-email="${email}"]`)
   await expect(userRow.getByTestId('user-role')).toHaveText(role)
 })
+
+// Add User modal steps
+When('I enter {string} as the user email', async ({ page }, email: string) => {
+  await page.getByTestId('user-email-input').fill(email)
+})
+
+When('I select {string} as the user role', async ({ page }, role: string) => {
+  await page.getByTestId('user-role-select').selectOption(role)
+})
+
+When('I submit the add user form', async ({ page }) => {
+  await page.getByTestId('add-user-submit').click()
+
+  // Wait for add user modal to close (API call completes)
+  await expect(page.getByTestId('add-user-modal')).not.toBeVisible({ timeout: 10000 })
+})
+
+Then('I see a success message for adding user', async ({ page }) => {
+  // Success modal should be visible
+  await expect(page.getByTestId('user-success-modal')).toBeVisible()
+
+  // Close the success modal
+  await page.getByTestId('user-success-modal-close').click()
+
+  // Modal should be closed
+  await expect(page.getByTestId('user-success-modal')).not.toBeVisible()
+})

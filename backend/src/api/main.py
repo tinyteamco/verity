@@ -52,6 +52,8 @@ from ..schemas import (
     StudyUpdate,
     TranscriptFinalizeRequest,
     TranscriptResponse,
+    UserCreate,
+    UserCreationResponse,
     UserList,
     UserResponse,
 )
@@ -285,6 +287,107 @@ async def list_organization_users_by_id(
 
     # Return users using shared helper
     return _get_organization_users(org_id, db)
+
+
+def _create_organization_user(
+    email: str,
+    role: str,
+    organization_id: int,
+    db: Session,
+) -> tuple[User, str]:
+    """
+    Helper function to create a user in an organization.
+
+    Returns:
+        Tuple of (User model, password_reset_link)
+
+    Raises:
+        HTTPException: If user creation fails
+    """
+    # Validate role
+    if role not in ["admin", "member"]:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Invalid role. Owner role can only be created with organization. "
+                "Use 'admin' or 'member'."
+            ),
+        )
+
+    # Check if user already exists in this organization
+    existing_user = db.query(User).filter(User.email == email).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail=f"User with email '{email}' already exists")
+
+    try:
+        # Create Firebase user without password
+        firebase_user = auth.create_user(
+            email=email,
+            email_verified=False,
+        )
+
+        # Set custom claims for organization tenant
+        auth.set_custom_user_claims(firebase_user.uid, {"tenant": "organization"})
+
+        # Generate password reset link
+        password_reset_link = auth.generate_password_reset_link(
+            email=email,
+            action_code_settings=auth.ActionCodeSettings(
+                url="http://localhost:5173/login",  # TODO: Make this configurable
+            ),
+        )
+
+        # Create User record in database
+        user = User(
+            firebase_uid=firebase_user.uid,
+            email=email,
+            role=role,
+            organization_id=organization_id,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        return user, password_reset_link
+
+    except Exception as e:
+        db.rollback()
+        # Clean up Firebase user if database commit fails
+        try:
+            if "firebase_user" in locals():
+                auth.delete_user(firebase_user.uid)
+        except Exception:
+            pass
+        raise HTTPException(status_code=400, detail=f"Failed to create user: {e!s}") from e
+
+
+@api_router.post("/orgs/{org_id}/users", response_model=UserCreationResponse, status_code=201)
+async def create_organization_user(
+    org_id: int,
+    user_data: UserCreate,
+    current_user: Annotated[AuthUser, Depends(require_super_admin)],
+    db: Annotated[Session, Depends(get_db)],
+) -> UserCreationResponse:
+    """Create a new user in an organization (super admin only)"""
+    # Verify organization exists
+    org = db.query(Organization).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    # Create user using shared helper
+    user, password_reset_link = _create_organization_user(
+        email=user_data.email,
+        role=user_data.role,
+        organization_id=org_id,
+        db=db,
+    )
+
+    return UserCreationResponse(
+        user_id=str(user.id),
+        email=user.email,
+        role=user.role,
+        password_reset_link=password_reset_link,
+    )
 
 
 # Study Management Endpoints
