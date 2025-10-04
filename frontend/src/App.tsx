@@ -329,7 +329,7 @@ function Dashboard() {
               <ul>
                 {organizations.map((org) => (
                   <li key={org.org_id} data-testid={`org-${org.org_id}`}>
-                    <Link to={`/orgs/${org.org_id}`}>{org.name}</Link>
+                    <Link to={`/orgs/${org.org_id}`}>{org.display_name}</Link>
                   </li>
                 ))}
               </ul>
