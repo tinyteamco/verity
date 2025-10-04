@@ -1,3 +1,4 @@
+import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC
@@ -215,13 +216,12 @@ async def get_current_organization(
     )
 
 
-@api_router.get("/orgs/current/users", response_model=UserList)
-async def list_organization_users(
-    org_user: Annotated[OrgUser, Depends(require_owner_or_admin)],
-    db: Annotated[Session, Depends(get_db)],
-) -> UserList:
-    """List users in the current organization (owner/admin only)"""
-    users = db.query(User).filter(User.organization_id == org_user.organization_id).all()
+def _get_organization_users(org_id: int, db: Session) -> UserList:
+    """
+    Helper function to get users for an organization.
+    Shared by both /orgs/current/users and /orgs/{org_id}/users endpoints.
+    """
+    users = db.query(User).filter(User.organization_id == org_id).all()
 
     return UserList(
         items=[
@@ -234,6 +234,15 @@ async def list_organization_users(
             for user in users
         ]
     )
+
+
+@api_router.get("/orgs/current/users", response_model=UserList)
+async def list_organization_users(
+    org_user: Annotated[OrgUser, Depends(require_owner_or_admin)],
+    db: Annotated[Session, Depends(get_db)],
+) -> UserList:
+    """List users in the current organization (owner/admin only)"""
+    return _get_organization_users(org_user.organization_id, db)
 
 
 @api_router.get("/orgs/{org_id}", response_model=OrganizationResponse)
@@ -260,6 +269,22 @@ async def get_organization_by_id(
         )
 
     return OrganizationResponse(org_id=str(org.id), name=org.name, created_at=org.created_at)
+
+
+@api_router.get("/orgs/{org_id}/users", response_model=UserList)
+async def list_organization_users_by_id(
+    org_id: int,
+    current_user: Annotated[AuthUser, Depends(require_super_admin)],
+    db: Annotated[Session, Depends(get_db)],
+) -> UserList:
+    """List users in a specific organization (super admin only)"""
+    # Verify organization exists
+    org = db.query(Organization).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    # Return users using shared helper
+    return _get_organization_users(org_id, db)
 
 
 # Study Management Endpoints
@@ -905,6 +930,45 @@ async def finalize_transcript(
         full_text=transcript.full_text,
         created_at=transcript.created_at,
     )
+
+
+# Test-only endpoints (only available in test/development environments)
+if os.getenv("APP_ENV") in ("test", "local", "development"):
+
+    @api_router.post("/test/orgs/{org_id}/users", status_code=201)
+    async def create_test_user(
+        org_id: int,
+        user_data: dict,
+        db: Annotated[Session, Depends(get_db)],
+    ) -> dict:
+        """
+        Test-only endpoint to seed users in an organization.
+        Only available in test/dev environments.
+        """
+        from ..models import User
+
+        # Verify organization exists
+        org = db.query(Organization).filter(Organization.id == org_id).first()
+        if not org:
+            raise HTTPException(status_code=404, detail="Organization not found")
+
+        # Create user
+        user = User(
+            firebase_uid=user_data["firebase_uid"],
+            email=user_data["email"],
+            role=user_data["role"],
+            organization_id=org_id,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        return {
+            "user_id": str(user.id),
+            "email": user.email,
+            "role": user.role,
+            "created_at": user.created_at.isoformat(),
+        }
 
 
 # Include the API router with /api prefix

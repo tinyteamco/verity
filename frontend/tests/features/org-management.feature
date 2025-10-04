@@ -42,3 +42,19 @@ Feature: Super Admin Organization Management
     Then I see the organization details page for "Acme Corp"
     And I see the organization users section
     And I see the organization studies section
+
+  Scenario: View organization users
+    Given organization "Tech Startup" exists with users:
+      | email                | role   |
+      | owner@techstartup.io | owner  |
+      | admin@techstartup.io | admin  |
+      | dev@techstartup.io   | member |
+    When I navigate to the admin dashboard
+    And I click on the "Tech Startup" organization
+    Then I see the organization details page for "Tech Startup"
+    And I see "owner@techstartup.io" in the users list
+    And I see "admin@techstartup.io" in the users list
+    And I see "dev@techstartup.io" in the users list
+    And I see user "owner@techstartup.io" with role "owner"
+    And I see user "admin@techstartup.io" with role "admin"
+    And I see user "dev@techstartup.io" with role "member"

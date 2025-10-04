@@ -85,25 +85,15 @@ def root() -> dict[str, str]:
     return {"status": "Firebase Auth Stub running", "version": "1.0.0"}
 
 
-@app.post("/identitytoolkit.googleapis.com/v1/projects/{project}/accounts")
-async def create_user(project: str, request: Request) -> JSONResponse:
+async def _create_user_impl(body: dict[str, Any]) -> JSONResponse:
     """
-    Create user endpoint (used by Firebase Admin SDK)
-
-    Request body:
-    {
-        "localId": "optional-uid",
-        "email": "user@example.com",
-        "password": "password123",
-        "emailVerified": true
-    }
+    Implementation for user creation (shared by both endpoints)
     """
-    body = await request.json()
-
     uid = body.get("localId", generate_uid())
     email = body.get("email")
     password = body.get("password", "default-password")
     email_verified = body.get("emailVerified", False)
+    return_secure_token = body.get("returnSecureToken", False)
 
     if not email:
         raise HTTPException(status_code=400, detail="Email is required")
@@ -122,14 +112,58 @@ async def create_user(project: str, request: Request) -> JSONResponse:
         "customClaims": {},
     }
 
-    return JSONResponse(
-        {
-            "kind": "identitytoolkit#SignupNewUserResponse",
-            "localId": uid,
-            "email": email,
-            "emailVerified": email_verified,
-        }
-    )
+    response_data = {
+        "kind": "identitytoolkit#SignupNewUserResponse",
+        "localId": uid,
+        "email": email,
+        "emailVerified": email_verified,
+    }
+
+    # If returnSecureToken is requested, include ID token (for client SDK signup)
+    if return_secure_token:
+        id_token = create_id_token(users[uid])
+        response_data.update(
+            {
+                "idToken": id_token,
+                "refreshToken": f"refresh-{uid}",
+                "expiresIn": "3600",
+            }
+        )
+
+    return JSONResponse(response_data)
+
+
+@app.post("/identitytoolkit.googleapis.com/v1/projects/{project}/accounts")
+async def create_user_with_project(project: str, request: Request) -> JSONResponse:
+    """
+    Create user endpoint (used by Firebase Admin SDK)
+
+    Request body:
+    {
+        "localId": "optional-uid",
+        "email": "user@example.com",
+        "password": "password123",
+        "emailVerified": true
+    }
+    """
+    body = await request.json()
+    return await _create_user_impl(body)
+
+
+@app.post("/identitytoolkit.googleapis.com/v1/accounts")
+async def create_user_no_project(request: Request) -> JSONResponse:
+    """
+    Create user endpoint without project (used by Firebase Client SDK signup)
+
+    Request body:
+    {
+        "email": "user@example.com",
+        "password": "password123",
+        "returnSecureToken": true
+    }
+    """
+    body = await request.json()
+    return await _create_user_impl(body)
 
 
 @app.post("/identitytoolkit.googleapis.com/v1/projects/{project}/accounts:update")

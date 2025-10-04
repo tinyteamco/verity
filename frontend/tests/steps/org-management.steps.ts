@@ -1,5 +1,6 @@
 import { createBdd } from '../support/world'
 import { expect } from '@playwright/test'
+import { DataTable } from '@cucumber/cucumber'
 
 // Auto-hydration built into When - zero boilerplate!
 const { Given, When, Then } = createBdd()
@@ -11,6 +12,11 @@ Given('I am logged in as super admin {string}', async ({ fixtures }, email: stri
 
 Given('organizations {string} and {string} exist', async ({ fixtures }, org1: string, org2: string) => {
   await fixtures.seedOrganizations([org1, org2])
+})
+
+Given('organization {string} exists with users:', async ({ fixtures }, orgName: string, dataTable: DataTable) => {
+  const users = dataTable.hashes() // hashes() converts table to array of objects
+  await fixtures.seedOrganizationWithUsers(orgName, users)
 })
 
 // When steps auto-apply hydration
@@ -86,4 +92,15 @@ Then('I see the organization studies section', async ({ page }) => {
 
 When('I reload the page', async ({ page }) => {
   await page.reload()
+})
+
+Then('I see {string} in the users list', async ({ page }, email: string) => {
+  const usersList = page.getByTestId('org-users-list')
+  await expect(usersList.getByText(email)).toBeVisible()
+})
+
+Then('I see user {string} with role {string}', async ({ page }, email: string, role: string) => {
+  const usersList = page.getByTestId('org-users-list')
+  const userRow = usersList.locator(`[data-user-email="${email}"]`)
+  await expect(userRow.getByTestId('user-role')).toHaveText(role)
 })

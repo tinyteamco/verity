@@ -10,10 +10,10 @@ interface Organization {
 }
 
 interface User {
-  user_id: number
+  user_id: string
   email: string
   role: string
-  firebase_uid: string
+  created_at: string
 }
 
 interface Study {
@@ -74,7 +74,8 @@ export function OrganizationDetailPage() {
         return res.json()
       })
       .then((data) => {
-        setUsers(Array.isArray(data) ? data : [])
+        // API returns {items: [...]}
+        setUsers(data.items || [])
         setLoadingUsers(false)
       })
       .catch((err) => {
@@ -139,10 +140,10 @@ export function OrganizationDetailPage() {
         ) : users.length === 0 ? (
           <p>No users yet</p>
         ) : (
-          <ul>
+          <ul data-testid="org-users-list">
             {users.map((u) => (
-              <li key={u.user_id}>
-                {u.email} ({u.role})
+              <li key={u.user_id} data-user-email={u.email}>
+                {u.email} (<span data-testid="user-role">{u.role}</span>)
               </li>
             ))}
           </ul>

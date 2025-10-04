@@ -94,6 +94,27 @@ act --container-architecture linux/amd64  # Test GitHub Actions locally
 10. **CI-Only Deployments**: Infrastructure changes only via GitHub Actions (no local deployments)
 11. **Workload Identity**: GitHub authenticates to GCP without JSON keys (OIDC)
 
+### BDD-First Development Workflow
+
+**CRITICAL**: This project follows strict BDD/TDD practices. Always follow this workflow:
+
+1. **Write BDD tests first** - Before implementing any feature:
+   - **Backend**: Add Gherkin scenarios to `backend/tests/features/*.feature`
+   - **Frontend**: Add Gherkin scenarios to `frontend/tests/features/*.feature`
+   - Write step implementations that call the API/UI
+
+2. **Run tests to confirm they fail** - Verify the test correctly detects missing functionality
+
+3. **Implement the feature** - Write minimal code to make tests pass:
+   - Backend: API endpoints, models, business logic
+   - Frontend: UI components, API calls, state management
+
+4. **Run tests to confirm they pass** - Verify implementation meets requirements
+
+5. **Refactor if needed** - Improve code while keeping tests green
+
+**Never skip writing tests first.** Tests define the contract and prevent regressions.
+
 ### Code Quality Standards
 
 **ZERO WARNINGS POLICY**: All code must pass these checks with no warnings or errors:

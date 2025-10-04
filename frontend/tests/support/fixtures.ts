@@ -43,15 +43,95 @@ export class TestFixtures {
     const token = await this.page.evaluate(() => localStorage.getItem('firebase_token'))
 
     for (const name of orgNames) {
+      const ownerEmail = `owner@${name.toLowerCase().replace(/\s+/g, '')}.com`
       const response = await this.page.request.post(`http://localhost:${this.backendPort}/api/orgs`, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        data: { name },
+        data: {
+          name,
+          owner_email: ownerEmail,
+        },
       })
       if (!response.ok()) {
         throw new Error(`Failed to create org ${name}: ${response.status()} ${await response.text()}`)
+      }
+    }
+  }
+
+  async seedOrganizationWithUsers(
+    orgName: string,
+    users: Array<{ email: string; role: string }>
+  ): Promise<void> {
+    const token = await this.page.evaluate(() => localStorage.getItem('firebase_token'))
+
+    // Create organization with owner (first user should be owner)
+    const ownerUser = users.find(u => u.role === 'owner')
+    if (!ownerUser) {
+      throw new Error('Organization must have an owner')
+    }
+
+    const orgResponse = await this.page.request.post(`http://localhost:${this.backendPort}/api/orgs`, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      data: {
+        name: orgName,
+        owner_email: ownerUser.email,
+      },
+    })
+
+    if (!orgResponse.ok()) {
+      throw new Error(`Failed to create org ${orgName}: ${orgResponse.status()} ${await orgResponse.text()}`)
+    }
+
+    const org = await orgResponse.json()
+    const orgId = org.org_id
+
+    // Add additional users (non-owners)
+    for (const user of users) {
+      if (user.role === 'owner') {
+        continue // Owner already created
+      }
+
+      // Create Firebase user via stub
+      const createUserResponse = await this.page.request.post(
+        `http://localhost:${this.stubPort}/identitytoolkit.googleapis.com/v1/accounts`,
+        {
+          headers: { 'Content-Type': 'application/json' },
+          data: {
+            email: user.email,
+            password: 'test123',
+            returnSecureToken: true,
+          },
+        }
+      )
+
+      if (!createUserResponse.ok()) {
+        throw new Error(`Failed to create Firebase user ${user.email}: ${createUserResponse.status()} ${await createUserResponse.text()}`)
+      }
+
+      const firebaseUser = await createUserResponse.json()
+
+      // Create user in backend using test-only endpoint
+      const userResponse = await this.page.request.post(
+        `http://localhost:${this.backendPort}/api/test/orgs/${orgId}/users`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            email: user.email,
+            role: user.role,
+            firebase_uid: firebaseUser.localId,
+          },
+        }
+      )
+
+      if (!userResponse.ok()) {
+        throw new Error(`Failed to create user ${user.email}: ${userResponse.status()} ${await userResponse.text()}`)
       }
     }
   }
