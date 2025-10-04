@@ -22,8 +22,8 @@ test: ## Run tests (with services)
 	$(MAKE) seed-admin
 	APP_ENV=local uv run pytest
 
-test-ci: .docker-services .firebase-stub-seeded ## Run tests in CI (uses lightweight stub, isolated from dev)
-	APP_ENV=local FIREBASE_AUTH_EMULATOR_HOST=localhost:9199 uv run pytest
+test-ci: .docker-services ## Run tests in CI (pytest manages its own Firebase stub on random port)
+	APP_ENV=local uv run pytest
 
 .PHONY: .docker-services
 .docker-services: ## Ensure Docker services (postgres, minio) are running

@@ -4,13 +4,13 @@ Pytest configuration and fixtures for the test suite
 
 import contextlib
 import os
+import socket
+import subprocess
+import time
 from collections.abc import Generator
 
 # Set test environment FIRST, before any imports
 os.environ["APP_ENV"] = "local"
-# Use Firebase stub port (9199) if not already set (allows override via test-ci)
-if "FIREBASE_AUTH_EMULATOR_HOST" not in os.environ:
-    os.environ["FIREBASE_AUTH_EMULATOR_HOST"] = "localhost:9099"
 
 import firebase_admin
 import pytest
@@ -19,16 +19,74 @@ from firebase_admin import auth
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-# Clear any existing Firebase apps to ensure clean initialization
-firebase_admin._apps = {}
-
-# Force Firebase initialization with test settings before any other imports
-if not firebase_admin._apps:
-    firebase_admin.initialize_app(credential=None, options={"projectId": "verity-local"})
-
 # Now import the app
-from src.api.main import app  # noqa: E402
-from src.database import Base, get_db  # noqa: E402
+from src.api.main import app
+from src.database import Base, get_db
+
+
+def find_free_port() -> int:
+    """Find a free port for the Firebase stub."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("", 0))
+        s.listen(1)
+        port = s.getsockname()[1]
+    return port
+
+
+@pytest.fixture(scope="session", autouse=True)
+def firebase_stub() -> Generator[int, None, None]:
+    """
+    Start a Firebase Auth stub for this test session on a random free port.
+    This ensures each test run (including parallel pre-push hook runs) gets
+    its own isolated Firebase stub.
+    """
+    # Find a free port
+    stub_port = find_free_port()
+
+    # Start the stub process
+    stub_process = subprocess.Popen(
+        ["uv", "run", "python", "scripts/firebase_auth_stub.py"],
+        env={**os.environ, "STUB_PORT": str(stub_port)},
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    # Wait for stub to be ready
+    max_attempts = 30
+    for _ in range(max_attempts):
+        try:
+            import requests
+
+            response = requests.get(f"http://localhost:{stub_port}", timeout=1)
+            if response.status_code == 200:
+                break
+        except requests.RequestException:
+            time.sleep(0.1)
+    else:
+        stub_process.kill()
+        raise RuntimeError(f"Firebase stub failed to start on port {stub_port}")
+
+    # Set environment variable for all tests in this session
+    os.environ["FIREBASE_AUTH_EMULATOR_HOST"] = f"localhost:{stub_port}"
+
+    yield stub_port
+
+    # Cleanup
+    stub_process.terminate()
+    try:
+        stub_process.wait(timeout=2)
+    except subprocess.TimeoutExpired:
+        stub_process.kill()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_firebase(firebase_stub: int) -> None:
+    """Initialize Firebase Admin SDK after stub is running."""
+    # Clear any existing Firebase apps
+    firebase_admin._apps = {}
+
+    # Initialize Firebase Admin SDK to use the emulator (env var is set by firebase_stub)
+    firebase_admin.initialize_app(credential=None, options={"projectId": "verity-local"})
 
 
 # Helper function for step definitions that need direct DB access
@@ -54,13 +112,7 @@ def TestingSessionLocal() -> Session:  # noqa: N802
 
 
 @pytest.fixture(scope="session")
-def firebase_app():
-    """Get Firebase Admin SDK app (already initialized with correct config)"""
-    return firebase_admin.get_app()
-
-
-@pytest.fixture(scope="session")
-def super_admin_user(firebase_app):
+def super_admin_user(setup_firebase: None):
     """Create ONE super admin for entire test session"""
     uid = "test-super-admin"
     email = "admin@tinyteam.co"
@@ -126,7 +178,7 @@ def client():
 
 
 @pytest.fixture
-def test_org_user(firebase_app):
+def test_org_user(setup_firebase: None):
     """Create a test organization user for this test"""
     try:
         user = auth.create_user(
@@ -144,7 +196,7 @@ def test_org_user(firebase_app):
 
 
 @pytest.fixture
-def test_interviewee_user(firebase_app):
+def test_interviewee_user(setup_firebase: None):
     """Create a test interviewee user for this test"""
     try:
         user = auth.create_user(

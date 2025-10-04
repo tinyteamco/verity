@@ -6,14 +6,17 @@ import os
 
 import requests
 
-# Use Firebase stub port if running via test-ci, otherwise default to emulator port
-FIREBASE_EMULATOR_HOST = os.environ.get("FIREBASE_AUTH_EMULATOR_HOST", "localhost:9099")
 PROJECT_ID = "verity-local"
+
+
+def _get_firebase_host() -> str:
+    """Get Firebase emulator host (read at runtime to pick up pytest fixture changes)."""
+    return os.environ.get("FIREBASE_AUTH_EMULATOR_HOST", "localhost:9099")
 
 
 def sign_in_user(email: str, password: str) -> str:
     """Sign in a user and return their ID token"""
-    url = f"http://{FIREBASE_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=fake-api-key"
+    url = f"http://{_get_firebase_host()}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=fake-api-key"
 
     data = {"email": email, "password": password, "returnSecureToken": True}
 
