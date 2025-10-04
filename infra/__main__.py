@@ -312,6 +312,15 @@ identity_config = gcp.identityplatform.Config(
     opts=pulumi.ResourceOptions(depends_on=[firebase_project]),
 )
 
+# Firebase Web App (for client-side SDK)
+# This creates a Firebase Web App and auto-provisions an API key
+web_app = gcp.firebase.WebApp(
+    "web-app",
+    project=project,
+    display_name=f"Verity Web App ({stack})",
+    opts=pulumi.ResourceOptions(depends_on=[firebase_project]),
+)
+
 # Firebase Hosting Site
 hosting_site = gcp.firebase.HostingSite(
     "hosting-site",
@@ -372,3 +381,16 @@ pulumi.export("database_url_secret_name", database_url_secret.secret_id)
 # Firebase Hosting
 pulumi.export("hosting_site_id", hosting_site.site_id)
 pulumi.export("hosting_url", hosting_site.default_url)
+
+# Firebase Web App Config (for client-side SDK initialization)
+# Get the web app config which includes API key, auth domain, etc.
+web_app_config = web_app.app_id.apply(
+    lambda app_id: gcp.firebase.get_web_app_config(
+        web_app_id=app_id,
+        project=project,
+    )
+)
+
+pulumi.export("firebase_api_key", web_app_config.api_key)
+pulumi.export("firebase_auth_domain", web_app_config.auth_domain)
+pulumi.export("firebase_project_id", project)
