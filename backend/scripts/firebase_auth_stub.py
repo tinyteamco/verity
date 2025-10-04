@@ -226,6 +226,34 @@ async def get_user(request: Request, project: str | None = None) -> JSONResponse
     else:  # POST
         body = await request.json()
 
+        # Handle email lookup (used by Admin SDK get_user_by_email)
+        if "email" in body:
+            emails = body["email"]
+            if not isinstance(emails, list):
+                emails = [emails]
+
+            # Return all requested users
+            found_users = []
+            for email in emails:
+                user = next((u for u in users.values() if u["email"] == email), None)
+                if user:
+                    found_users.append(user)
+
+            return JSONResponse(
+                {
+                    "kind": "identitytoolkit#GetAccountInfoResponse",
+                    "users": [
+                        {
+                            "localId": u["uid"],
+                            "email": u["email"],
+                            "emailVerified": u.get("emailVerified", False),
+                            "customAttributes": json.dumps(u.get("customClaims", {})),
+                        }
+                        for u in found_users
+                    ],
+                }
+            )
+
         # Handle localId lookup (used by Admin SDK get_user)
         if "localId" in body:
             local_ids = body["localId"]
@@ -256,7 +284,7 @@ async def get_user(request: Request, project: str | None = None) -> JSONResponse
         # Handle idToken lookup
         id_token = body.get("idToken")
         if not id_token:
-            raise HTTPException(status_code=400, detail="idToken or localId is required")
+            raise HTTPException(status_code=400, detail="idToken, localId, or email is required")
 
         # Decode token to get user ID
         try:
@@ -334,6 +362,7 @@ async def sign_in(request: Request) -> JSONResponse:
 
 
 @app.delete("/identitytoolkit.googleapis.com/v1/projects/{project}/accounts:delete")
+@app.post("/identitytoolkit.googleapis.com/v1/projects/{project}/accounts:delete")
 async def delete_user(project: str, request: Request) -> JSONResponse:
     """
     Delete user endpoint (used by test cleanup)

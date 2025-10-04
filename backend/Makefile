@@ -42,6 +42,8 @@ test-ci: .firebase-stub-seeded ## Run tests in CI (uses lightweight stub, isolat
 		echo "⚠️  Firebase stub not running, starting it..."; \
 		$(MAKE) start-firebase-stub; \
 	fi
+	@echo "🧹 Clearing Firebase stub state..."
+	@curl -s -X POST http://localhost:9199/emulator/v1/projects/verity-local/accounts:delete >/dev/null 2>&1 || true
 	@FIREBASE_AUTH_EMULATOR_HOST=localhost:9199 uv run python scripts/seed_firebase.py
 	@echo "✅ Firebase stub seeded"
 

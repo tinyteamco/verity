@@ -30,7 +30,9 @@ def initialize_firebase(production: bool = False) -> None:
             sys.exit(1)
     else:
         # Emulator mode: configure for local emulator
-        os.environ["FIREBASE_AUTH_EMULATOR_HOST"] = "localhost:9099"
+        # Use environment variable if set, otherwise default to localhost:9099
+        if "FIREBASE_AUTH_EMULATOR_HOST" not in os.environ:
+            os.environ["FIREBASE_AUTH_EMULATOR_HOST"] = "localhost:9099"
         firebase_admin.initialize_app(options={"projectId": "verity-local"})
 
 
