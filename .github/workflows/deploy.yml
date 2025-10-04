@@ -250,7 +250,10 @@ jobs:
           npm run build
           echo "✅ Frontend built"
 
-          # Deploy to Firebase Hosting
+          # Get access token for Firebase CLI
+          ACCESS_TOKEN=$(gcloud auth print-access-token)
+
+          # Deploy to Firebase Hosting using gcloud authentication
           cd ..
-          npx firebase-tools deploy --only hosting --project verity-platform-473406
+          npx firebase-tools deploy --only hosting --project verity-platform-473406 --token "$ACCESS_TOKEN"
           echo "✅ Frontend deployed to Firebase Hosting"
