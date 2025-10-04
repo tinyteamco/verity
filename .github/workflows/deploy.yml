@@ -265,10 +265,8 @@ jobs:
           npm run build
           echo "✅ Frontend built with Firebase config from Pulumi"
 
-          # Get access token for Firebase CLI
-          ACCESS_TOKEN=$(gcloud auth print-access-token)
-
-          # Deploy to Firebase Hosting using gcloud authentication
+          # Deploy to Firebase Hosting using service account credentials
+          # GOOGLE_APPLICATION_CREDENTIALS is already set by google-github-actions/auth
           cd ..
-          npx firebase-tools deploy --only hosting --project verity-platform-473406 --token "$ACCESS_TOKEN"
+          npx firebase-tools deploy --only hosting --project verity-platform-473406
           echo "✅ Frontend deployed to Firebase Hosting"
