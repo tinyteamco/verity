@@ -8,10 +8,10 @@ const testDir = defineBddConfig({
 
 export default defineConfig({
   testDir,
-  fullyParallel: false, // Run tests serially until port/DB isolation is fully resolved
+  fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: 1, // Serial execution for complete test isolation
+  workers: 2, // Test with 2 workers to debug parallel issues
   reporter: [['list'], ['html', { open: 'never' }]],
 
   use: {

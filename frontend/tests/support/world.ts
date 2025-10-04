@@ -15,9 +15,6 @@ export const test = base.extend({
     const startTime = Date.now()
     console.log('[Test] Starting backend + Firebase stub with clean state...')
 
-    // Delete any existing database files to ensure clean state
-    await execAsync('rm -f ../backend/test.db ../backend/*.db /tmp/verity_e2e_test_*.db').catch(() => {})
-
     // Start backend+stub script and capture port assignments
     const backendProcess = spawn('bash', ['-c', 'cd ../backend && ./scripts/start_e2e_backend.sh'], {
       detached: true,
@@ -85,6 +82,7 @@ export const test = base.extend({
     }
 
     // Set E2E ports in localStorage via init script (persists across navigation)
+    // Each test gets a fresh browser context with isolated localStorage
     await page.addInitScript((args) => {
       localStorage.setItem('__E2E_BACKEND_PORT__', String(args.bp));
       localStorage.setItem('__E2E_STUB_PORT__', String(args.sp))

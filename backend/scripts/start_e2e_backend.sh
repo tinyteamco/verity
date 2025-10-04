@@ -31,8 +31,9 @@ find_and_reserve_port() {
 }
 
 # Generate unique test ID to prevent collisions
-# Use PID + random to ensure uniqueness across parallel processes
-TEST_ID="$$_$(od -An -N4 -tu4 < /dev/urandom | tr -d ' ')"
+# Use sh -c to get this script's actual PID + nanosecond timestamp
+# Note: $$ in main script is parent PID (same for all), but in subshell it's unique
+TEST_ID="$(sh -c 'echo $$')_$(date +%s%N)"
 
 # Allocate dynamic ports with locks
 STUB_PORT=$(find_and_reserve_port)
