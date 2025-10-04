@@ -6,6 +6,7 @@ import { LoginPage } from './pages/LoginPage'
 import { OrganizationDetailPage } from './pages/OrganizationDetailPage'
 import { loadAuthState } from './lib/auth-persistence'
 import { getApiUrl } from './lib/api'
+import { initializeAuth } from './lib/auth-init'
 import { useEffect, useState } from 'react'
 
 function Dashboard() {
@@ -15,9 +16,12 @@ function Dashboard() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [orgName, setOrgName] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const [description, setDescription] = useState('')
   const [ownerEmail, setOwnerEmail] = useState('')
   const [passwordResetLink, setPasswordResetLink] = useState('')
   const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
 
   const fetchOrganizations = () => {
     if (!user || user.role !== 'super_admin') return
@@ -48,13 +52,14 @@ function Dashboard() {
 
   const handleCreateOrg = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!orgName.trim() || !ownerEmail.trim()) return
+    if (!orgName.trim() || !displayName.trim() || !ownerEmail.trim()) return
 
     setCreating(true)
+    setCreateError(null)
     const token = localStorage.getItem('firebase_token')
     const apiUrl = getApiUrl()
 
-    console.log('[CreateOrg] Creating org:', orgName, 'with owner:', ownerEmail, 'API URL:', apiUrl)
+    console.log('[CreateOrg] Creating org:', { name: orgName, display_name: displayName, description, owner_email: ownerEmail }, 'API URL:', apiUrl)
 
     try {
       const res = await fetch(`${apiUrl}/api/orgs`, {
@@ -63,15 +68,20 @@ function Dashboard() {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ name: orgName, owner_email: ownerEmail }),
+        body: JSON.stringify({
+          name: orgName,
+          display_name: displayName,
+          description: description || undefined,
+          owner_email: ownerEmail,
+        }),
       })
 
       console.log('[CreateOrg] Response status:', res.status)
 
       if (!res.ok) {
-        const errorText = await res.text()
-        console.error('[CreateOrg] Error response:', errorText)
-        throw new Error(`HTTP ${res.status}: ${errorText}`)
+        const errorData = await res.json().catch(() => ({ detail: 'Unknown error' }))
+        console.error('[CreateOrg] Error response:', errorData)
+        throw new Error(errorData.detail || `HTTP ${res.status}`)
       }
 
       const data = await res.json()
@@ -80,7 +90,10 @@ function Dashboard() {
       // Close create modal and reset form
       setShowCreateModal(false)
       setOrgName('')
+      setDisplayName('')
+      setDescription('')
       setOwnerEmail('')
+      setCreateError(null)
 
       // Show success modal with password reset link
       if (data.owner && data.owner.password_reset_link) {
@@ -92,9 +105,7 @@ function Dashboard() {
       fetchOrganizations()
     } catch (err: any) {
       console.error('[CreateOrg] Error:', err)
-      console.error('[CreateOrg] Error type:', err.name)
-      console.error('[CreateOrg] Error message:', err.message)
-      alert(`Failed to create organization: ${err.message}`)
+      setCreateError(err.message)
     } finally {
       setCreating(false)
     }
@@ -144,20 +155,57 @@ function Dashboard() {
                 <h3>Create Organization</h3>
                 <form onSubmit={handleCreateOrg}>
                   <div style={{ marginBottom: '1rem' }}>
-                    <label htmlFor="org-name">Organization Name</label>
+                    <label htmlFor="org-name">
+                      Organization Slug <span style={{ color: '#666', fontSize: '0.85rem' }}>(lowercase, hyphens only)</span>
+                    </label>
                     <input
                       id="org-name"
                       data-testid="org-name-input"
                       type="text"
                       value={orgName}
-                      onChange={(e) => setOrgName(e.target.value)}
-                      placeholder="Enter organization name"
+                      onChange={(e) => setOrgName(e.target.value.toLowerCase())}
+                      placeholder="my-company"
+                      pattern="[a-z0-9-]+"
                       style={{
                         width: '100%',
                         padding: '0.5rem',
                         marginTop: '0.25rem',
                       }}
                       autoFocus
+                    />
+                  </div>
+                  <div style={{ marginBottom: '1rem' }}>
+                    <label htmlFor="display-name">Display Name</label>
+                    <input
+                      id="display-name"
+                      data-testid="display-name-input"
+                      type="text"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      placeholder="My Company Inc."
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem',
+                        marginTop: '0.25rem',
+                      }}
+                    />
+                  </div>
+                  <div style={{ marginBottom: '1rem' }}>
+                    <label htmlFor="description">
+                      Description <span style={{ color: '#666', fontSize: '0.85rem' }}>(optional)</span>
+                    </label>
+                    <textarea
+                      id="description"
+                      data-testid="description-input"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="A brief description of the organization"
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem',
+                        marginTop: '0.25rem',
+                        minHeight: '60px',
+                      }}
                     />
                   </div>
                   <div style={{ marginBottom: '1rem' }}>
@@ -176,13 +224,21 @@ function Dashboard() {
                       }}
                     />
                   </div>
+                  {createError && (
+                    <div style={{ color: 'red', marginBottom: '1rem', fontSize: '0.9rem' }}>
+                      {createError}
+                    </div>
+                  )}
                   <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                     <button
                       type="button"
                       onClick={() => {
                         setShowCreateModal(false)
                         setOrgName('')
+                        setDisplayName('')
+                        setDescription('')
                         setOwnerEmail('')
+                        setCreateError(null)
                       }}
                       disabled={creating}
                     >
@@ -191,7 +247,7 @@ function Dashboard() {
                     <button
                       type="submit"
                       data-testid="create-org-submit"
-                      disabled={creating || !orgName.trim() || !ownerEmail.trim()}
+                      disabled={creating || !orgName.trim() || !displayName.trim() || !ownerEmail.trim()}
                     >
                       {creating ? 'Creating...' : 'Create'}
                     </button>
@@ -302,8 +358,12 @@ function App() {
   const setUserFirebaseUid = useSetAtom(userFirebaseUidAtom)
   const [authRestored, setAuthRestored] = useState(false)
 
-  // Restore auth state on mount
+  // Initialize auth and restore state on mount
   useEffect(() => {
+    // Initialize Firebase auth listener for automatic token refresh
+    initializeAuth()
+
+    // Restore auth state from localStorage
     const authState = loadAuthState()
     if (authState) {
       setUserId(authState.userId)
