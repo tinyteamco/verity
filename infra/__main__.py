@@ -314,8 +314,9 @@ identity_config = gcp.identityplatform.Config(
 
 # Firebase Web App (for client-side SDK)
 # This creates a Firebase Web App and auto-provisions an API key
+# Using stack-specific resource name to avoid state conflicts
 web_app = gcp.firebase.WebApp(
-    "web-app",
+    f"web-app-{stack}",
     project=project,
     display_name=f"Verity Web App ({stack})",
     opts=pulumi.ResourceOptions(depends_on=[firebase_project]),
