@@ -74,7 +74,11 @@ def create_owner_user(client: TestClient, auth_headers):
         db_session = TestingSessionLocal()
         try:
             # Create organization first
-            org = Organization(name="Test Organization")
+            org = Organization(
+                name="LTest Organization",
+                display_name="Test Organization",
+                description="Test organization",
+            )
             db_session.add(org)
             db_session.commit()
             db_session.refresh(org)
@@ -116,7 +120,12 @@ def create_org_as_interviewee(client: TestClient, auth_headers, test_response):
     """Try to create an organization as interviewee"""
     response = client.post(
         "/orgs",
-        json={"name": "Hacker Org", "owner_email": "hacker@hackerorg.com"},
+        json={
+            "name": "hacker-org",
+            "display_name": "Hacker Org",
+            "description": "Test organization: Hacker Org",
+            "owner_email": "hacker@hackerorg.com",
+        },
         headers=auth_headers,
     )
     test_response["response"] = response

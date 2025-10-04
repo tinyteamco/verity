@@ -49,7 +49,11 @@ def create_member_user(client: TestClient, auth_headers):
         db_session = TestingSessionLocal()
         try:
             # Create organization first
-            org = Organization(name="Test Organization")
+            org = Organization(
+                name="LTest Organization",
+                display_name="Test Organization",
+                description="Test organization",
+            )
             db_session.add(org)
             db_session.commit()
             db_session.refresh(org)
@@ -96,7 +100,11 @@ def create_admin_user(client: TestClient, auth_headers):
         db_session = TestingSessionLocal()
         try:
             # Create organization first
-            org = Organization(name="Test Organization")
+            org = Organization(
+                name="LTest Organization",
+                display_name="Test Organization",
+                description="Test organization",
+            )
             db_session.add(org)
             db_session.commit()
             db_session.refresh(org)
@@ -143,7 +151,11 @@ def create_owner_user(client: TestClient, auth_headers):
         db_session = TestingSessionLocal()
         try:
             # Create organization first
-            org = Organization(name="Test Organization")
+            org = Organization(
+                name="LTest Organization",
+                display_name="Test Organization",
+                description="Test organization",
+            )
             db_session.add(org)
             db_session.commit()
             db_session.refresh(org)

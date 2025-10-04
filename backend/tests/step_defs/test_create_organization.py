@@ -40,8 +40,19 @@ def post_create_org(client, response, auth_context, org_name):
     # Generate unique email to avoid conflicts across tests
     unique_id = str(uuid.uuid4())[:8]
     owner_email = f"owner-{unique_id}@{org_name.lower().replace(' ', '')}.com"
+
+    # Convert org_name to slug (lowercase, hyphenated)
+    slug = org_name.lower().replace(" ", "-")
+
     response["result"] = client.post(
-        "/orgs", json={"name": org_name, "owner_email": owner_email}, headers=headers
+        "/orgs",
+        json={
+            "name": slug,
+            "display_name": org_name,
+            "description": f"Test organization: {org_name}",
+            "owner_email": owner_email,
+        },
+        headers=headers,
     )
 
 
@@ -52,7 +63,19 @@ def post_create_org_unauth(client, response, org_name):
     # Generate unique email to avoid conflicts across tests
     unique_id = str(uuid.uuid4())[:8]
     owner_email = f"owner-{unique_id}@{org_name.lower().replace(' ', '')}.com"
-    response["result"] = client.post("/orgs", json={"name": org_name, "owner_email": owner_email})
+
+    # Convert org_name to slug (lowercase, hyphenated)
+    slug = org_name.lower().replace(" ", "-")
+
+    response["result"] = client.post(
+        "/orgs",
+        json={
+            "name": slug,
+            "display_name": org_name,
+            "description": f"Test organization: {org_name}",
+            "owner_email": owner_email,
+        },
+    )
 
 
 @then(parsers.parse("the response status is {status_code:d}"))
@@ -73,4 +96,4 @@ def check_org_id(response):
 @then(parsers.parse('a new organization exists in the database with name "{org_name}"'))
 def check_org_exists(response, org_name):
     data = response["result"].json()
-    assert data["name"] == org_name
+    assert data["display_name"] == org_name

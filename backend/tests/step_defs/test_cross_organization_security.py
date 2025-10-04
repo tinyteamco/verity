@@ -39,14 +39,18 @@ def create_two_orgs(client: TestClient, test_data):
     db_session = TestingSessionLocal()
     try:
         # Create Acme Corp
-        org1 = Organization(name="Acme Corp")
+        org1 = Organization(
+            name="acme-corp", display_name="Acme Corp", description="Test organization"
+        )
         db_session.add(org1)
         db_session.commit()
         db_session.refresh(org1)
         test_data["orgs"]["Acme Corp"] = org1
 
         # Create Beta Inc
-        org2 = Organization(name="Beta Inc")
+        org2 = Organization(
+            name="beta-inc", display_name="Beta Inc", description="Test organization"
+        )
         db_session.add(org2)
         db_session.commit()
         db_session.refresh(org2)
@@ -83,7 +87,9 @@ def create_test_users(client: TestClient, test_data):
 
                 # Create database user - need to get org from DB in this session
                 org_from_db = (
-                    db_session.query(Organization).filter(Organization.name == org_name).first()
+                    db_session.query(Organization)
+                    .filter(Organization.display_name == org_name)
+                    .first()
                 )
                 if org_from_db:
                     db_user = User(
@@ -155,14 +161,14 @@ def check_403_status(test_response):
 def check_org_name(expected_name: str, test_response):
     """Check organization name in response"""
     data = test_response["response"].json()
-    assert data["name"] == expected_name
+    assert data["display_name"] == expected_name
 
 
 @then(parsers.parse('the organization name is not "{unexpected_name}"'))
 def check_org_name_not(unexpected_name: str, test_response):
     """Check organization name is not the unexpected one"""
     data = test_response["response"].json()
-    assert data["name"] != unexpected_name
+    assert data["display_name"] != unexpected_name
 
 
 @then(parsers.parse('the user list contains "{email}"'))

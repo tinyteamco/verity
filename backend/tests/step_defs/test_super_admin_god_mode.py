@@ -108,7 +108,14 @@ def super_admin_creates_org_given(client: Any, request: Any, org_name: str) -> N
 
     # Create organization with owner
     response = client.post(
-        "/orgs", json={"name": org_name, "owner_email": owner_email}, headers=headers
+        "/orgs",
+        json={
+            "name": org_name.lower().replace(" ", "-"),
+            "display_name": org_name,
+            "description": f"Test organization: {org_name}",
+            "owner_email": owner_email,
+        },
+        headers=headers,
     )
     assert response.status_code == 201
 
@@ -212,7 +219,14 @@ def super_admin_creates_org(client: Any, request: Any, org_name: str) -> None:
 
     # Create organization with owner
     response = client.post(
-        "/orgs", json={"name": org_name, "owner_email": owner_email}, headers=headers
+        "/orgs",
+        json={
+            "name": org_name.lower().replace(" ", "-"),
+            "display_name": org_name,
+            "description": f"Test organization: {org_name}",
+            "owner_email": owner_email,
+        },
+        headers=headers,
     )
 
     # Store response and org data
@@ -396,9 +410,9 @@ def check_status_403(request: Any) -> None:
 def check_org_exists_in_db(request: Any, org_name: str) -> None:
     """Check that organization exists in database."""
     with TestingSessionLocal() as db:
-        org = db.query(Organization).filter(Organization.name == org_name).first()
+        org = db.query(Organization).filter(Organization.display_name == org_name).first()
         assert org is not None
-        assert org.name == org_name
+        assert org.display_name == org_name
 
 
 @then(parsers.parse('"{org_name}" appears in the organization list'))
@@ -419,7 +433,7 @@ def check_study_belongs_to_org(request: Any, title: str, org_name: str) -> None:
         # Check organization
         org = db.query(Organization).filter(Organization.id == study.organization_id).first()
         assert org is not None
-        assert org.name == org_name
+        assert org.display_name == org_name
 
 
 @then("the interview data is returned")
@@ -446,7 +460,7 @@ def check_email_not_in_user_list(request: Any, email: str) -> None:
 @then(parsers.parse('the organization name is "{org_name}"'))
 def check_org_name(request: Any, org_name: str) -> None:
     """Check that organization name matches."""
-    assert request.org_details["name"] == org_name
+    assert request.org_details["display_name"] == org_name
 
 
 @then(parsers.parse('the error message contains "{text}"'))
@@ -530,7 +544,14 @@ def super_admin_creates_org_with_owner(
 
     # Create organization with owner email
     response = client.post(
-        "/orgs", json={"name": org_name, "owner_email": owner_email}, headers=headers
+        "/orgs",
+        json={
+            "name": org_name.lower().replace(" ", "-"),
+            "display_name": org_name,
+            "description": f"Test organization: {org_name}",
+            "owner_email": owner_email,
+        },
+        headers=headers,
     )
 
     # Store response and org data
@@ -580,10 +601,10 @@ def check_owner_linked_to_org(request: Any, org_name: str) -> None:
         # Check organization link
         assert user.organization_id == request.last_created_org_id
 
-        # Verify org name matches
+        # Verify org display_name matches
         org = db.query(Organization).filter(Organization.id == user.organization_id).first()
         assert org is not None
-        assert org.name == org_name
+        assert org.display_name == org_name
 
 
 @then(parsers.parse('the owner has role "{role}"'))

@@ -24,7 +24,14 @@ def create_test_organization(client: Any, super_admin_token: str, request: Any) 
     org_name = f"Test Organization {hash(request.node.name) % 10000}"
     owner_email = f"owner@testorg{hash(request.node.name) % 10000}.com"
     response = client.post(
-        "/orgs", json={"name": org_name, "owner_email": owner_email}, headers=headers
+        "/orgs",
+        json={
+            "name": org_name.lower().replace(" ", "-"),
+            "display_name": org_name,
+            "description": f"Test organization: {org_name}",
+            "owner_email": owner_email,
+        },
+        headers=headers,
     )
     assert response.status_code == 201
 

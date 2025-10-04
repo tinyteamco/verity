@@ -39,7 +39,14 @@ def create_test_organization(client, super_admin_token, request):
     org_name = f"Test Organization {hash(request.node.name) % 10000}"
     owner_email = f"owner@testorg{hash(request.node.name) % 10000}.com"
     response = client.post(
-        "/orgs", json={"name": org_name, "owner_email": owner_email}, headers=headers
+        "/orgs",
+        json={
+            "name": org_name.lower().replace(" ", "-"),
+            "display_name": org_name,
+            "description": f"Test organization: {org_name}",
+            "owner_email": owner_email,
+        },
+        headers=headers,
     )
     assert response.status_code == 201
 
@@ -213,7 +220,10 @@ def study_in_different_org(db: Session, request):
     """Create a study in a different organization for this test"""
     # Create unique organization for this test
     org_name = f"Other Organization {hash(request.node.name) % 10000}"
-    other_org = Organization(name=org_name)
+    org_slug = org_name.lower().replace(" ", "-")
+    other_org = Organization(
+        name=org_slug, display_name=org_name, description=f"Test organization: {org_name}"
+    )
     db.add(other_org)
     db.commit()
     db.refresh(other_org)

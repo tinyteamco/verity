@@ -56,7 +56,11 @@ def create_org_user_with_role(uid: str, email: str, role: str, auth_headers):
     db_session = TestingSessionLocal()
     try:
         # Create organization first
-        org = Organization(name="Test Organization")
+        org = Organization(
+            name="LTest Organization",
+            display_name="Test Organization",
+            description="Test organization",
+        )
         db_session.add(org)
         db_session.commit()
         db_session.refresh(org)
@@ -214,7 +218,7 @@ def check_org_details(test_response):
     data = test_response["response"].json()
     assert "org_id" in data
     assert "name" in data
-    assert data["name"] == "Test Organization"
+    assert data["display_name"] == "Test Organization"
 
 
 @then('the error message is "User not associated with any organization"')

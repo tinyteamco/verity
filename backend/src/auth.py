@@ -42,6 +42,8 @@ class OrgUser(BaseModel):
     role: str
     organization_id: int
     organization_name: str
+    organization_display_name: str
+    organization_description: str | None
     organization_created_at: Any
 
 
@@ -127,7 +129,7 @@ def get_org_user_impl(user: AuthUser, db: Session) -> OrgUser:
     if user.is_super_admin:
         # Try to find any organization (for listing endpoints)
         # Individual endpoints will validate against specific resources
-        first_org = db.query(Organization).first()
+        first_org = db.query(Organization).filter(Organization.deleted_at.is_(None)).first()
         if first_org:
             return OrgUser(
                 firebase_uid=user.firebase_uid,
@@ -135,6 +137,8 @@ def get_org_user_impl(user: AuthUser, db: Session) -> OrgUser:
                 role="super_admin",
                 organization_id=first_org.id,
                 organization_name=first_org.name,
+                organization_display_name=first_org.display_name,
+                organization_description=first_org.description,
                 organization_created_at=first_org.created_at,
             )
         # No orgs exist yet, but super admin can still proceed
@@ -152,5 +156,7 @@ def get_org_user_impl(user: AuthUser, db: Session) -> OrgUser:
         role=db_user.role,
         organization_id=db_user.organization_id,
         organization_name=db_user.organization.name,
+        organization_display_name=db_user.organization.display_name,
+        organization_description=db_user.organization.description,
         organization_created_at=db_user.organization.created_at,
     )

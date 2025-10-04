@@ -1,11 +1,35 @@
+import re
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class OrganizationCreate(BaseModel):
-    name: str
+    name: str  # URL-safe slug: lowercase, alphanumeric, hyphens only
+    display_name: str
+    description: str | None = None
     owner_email: str
+
+    @field_validator("name")
+    @classmethod
+    def validate_slug(cls, v: str) -> str:
+        """Validate organization name is a valid slug (lowercase, alphanumeric, hyphens)."""
+        if not v:
+            raise ValueError("Organization name cannot be empty")
+
+        if not re.match(r"^[a-z0-9-]+$", v):
+            raise ValueError(
+                "Organization name must be lowercase letters, numbers, "
+                "and hyphens only (no spaces, no uppercase)"
+            )
+
+        if v.startswith("-") or v.endswith("-"):
+            raise ValueError("Organization name cannot start or end with a hyphen")
+
+        if "--" in v:
+            raise ValueError("Organization name cannot contain consecutive hyphens")
+
+        return v
 
 
 class OwnerCreationResponse(BaseModel):
@@ -20,6 +44,8 @@ class OrganizationResponse(BaseModel):
 
     org_id: str
     name: str
+    display_name: str
+    description: str | None
     created_at: datetime
 
 
@@ -28,6 +54,8 @@ class OrganizationWithOwnerResponse(BaseModel):
 
     org_id: str
     name: str
+    display_name: str
+    description: str | None
     created_at: datetime
     owner: OwnerCreationResponse
 
@@ -46,6 +74,8 @@ class OrganizationWithUsersResponse(BaseModel):
 
     org_id: str
     name: str
+    display_name: str
+    description: str | None
     created_at: datetime
     users: list[UserResponse]
 

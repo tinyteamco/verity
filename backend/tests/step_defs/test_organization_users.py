@@ -54,7 +54,11 @@ def create_admin_user(client: TestClient, auth_headers, test_org_id):
         if not test_org_id.get("org_id"):
             db_session = TestingSessionLocal()
             try:
-                org = Organization(name="Test Organization")
+                org = Organization(
+                    name="LTest Organization",
+                    display_name="Test Organization",
+                    description="Test organization",
+                )
                 db_session.add(org)
                 db_session.commit()
                 db_session.refresh(org)
@@ -107,7 +111,11 @@ def create_member_user(client: TestClient, auth_headers, test_org_id):
         if not test_org_id.get("org_id"):
             db_session = TestingSessionLocal()
             try:
-                org = Organization(name="Test Organization")
+                org = Organization(
+                    name="LTest Organization",
+                    display_name="Test Organization",
+                    description="Test organization",
+                )
                 db_session.add(org)
                 db_session.commit()
                 db_session.refresh(org)
@@ -160,7 +168,9 @@ def create_org_with_users(test_org_id):
     db_session = TestingSessionLocal()
     try:
         # Create organization
-        org = Organization(name="Multi-User Org")
+        org = Organization(
+            name="LMulti-User Org", display_name="Multi-User Org", description="Test organization"
+        )
         db_session.add(org)
         db_session.commit()
         db_session.refresh(org)
@@ -217,7 +227,9 @@ def create_org_with_owner(test_org_id):
     db_session = TestingSessionLocal()
     try:
         # Create organization
-        org = Organization(name="Owner Test Org")
+        org = Organization(
+            name="LOwner Test Org", display_name="Owner Test Org", description="Test organization"
+        )
         db_session.add(org)
         db_session.commit()
         db_session.refresh(org)
@@ -343,7 +355,12 @@ def create_organization(client, test_org_id):
     db_session = TestingSessionLocal()
     try:
         # Use unique name to avoid conflicts across tests
-        org = Organization(name=f"Test Organization {uuid.uuid4().hex[:8]}")
+        unique_id = uuid.uuid4().hex[:8]
+        org = Organization(
+            name=f"test-organization-{unique_id}",
+            display_name=f"Test Organization {unique_id}",
+            description="Test organization for user tests",
+        )
         db_session.add(org)
         db_session.commit()
         db_session.refresh(org)

@@ -57,7 +57,11 @@ def create_org_user_with_role(uid: str, email: str, role: str, auth_headers, tes
     db_session = TestingSessionLocal()
     try:
         # Create organization first
-        org = Organization(name="Test Organization")
+        org = Organization(
+            name="LTest Organization",
+            display_name="Test Organization",
+            description="Test organization",
+        )
         db_session.add(org)
         db_session.commit()
         db_session.refresh(org)
@@ -152,7 +156,11 @@ def create_study_other_org(title: str, client: TestClient, test_data):
     db_session = TestingSessionLocal()
     try:
         # Create a different organization
-        other_org = Organization(name="Other Organization")
+        other_org = Organization(
+            name="LOther Organization",
+            display_name="Other Organization",
+            description="Test organization",
+        )
         db_session.add(other_org)
         db_session.commit()
         db_session.refresh(other_org)

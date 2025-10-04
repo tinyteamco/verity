@@ -32,7 +32,9 @@ def create_test_organization(client, super_admin_token):
     response = client.post(
         "/orgs",
         json={
-            "name": "Test Organization",
+            "name": "test-organization",
+            "display_name": "Test Organization",
+            "description": "Test organization for study guides",
             "owner_email": f"owner-{unique_id}@testorganization.com",
         },
         headers=headers,
@@ -68,12 +70,16 @@ def create_test_study(client, super_admin_token, study_id, title, org_id):
             # Find the test organization
             org = (
                 db_session.query(Organization)
-                .filter(Organization.name == "Test Organization")
+                .filter(Organization.display_name == "Test Organization")
                 .first()
             )
             if not org:
                 # If not found, create it
-                org = Organization(name="Test Organization")
+                org = Organization(
+                    name="test-organization",
+                    display_name="Test Organization",
+                    description="Test organization",
+                )
                 db_session.add(org)
                 db_session.commit()
                 db_session.refresh(org)
@@ -113,7 +119,9 @@ def set_org_user_with_role(client, current_user_headers, org_user_token, test_or
     try:
         # Find the test organization (should be the first one created)
         org = (
-            db_session.query(Organization).filter(Organization.name == "Test Organization").first()
+            db_session.query(Organization)
+            .filter(Organization.display_name == "Test Organization")
+            .first()
         )
         if not org:
             raise RuntimeError(
@@ -158,7 +166,9 @@ def create_study_different_org(client, super_admin_token, study_id):
     org_response = client.post(
         "/orgs",
         json={
-            "name": "Other Organization",
+            "name": "other-organization",
+            "display_name": "Other Organization",
+            "description": "Other organization for testing",
             "owner_email": f"owner-{unique_id}@otherorganization.com",
         },
         headers=headers,

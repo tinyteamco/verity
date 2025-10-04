@@ -1,7 +1,7 @@
 import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from datetime import UTC
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, UploadFile
@@ -129,10 +129,16 @@ async def list_organizations(
     current_user: Annotated[AuthUser, Depends(require_super_admin)],
     db: Annotated[Session, Depends(get_db)],
 ) -> list[OrganizationResponse]:
-    """List all organizations (super admin only)"""
-    orgs = db.query(Organization).all()
+    """List all active organizations (super admin only)"""
+    orgs = db.query(Organization).filter(Organization.deleted_at.is_(None)).all()
     return [
-        OrganizationResponse(org_id=str(org.id), name=org.name, created_at=org.created_at)
+        OrganizationResponse(
+            org_id=str(org.id),
+            name=org.name,
+            display_name=org.display_name,
+            description=org.description,
+            created_at=org.created_at,
+        )
         for org in orgs
     ]
 
@@ -144,7 +150,11 @@ async def create_organization(
     db: Annotated[Session, Depends(get_db)],
 ) -> OrganizationWithOwnerResponse:
     # Create organization
-    org = Organization(name=org_data.name)
+    org = Organization(
+        name=org_data.name,
+        display_name=org_data.display_name,
+        description=org_data.description,
+    )
     db.add(org)
     try:
         db.commit()
@@ -196,6 +206,8 @@ async def create_organization(
         return OrganizationWithOwnerResponse(
             org_id=str(org.id),
             name=org.name,
+            display_name=org.display_name,
+            description=org.description,
             created_at=org.created_at,
             owner=owner_response,
         )
@@ -214,6 +226,8 @@ async def get_current_organization(
     return OrganizationResponse(
         org_id=str(org_user.organization_id),
         name=org_user.organization_name,
+        display_name=org_user.organization_display_name,
+        description=org_user.organization_description,
         created_at=org_user.organization_created_at,
     )
 
@@ -254,14 +268,24 @@ async def get_organization_by_id(
     db: Annotated[Session, Depends(get_db)],
 ) -> OrganizationResponse:
     """Get organization by ID (super admin can access any, users only their own)"""
-    # Get organization from database
-    org = db.query(Organization).filter(Organization.id == org_id).first()
+    # Get organization from database (only active orgs)
+    org = (
+        db.query(Organization)
+        .filter(Organization.id == org_id, Organization.deleted_at.is_(None))
+        .first()
+    )
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
 
     # Super admins can access any organization
     if current_user.is_super_admin:
-        return OrganizationResponse(org_id=str(org.id), name=org.name, created_at=org.created_at)
+        return OrganizationResponse(
+            org_id=str(org.id),
+            name=org.name,
+            display_name=org.display_name,
+            description=org.description,
+            created_at=org.created_at,
+        )
 
     # Regular users can only access their own organization
     user = db.query(User).filter(User.firebase_uid == current_user.firebase_uid).first()
@@ -270,7 +294,13 @@ async def get_organization_by_id(
             status_code=403, detail="You don't have permission to access this organization"
         )
 
-    return OrganizationResponse(org_id=str(org.id), name=org.name, created_at=org.created_at)
+    return OrganizationResponse(
+        org_id=str(org.id),
+        name=org.name,
+        display_name=org.display_name,
+        description=org.description,
+        created_at=org.created_at,
+    )
 
 
 @api_router.get("/orgs/{org_id}/users", response_model=UserList)
@@ -280,8 +310,12 @@ async def list_organization_users_by_id(
     db: Annotated[Session, Depends(get_db)],
 ) -> UserList:
     """List users in a specific organization (super admin only)"""
-    # Verify organization exists
-    org = db.query(Organization).filter(Organization.id == org_id).first()
+    # Verify organization exists and is not deleted
+    org = (
+        db.query(Organization)
+        .filter(Organization.id == org_id, Organization.deleted_at.is_(None))
+        .first()
+    )
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
 
@@ -369,8 +403,12 @@ async def create_organization_user(
     db: Annotated[Session, Depends(get_db)],
 ) -> UserCreationResponse:
     """Create a new user in an organization (super admin only)"""
-    # Verify organization exists
-    org = db.query(Organization).filter(Organization.id == org_id).first()
+    # Verify organization exists and is not deleted
+    org = (
+        db.query(Organization)
+        .filter(Organization.id == org_id, Organization.deleted_at.is_(None))
+        .first()
+    )
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
 
@@ -388,6 +426,27 @@ async def create_organization_user(
         role=user.role,
         password_reset_link=password_reset_link,
     )
+
+
+@api_router.delete("/orgs/{org_id}", status_code=204)
+async def delete_organization(
+    org_id: int,
+    current_user: Annotated[AuthUser, Depends(require_super_admin)],
+    db: Annotated[Session, Depends(get_db)],
+) -> None:
+    """Soft delete an organization (super admin only)"""
+    # Get organization
+    org = (
+        db.query(Organization)
+        .filter(Organization.id == org_id, Organization.deleted_at.is_(None))
+        .first()
+    )
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    # Soft delete by setting deleted_at timestamp
+    org.deleted_at = datetime.now(UTC)
+    db.commit()
 
 
 # Study Management Endpoints
@@ -1050,8 +1109,12 @@ if os.getenv("APP_ENV") in ("test", "local", "development"):
         """
         from ..models import User
 
-        # Verify organization exists
-        org = db.query(Organization).filter(Organization.id == org_id).first()
+        # Verify organization exists and is not deleted
+        org = (
+            db.query(Organization)
+            .filter(Organization.id == org_id, Organization.deleted_at.is_(None))
+            .first()
+        )
         if not org:
             raise HTTPException(status_code=404, detail="Organization not found")
 
