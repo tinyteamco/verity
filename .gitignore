@@ -52,6 +52,7 @@ coverage.xml
 *.cover
 .hypothesis/
 .tox/
+test-results/
 
 # Tools
 .ruff_cache/
