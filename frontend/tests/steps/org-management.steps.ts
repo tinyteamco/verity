@@ -39,7 +39,11 @@ When('I click {string}', async ({ page }, buttonText: string) => {
 })
 
 When('I enter {string} as the organization name', async ({ page }, name: string) => {
-  await page.getByTestId('org-name-input').fill(name)
+  // Convert to slug for the slug field
+  const slug = name.toLowerCase().replace(/\s+/g, '-')
+  await page.getByTestId('org-name-input').fill(slug)
+  // Also fill display_name
+  await page.getByTestId('display-name-input').fill(name)
 })
 
 When('I enter {string} as the owner email', async ({ page }, email: string) => {

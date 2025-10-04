@@ -43,14 +43,17 @@ export class TestFixtures {
     const token = await this.page.evaluate(() => localStorage.getItem('firebase_token'))
 
     for (const name of orgNames) {
-      const ownerEmail = `owner@${name.toLowerCase().replace(/\s+/g, '')}.com`
+      const slug = name.toLowerCase().replace(/\s+/g, '-')
+      const ownerEmail = `owner@${slug.replace(/-/g, '')}.com`
       const response = await this.page.request.post(`http://localhost:${this.backendPort}/api/orgs`, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
         data: {
-          name,
+          name: slug,
+          display_name: name,
+          description: `Test organization: ${name}`,
           owner_email: ownerEmail,
         },
       })
@@ -72,13 +75,16 @@ export class TestFixtures {
       throw new Error('Organization must have an owner')
     }
 
+    const slug = orgName.toLowerCase().replace(/\s+/g, '-')
     const orgResponse = await this.page.request.post(`http://localhost:${this.backendPort}/api/orgs`, {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
       },
       data: {
-        name: orgName,
+        name: slug,
+        display_name: orgName,
+        description: `Test organization: ${orgName}`,
         owner_email: ownerUser.email,
       },
     })
