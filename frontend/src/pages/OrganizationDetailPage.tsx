@@ -6,7 +6,9 @@ import { useState, useEffect } from 'react'
 
 interface Organization {
   org_id: string
-  name: string
+  name: string // slug
+  display_name: string
+  description?: string
   created_at: string
 }
 
@@ -194,7 +196,8 @@ export function OrganizationDetailPage() {
     <div data-testid="org-detail-page">
       <Link to="/">← Back to Dashboard</Link>
 
-      <h1 data-testid="org-detail-name">{org.name}</h1>
+      <h1 data-testid="org-detail-name">{org.display_name}</h1>
+      {org.description && <p>{org.description}</p>}
       <p>Created: {new Date(org.created_at).toLocaleDateString()}</p>
 
       <div data-testid="org-users-section" style={{ marginTop: '2rem' }}>
