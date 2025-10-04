@@ -2,9 +2,12 @@
 Test helpers for Firebase Auth and other testing utilities
 """
 
+import os
+
 import requests
 
-FIREBASE_EMULATOR_HOST = "localhost:9099"
+# Use Firebase stub port if running via test-ci, otherwise default to emulator port
+FIREBASE_EMULATOR_HOST = os.environ.get("FIREBASE_AUTH_EMULATOR_HOST", "localhost:9099")
 PROJECT_ID = "verity-local"
 
 

@@ -8,7 +8,9 @@ from collections.abc import Generator
 
 # Set test environment FIRST, before any imports
 os.environ["APP_ENV"] = "local"
-os.environ["FIREBASE_AUTH_EMULATOR_HOST"] = "localhost:9099"
+# Use Firebase stub port (9199) if not already set (allows override via test-ci)
+if "FIREBASE_AUTH_EMULATOR_HOST" not in os.environ:
+    os.environ["FIREBASE_AUTH_EMULATOR_HOST"] = "localhost:9099"
 
 import firebase_admin
 import pytest
