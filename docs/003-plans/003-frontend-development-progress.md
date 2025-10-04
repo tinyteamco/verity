@@ -15,7 +15,7 @@ Building out the UX to validate backend implementation, following a super admin 
 - **Fast parallel execution** - 1.4s setup per test, runs in parallel
 - **Hydration for speed** - Accumulate test data + real API calls for fast setup
 - **Firebase Auth Stub** - Lightweight FastAPI replacement for emulator (<1s startup vs 12-15s)
-- **All tests passing** - 3 frontend E2E (5.3s total) + 90 backend BDD tests
+- **All tests passing** - 5 frontend E2E (5.3s total) + 95 backend BDD tests
 
 ### Frontend Stack
 - **React** + TypeScript + Vite
@@ -36,11 +36,21 @@ Building out the UX to validate backend implementation, following a super admin 
 - Empty state: "No organizations yet"
 - GET `/api/orgs` endpoint
 
-#### 3. Create Organization ✅
-- Modal UI with form validation
-- POST `/api/orgs` endpoint
+#### 3. Create Organization with Owner ✅
+- Modal UI with org name + owner email fields
+- **Automatic owner provisioning** via Firebase Auth (mandatory)
+- Owner receives password reset link (Firebase built-in flow)
+- **Unique organization names** enforced (database constraint + API validation)
+- POST `/api/orgs` endpoint with owner creation
+- Success modal showing password reset link
 - Refresh list after creation
 - Full E2E test coverage
+
+**Backend Constraints:**
+- `owner_email` is required (non-nullable) - every org must have an owner
+- `organizations.name` has unique constraint in database
+- IntegrityError returns 400: "Organization with name 'X' already exists"
+- Owner role cannot be changed - one owner per organization
 
 #### 4. Organization Detail Page ✅
 - Click org → navigate to `/orgs/{id}`
@@ -54,8 +64,8 @@ Building out the UX to validate backend implementation, following a super admin 
 ```gherkin
 Scenario: View empty organizations list
 Scenario: View existing organizations
-Scenario: Create a new organization
-Scenario: View organization details ← New!
+Scenario: Create a new organization with owner ← Updated!
+Scenario: View organization details
 ```
 
 ## 🚧 In Progress / Next Steps
@@ -67,10 +77,11 @@ Following the super admin workflow (working inward):
    - Add `/api/orgs/{id}/users` endpoint (super admin can view any org's users)
    - Studies endpoint already exists at `/api/studies?org_id={id}`
 
-2. **Add Users to Organization** - Super admin provisions org users
-   - Modal with email + role selection (owner/admin/member)
+2. **Add Additional Users to Organization** - Super admin provisions org admins/members
+   - Modal with email + role selection (admin/member)
    - Create Firebase user + User record in database
    - Associate user with organization
+   - Note: Owner is now automatically created when organization is created
 
 3. **Study Management** - Transition to org admin workflow
    - Create study in organization
@@ -176,8 +187,8 @@ await this.page.request.post(`http://localhost:${port}/api/orgs`, ...)
 
 ## 📊 Test Status
 
-**Frontend E2E:** 4/4 passing (3.9s)
-**Backend BDD:** 90/90 passing (2.1s)
+**Frontend E2E:** 5/5 passing (5.3s)
+**Backend BDD:** 95/95 passing (2.1s)
 **Code Quality:** Zero warnings (ruff + ty)
 
 ## 🚀 Running the Stack
