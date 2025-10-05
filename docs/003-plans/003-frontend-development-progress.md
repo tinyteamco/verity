@@ -1,7 +1,7 @@
 # Frontend Development Progress
 
 **Last Updated:** 2025-10-04
-**Status:** Super Admin Organization Management - Phase 2
+**Status:** Backend Organization Model Refactored - Ready for Phase 3
 
 ## 🎯 Current Objective
 
@@ -52,9 +52,14 @@ Building out the UX to validate backend implementation, following a super admin 
 
 **Backend Constraints:**
 - `owner_email` is required (non-nullable) - every org must have an owner
-- `organizations.name` has unique constraint in database
+- `organizations.name` (slug) has unique constraint in database
+- `organizations.display_name` is required (human-readable name)
+- `organizations.description` is optional (can be null)
+- Slug validation: lowercase, alphanumeric, hyphens only (enforced via Pydantic)
 - IntegrityError returns 400: "Organization with name 'X' already exists"
 - Owner role cannot be changed - one owner per organization
+- Soft delete: Sets `deleted_at` timestamp instead of hard delete
+- Deleted orgs filtered from all queries (invisible to users)
 
 #### 4. Organization Detail Page ✅
 - Click org → navigate to `/orgs/{id}`
@@ -97,21 +102,48 @@ Following the super admin workflow (working inward):
    - Associate user with organization
    - Owner is automatically created when organization is created
 
-### Phase 3: Study Management
-Next phase - transition to org admin workflow:
+3. ✅ **Organization Model Refactoring** - GitHub-style slugs and soft delete
+   - Organization name → slug (unique, lowercase, hyphens only: `tinyteam`)
+   - Added display_name for human-readable names (`TinyTeam`)
+   - Added description for optional text descriptions
+   - Added deleted_at for soft delete functionality
+   - Added updated_at tracking for pruning deleted accounts
+   - DELETE `/api/orgs/{id}` endpoint for soft deletes
+   - Slug validation: lowercase, alphanumeric, hyphens (no spaces/uppercase/special chars)
+   - All organization queries filter out soft-deleted records
+   - Destructive Alembic migration with data migration (name → display_name)
+   - **Breaking change:** No backward compatibility (production migration applied)
+
+4. ✅ **Frontend Token Auto-Refresh** - Fixed production auth expiration
+   - Automatic token refresh every 50 minutes (before 1-hour expiration)
+   - Prevents "Invalid token: Token expired" errors in production
+   - Uses `onIdTokenChanged` listener for seamless refresh
+
+### Phase 3: Study Management (Next)
+Transition to org admin workflow:
+
+**Prerequisites (Backend Ready):**
+- ✅ Study CRUD endpoints exist (`/api/studies`)
+- ✅ Interview guide endpoints exist (`/api/studies/{id}/guide`)
+- ✅ Authorization enforced (org-scoped access)
+
+**Frontend Work Required:**
 1. **Create study in organization**
-   - Study creation form (name, description)
-   - POST `/api/studies` endpoint
-   - Associate study with organization
+   - Study creation form (title field)
+   - POST `/api/studies` with auth token
+   - Associate study with organization (automatic via auth)
+   - E2E test coverage
 
 2. **View study details**
-   - Study detail page with interview guide
-   - Edit interview guide (markdown)
+   - Study detail page with metadata
+   - Interview guide display
+   - Edit interview guide (markdown textarea)
+   - E2E test coverage
 
-3. **Interview guide management**
-   - Rich text/markdown editor
-   - Preview mode
-   - Save and publish
+3. **Study list in organization view**
+   - Show studies on organization detail page
+   - Click to navigate to study details
+   - E2E test coverage
 
 ### Phase 4: Interview Flow
 - Generate interview link
@@ -216,10 +248,11 @@ await this.page.request.post(`http://localhost:${port}/api/orgs`, ...)
 ## 📊 Test Status
 
 **Frontend E2E:** 8/8 passing (8s total, 2 workers)
-**Backend BDD:** 95/95 passing (2.1s)
+**Backend BDD:** 107/107 passing (2.75s) - includes all organization model tests
 **Code Quality:** Zero warnings (ruff + ty)
 **Production Build:** ✅ 369KB (test utilities tree-shaken)
 **Pre-push Validation:** ✅ Build + tests must pass before push
+**Production Deployment:** ✅ Successfully deployed with migration applied
 
 ## 🚀 Running the Stack
 
