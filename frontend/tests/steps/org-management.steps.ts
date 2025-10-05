@@ -22,6 +22,7 @@ Given('organization {string} exists with users:', async ({ fixtures }, orgName: 
 // When steps auto-apply hydration
 When('I navigate to the admin dashboard', async ({ page }) => {
   // hydration.apply() called automatically by autoHydrate wrapper
+  await page.goto('/')
   await expect(page).toHaveURL('/')
 })
 
