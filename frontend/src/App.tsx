@@ -4,6 +4,8 @@ import { userAtom, userIdAtom, userEmailAtom, userOrgIdAtom, userOrganizationNam
 import { organizationsAtom } from './atoms/organizations'
 import { LoginPage } from './pages/LoginPage'
 import { OrganizationDetailPage } from './pages/OrganizationDetailPage'
+import { StudyListPage } from './pages/StudyListPage'
+import { StudyDetailPage } from './pages/StudyDetailPage'
 import { loadAuthState } from './lib/auth-persistence'
 import { getApiUrl } from './lib/api'
 import { initializeAuth } from './lib/auth-init'
@@ -386,6 +388,8 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/" element={<Dashboard />} />
         <Route path="/orgs/:id" element={<OrganizationDetailPage />} />
+        <Route path="/orgs/:orgId/studies" element={<StudyListPage />} />
+        <Route path="/orgs/:orgId/studies/:studyId" element={<StudyDetailPage />} />
       </Routes>
     </BrowserRouter>
   )

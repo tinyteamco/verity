@@ -141,4 +141,72 @@ export class TestFixtures {
       }
     }
   }
+
+  async seedStudy(orgName: string, studyTitle: string): Promise<void> {
+    const orgId = await this.getOrganizationId(orgName)
+    const token = await this.page.evaluate(() => localStorage.getItem('firebase_token'))
+
+    const response = await this.page.request.post(`http://localhost:${this.backendPort}/api/studies`, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'X-Organization-ID': orgId,
+      },
+      data: {
+        title: studyTitle,
+        description: `Test study: ${studyTitle}`,
+      },
+    })
+
+    if (!response.ok()) {
+      throw new Error(`Failed to create study ${studyTitle}: ${response.status()} ${await response.text()}`)
+    }
+  }
+
+  async seedStudies(orgName: string, studies: Array<{ title: string; description?: string }>): Promise<void> {
+    const orgId = await this.getOrganizationId(orgName)
+    const token = await this.page.evaluate(() => localStorage.getItem('firebase_token'))
+
+    for (const study of studies) {
+      const response = await this.page.request.post(`http://localhost:${this.backendPort}/api/studies`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'X-Organization-ID': orgId,
+        },
+        data: {
+          title: study.title,
+          description: study.description || `Test study: ${study.title}`,
+        },
+      })
+
+      if (!response.ok()) {
+        throw new Error(`Failed to create study ${study.title}: ${response.status()} ${await response.text()}`)
+      }
+    }
+  }
+
+  async getOrganizationId(orgName: string): Promise<string> {
+    const token = await this.page.evaluate(() => localStorage.getItem('firebase_token'))
+
+    // Fetch all organizations and find the one with matching display_name
+    const response = await this.page.request.get(`http://localhost:${this.backendPort}/api/orgs`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    if (!response.ok()) {
+      throw new Error(`Failed to fetch organizations: ${response.status()} ${await response.text()}`)
+    }
+
+    const orgs = await response.json()
+    const org = orgs.find((o: any) => o.display_name === orgName || o.name === orgName)
+
+    if (!org) {
+      throw new Error(`Organization ${orgName} not found`)
+    }
+
+    return org.org_id
+  }
 }

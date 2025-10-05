@@ -369,6 +369,9 @@ export function OrganizationDetailPage() {
 
       <div data-testid="org-studies-section" style={{ marginTop: '2rem' }}>
         <h2>Studies</h2>
+        <Link to={`/orgs/${id}/studies`} style={{ marginBottom: '1rem', display: 'inline-block' }}>
+          View All Studies →
+        </Link>
         {loadingStudies ? (
           <p>Loading studies...</p>
         ) : studies.length === 0 ? (

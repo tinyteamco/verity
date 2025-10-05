@@ -40,7 +40,16 @@ jobs:
         run: cd backend && make start-firebase
 
       - name: Run backend tests (seeds Firebase automatically)
-        run: cd backend && make test-ci
+        run: make backend-test
+
+      - name: Setup frontend
+        run: make frontend-setup
+
+      - name: Install Playwright browsers
+        run: cd frontend && npx playwright install --with-deps chromium
+
+      - name: Run frontend E2E tests
+        run: make frontend-test
 
   deploy-infra:
     runs-on: ubuntu-latest
