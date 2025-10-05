@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { getApiUrl } from '../lib/api'
 
 interface Study {
@@ -13,7 +13,6 @@ interface Study {
 
 export function StudyListPage() {
   const { orgId } = useParams<{ orgId: string }>()
-  const navigate = useNavigate()
   const [studies, setStudies] = useState<Study[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
