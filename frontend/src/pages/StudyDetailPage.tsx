@@ -30,10 +30,9 @@ export function StudyDetailPage() {
 
     setLoading(true)
     try {
-      const res = await fetch(`${apiUrl}/api/studies/${studyId}`, {
+      const res = await fetch(`${apiUrl}/api/orgs/${orgId}/studies/${studyId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
-          'X-Organization-ID': orgId!,
         },
       })
 
@@ -62,11 +61,10 @@ export function StudyDetailPage() {
     const apiUrl = getApiUrl()
 
     try {
-      const res = await fetch(`${apiUrl}/api/studies/${studyId}`, {
+      const res = await fetch(`${apiUrl}/api/orgs/${orgId}/studies/${studyId}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'X-Organization-ID': orgId!,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -99,11 +97,10 @@ export function StudyDetailPage() {
     const apiUrl = getApiUrl()
 
     try {
-      const res = await fetch(`${apiUrl}/api/studies/${studyId}`, {
+      const res = await fetch(`${apiUrl}/api/orgs/${orgId}/studies/${studyId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'X-Organization-ID': orgId!,
         },
       })
 

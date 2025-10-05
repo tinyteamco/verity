@@ -146,11 +146,10 @@ export class TestFixtures {
     const orgId = await this.getOrganizationId(orgName)
     const token = await this.page.evaluate(() => localStorage.getItem('firebase_token'))
 
-    const response = await this.page.request.post(`http://localhost:${this.backendPort}/api/studies`, {
+    const response = await this.page.request.post(`http://localhost:${this.backendPort}/api/orgs/${orgId}/studies`, {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
-        'X-Organization-ID': orgId,
       },
       data: {
         title: studyTitle,
@@ -168,11 +167,10 @@ export class TestFixtures {
     const token = await this.page.evaluate(() => localStorage.getItem('firebase_token'))
 
     for (const study of studies) {
-      const response = await this.page.request.post(`http://localhost:${this.backendPort}/api/studies`, {
+      const response = await this.page.request.post(`http://localhost:${this.backendPort}/api/orgs/${orgId}/studies`, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
-          'X-Organization-ID': orgId,
         },
         data: {
           title: study.title,

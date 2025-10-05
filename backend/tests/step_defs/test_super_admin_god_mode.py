@@ -176,7 +176,9 @@ def regular_user_creates_study(client: Any, request: Any, title: str) -> None:
     headers = {"Authorization": f"Bearer {token}"}
 
     # Create study
-    response = client.post("/studies", json={"title": title}, headers=headers)
+    response = client.post(
+        f"/orgs/{request.regular_user_org_id}/studies", json={"title": title}, headers=headers
+    )
     assert response.status_code == 201
 
     # Store study_id for later use
@@ -265,7 +267,9 @@ def super_admin_creates_study(client: Any, request: Any, title: str, org_name: s
     headers = {"Authorization": f"Bearer {token}"}
 
     # Create study (super admin should be able to access org context)
-    response = client.post("/studies", json={"title": title}, headers=headers)
+    response = client.post(
+        f"/orgs/{request.last_created_org_id}/studies", json={"title": title}, headers=headers
+    )
 
     # Store response
     request.response = response
@@ -358,7 +362,9 @@ def second_user_creates_study(client: Any, request: Any, title: str) -> None:
     headers = {"Authorization": f"Bearer {token}"}
 
     # Create study
-    response = client.post("/studies", json={"title": title}, headers=headers)
+    response = client.post(
+        f"/orgs/{request.second_user_org_id}/studies", json={"title": title}, headers=headers
+    )
     assert response.status_code == 201
 
     # Store study_id for later use
@@ -377,7 +383,7 @@ def regular_user_lists_studies(client: Any, request: Any) -> None:
     headers = {"Authorization": f"Bearer {token}"}
 
     # List studies (should only see their org's studies)
-    response = client.get("/studies", headers=headers)
+    response = client.get(f"/orgs/{request.regular_user_org_id}/studies", headers=headers)
 
     # Store response
     request.response = response

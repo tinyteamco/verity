@@ -95,7 +95,7 @@ def create_test_study(client, super_admin_token, study_id, title, org_id, reques
     headers = {"Authorization": f"Bearer {token}"}
 
     response = client.post(
-        "/studies",
+        f"/orgs/{org_id}/studies",
         json={"title": title, "description": "Test study description"},
         headers=headers,
     )

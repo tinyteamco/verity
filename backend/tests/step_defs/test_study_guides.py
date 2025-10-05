@@ -96,7 +96,9 @@ def create_test_study(client, super_admin_token, study_id, title, org_id):
             # Create study using this temp user
             temp_token = sign_in_user("temp@example.com", "testpass123")
             headers = {"Authorization": f"Bearer {temp_token}"}
-            response = client.post("/studies", json={"title": title}, headers=headers)
+            response = client.post(
+                f"/orgs/{org_id}/studies", json={"title": title}, headers=headers
+            )
             assert response.status_code == 201
 
         finally:
@@ -212,7 +214,9 @@ def create_study_different_org(client, super_admin_token, study_id):
 
         # Create study
         study_headers = {"Authorization": f"Bearer {other_token}"}
-        response = client.post("/studies", json={"title": "Other Study"}, headers=study_headers)
+        response = client.post(
+            f"/orgs/{other_org_id}/studies", json={"title": "Other Study"}, headers=study_headers
+        )
         assert response.status_code == 201
 
     finally:

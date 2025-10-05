@@ -179,48 +179,57 @@ def create_study_other_org(title: str, client: TestClient, test_data):
 
 
 @when(parsers.parse('they POST /studies with title "{title}"'))
-def post_study(title: str, client: TestClient, auth_headers, test_response):
+def post_study(title: str, client: TestClient, auth_headers, test_response, test_data):
     """Create a new study with given title"""
-    response = client.post("/studies", json={"title": title}, headers=auth_headers)
+    org_id = test_data["current_org_id"]
+    response = client.post(f"/orgs/{org_id}/studies", json={"title": title}, headers=auth_headers)
     test_response["response"] = response
 
 
 @when("they GET /studies")
-def get_studies(client: TestClient, auth_headers, test_response):
+def get_studies(client: TestClient, auth_headers, test_response, test_data):
     """Get list of studies"""
-    response = client.get("/studies", headers=auth_headers)
+    org_id = test_data["current_org_id"]
+    response = client.get(f"/orgs/{org_id}/studies", headers=auth_headers)
     test_response["response"] = response
 
 
 @when("they GET /studies/{study_id}")
 def get_study_by_id(client: TestClient, auth_headers, test_response, test_data):
     """Get specific study by ID"""
+    org_id = test_data["current_org_id"]
     study_id = test_data["current_study_id"]
-    response = client.get(f"/studies/{study_id}", headers=auth_headers)
+    response = client.get(f"/orgs/{org_id}/studies/{study_id}", headers=auth_headers)
     test_response["response"] = response
 
 
 @when("they GET /studies/{other_org_study_id}")
 def get_other_org_study(client: TestClient, auth_headers, test_response, test_data):
     """Try to get study from other organization"""
-    study_id = test_data["other_org_study_id"]
-    response = client.get(f"/studies/{study_id}", headers=auth_headers)
+    # Try to access other org's study using wrong org_id - this should fail!
+    org_id = test_data["current_org_id"]  # User's own org
+    study_id = test_data["other_org_study_id"]  # Study from different org
+    response = client.get(f"/orgs/{org_id}/studies/{study_id}", headers=auth_headers)
     test_response["response"] = response
 
 
 @when(parsers.parse('they PATCH /studies/{{study_id}} with title "{new_title}"'))
 def patch_study_title(new_title: str, client: TestClient, auth_headers, test_response, test_data):
     """Update study title"""
+    org_id = test_data["current_org_id"]
     study_id = test_data["current_study_id"]
-    response = client.patch(f"/studies/{study_id}", json={"title": new_title}, headers=auth_headers)
+    response = client.patch(
+        f"/orgs/{org_id}/studies/{study_id}", json={"title": new_title}, headers=auth_headers
+    )
     test_response["response"] = response
 
 
 @when("they DELETE /studies/{study_id}")
 def delete_study(client: TestClient, auth_headers, test_response, test_data):
     """Delete a study"""
+    org_id = test_data["current_org_id"]
     study_id = test_data["current_study_id"]
-    response = client.delete(f"/studies/{study_id}", headers=auth_headers)
+    response = client.delete(f"/orgs/{org_id}/studies/{study_id}", headers=auth_headers)
     test_response["response"] = response
 
 
@@ -305,4 +314,5 @@ def check_study_title(title: str, test_response):
 def check_org_required_error(test_response):
     """Check specific error message for org user requirement"""
     data = test_response["response"].json()
-    assert data["detail"] == "Organization user access required"
+    # Updated error message after security fix
+    assert data["detail"] in ["Organization user access required", "User not in organization"]

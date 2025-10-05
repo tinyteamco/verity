@@ -27,10 +27,9 @@ export function StudyListPage() {
 
     setLoading(true)
     try {
-      const res = await fetch(`${apiUrl}/api/studies`, {
+      const res = await fetch(`${apiUrl}/api/orgs/${orgId}/studies`, {
         headers: {
           'Authorization': `Bearer ${token}`,
-          'X-Organization-ID': orgId!,
         },
       })
 
@@ -57,11 +56,10 @@ export function StudyListPage() {
     const apiUrl = getApiUrl()
 
     try {
-      const res = await fetch(`${apiUrl}/api/studies`, {
+      const res = await fetch(`${apiUrl}/api/orgs/${orgId}/studies`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'X-Organization-ID': orgId!,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({

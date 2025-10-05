@@ -452,17 +452,28 @@ async def delete_organization(
 # Study Management Endpoints
 
 
-@api_router.post("/studies", response_model=StudyResponse, status_code=201)
+@api_router.post("/orgs/{org_id}/studies", response_model=StudyResponse, status_code=201)
 async def create_study(
+    org_id: str,
     study_data: StudyCreate,
-    org_user: Annotated[OrgUser, Depends(get_org_user)],
+    current_user: Annotated[AuthUser, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> StudyResponse:
-    """Create a new study for the current organization"""
+    """Create a new study for the specified organization"""
+    # Verify user has access to this org (owner/admin/member or super_admin)
+    if not current_user.is_super_admin:
+        user_in_org = (
+            db.query(User)
+            .filter(User.firebase_uid == current_user.firebase_uid, User.organization_id == org_id)
+            .first()
+        )
+        if not user_in_org:
+            raise HTTPException(status_code=403, detail="User not in organization")
+
     study = Study(
         title=study_data.title,
         description=study_data.description,
-        organization_id=org_user.organization_id,
+        organization_id=org_id,
     )
     db.add(study)
     db.commit()
@@ -478,13 +489,24 @@ async def create_study(
     )
 
 
-@api_router.get("/studies", response_model=StudyList)
+@api_router.get("/orgs/{org_id}/studies", response_model=StudyList)
 async def list_studies(
-    org_user: Annotated[OrgUser, Depends(get_org_user)],
+    org_id: str,
+    current_user: Annotated[AuthUser, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> StudyList:
-    """List all studies for the current organization"""
-    studies = db.query(Study).filter(Study.organization_id == org_user.organization_id).all()
+    """List all studies for the specified organization"""
+    # Verify user has access to this org (owner/admin/member or super_admin)
+    if not current_user.is_super_admin:
+        user_in_org = (
+            db.query(User)
+            .filter(User.firebase_uid == current_user.firebase_uid, User.organization_id == org_id)
+            .first()
+        )
+        if not user_in_org:
+            raise HTTPException(status_code=403, detail="User not in organization")
+
+    studies = db.query(Study).filter(Study.organization_id == org_id).all()
 
     study_responses = [
         StudyResponse(
@@ -501,18 +523,25 @@ async def list_studies(
     return StudyList(items=study_responses)
 
 
-@api_router.get("/studies/{study_id}", response_model=StudyResponse)
+@api_router.get("/orgs/{org_id}/studies/{study_id}", response_model=StudyResponse)
 async def get_study(
+    org_id: str,
     study_id: int,
-    org_user: Annotated[OrgUser, Depends(get_org_user)],
+    current_user: Annotated[AuthUser, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> StudyResponse:
     """Get a specific study by ID"""
-    study = (
-        db.query(Study)
-        .filter(Study.id == study_id, Study.organization_id == org_user.organization_id)
-        .first()
-    )
+    # Verify user has access to this org
+    if not current_user.is_super_admin:
+        user_in_org = (
+            db.query(User)
+            .filter(User.firebase_uid == current_user.firebase_uid, User.organization_id == org_id)
+            .first()
+        )
+        if not user_in_org:
+            raise HTTPException(status_code=403, detail="User not in organization")
+
+    study = db.query(Study).filter(Study.id == study_id, Study.organization_id == org_id).first()
 
     if not study:
         raise HTTPException(status_code=404, detail="Study not found")
@@ -527,19 +556,26 @@ async def get_study(
     )
 
 
-@api_router.patch("/studies/{study_id}", response_model=StudyResponse)
+@api_router.patch("/orgs/{org_id}/studies/{study_id}", response_model=StudyResponse)
 async def update_study(
+    org_id: str,
     study_id: int,
     study_update: StudyUpdate,
-    org_user: Annotated[OrgUser, Depends(get_org_user)],
+    current_user: Annotated[AuthUser, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> StudyResponse:
     """Update a study"""
-    study = (
-        db.query(Study)
-        .filter(Study.id == study_id, Study.organization_id == org_user.organization_id)
-        .first()
-    )
+    # Verify user has access to this org
+    if not current_user.is_super_admin:
+        user_in_org = (
+            db.query(User)
+            .filter(User.firebase_uid == current_user.firebase_uid, User.organization_id == org_id)
+            .first()
+        )
+        if not user_in_org:
+            raise HTTPException(status_code=403, detail="User not in organization")
+
+    study = db.query(Study).filter(Study.id == study_id, Study.organization_id == org_id).first()
 
     if not study:
         raise HTTPException(status_code=404, detail="Study not found")
@@ -563,18 +599,25 @@ async def update_study(
     )
 
 
-@api_router.delete("/studies/{study_id}")
+@api_router.delete("/orgs/{org_id}/studies/{study_id}")
 async def delete_study(
+    org_id: str,
     study_id: int,
-    org_user: Annotated[OrgUser, Depends(get_org_user)],
+    current_user: Annotated[AuthUser, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict[str, str]:
     """Delete a study"""
-    study = (
-        db.query(Study)
-        .filter(Study.id == study_id, Study.organization_id == org_user.organization_id)
-        .first()
-    )
+    # Verify user has access to this org
+    if not current_user.is_super_admin:
+        user_in_org = (
+            db.query(User)
+            .filter(User.firebase_uid == current_user.firebase_uid, User.organization_id == org_id)
+            .first()
+        )
+        if not user_in_org:
+            raise HTTPException(status_code=403, detail="User not in organization")
+
+    study = db.query(Study).filter(Study.id == study_id, Study.organization_id == org_id).first()
 
     if not study:
         raise HTTPException(status_code=404, detail="Study not found")

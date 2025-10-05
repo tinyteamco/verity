@@ -93,6 +93,7 @@ act --container-architecture linux/amd64  # Test GitHub Actions locally
 9. **Infrastructure as Code**: Pulumi in Python for GCP infrastructure management
 10. **CI-Only Deployments**: Infrastructure changes only via GitHub Actions (no local deployments)
 11. **Workload Identity**: GitHub authenticates to GCP without JSON keys (OIDC)
+12. **Multi-Tenancy Security**: Never trust client-provided tenant context - see `/docs/002-architecture/004-security-guidelines.md`
 
 ### BDD-First Development Workflow
 

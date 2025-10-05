@@ -25,22 +25,16 @@ local fastChecks = new Mapping<String, Step> {
 }
 
 // Comprehensive checks including tests (for pre-push and manual runs)
+// Uses same make targets as CI to ensure consistency
 local comprehensiveChecks = new Mapping<String, Step> {
     ...fastChecks
     ["test:backend"] {
-        dir = "backend"
-        glob = List("*.py")
-        check = "mise run test-ci"
-    }
-    ["build:frontend"] {
-        dir = "frontend"
-        glob = List("src/**/*.{ts,tsx}", "package.json", "vite.config.ts", "tsconfig.json")
-        check = "make build"
+        glob = List("backend/**/*.py")
+        check = "make backend-test"
     }
     ["test:frontend"] {
-        dir = "frontend"
-        glob = List("src/**/*.{ts,tsx}", "tests/**/*.{ts,feature}")
-        check = "make test"
+        glob = List("frontend/src/**/*.{ts,tsx}", "frontend/tests/**/*.{ts,feature}")
+        check = "make frontend-test"
     }
 }
 

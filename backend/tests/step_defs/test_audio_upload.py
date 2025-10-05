@@ -81,7 +81,7 @@ def create_test_study(
     # Create study using authenticated user
     token = sign_in_user(temp_email, temp_password)
     headers = {"Authorization": f"Bearer {token}"}
-    response = client.post("/studies", json={"title": title}, headers=headers)
+    response = client.post(f"/orgs/{org_id}/studies", json={"title": title}, headers=headers)
     assert response.status_code == 201
 
 

@@ -418,13 +418,21 @@ paths:
 
               schema: { $ref: '#/components/schemas/Error' }
 
-  /studies:
+  /orgs/{org_id}/studies:
 
     get:
 
-      summary: List studies
+      summary: List studies for an organization
 
       parameters:
+
+        - in: path
+
+          name: org_id
+
+          required: true
+
+          schema: { type: string }
 
         - in: query
 
@@ -450,9 +458,29 @@ paths:
 
               schema: { $ref: '#/components/schemas/StudyList' }
 
+        '403':
+
+          description: Forbidden - user not in organization
+
+          content:
+
+            application/json:
+
+              schema: { $ref: '#/components/schemas/Error' }
+
     post:
 
-      summary: Create study
+      summary: Create study in an organization
+
+      parameters:
+
+        - in: path
+
+          name: org_id
+
+          required: true
+
+          schema: { type: string }
 
       requestBody:
 
@@ -469,6 +497,8 @@ paths:
               properties:
 
                 title: { type: string }
+
+                description: { type: string }
 
               required: [title]
 
@@ -484,13 +514,31 @@ paths:
 
               schema: { $ref: '#/components/schemas/Study' }
 
-  /studies/{study_id}:
+        '403':
+
+          description: Forbidden - user not in organization
+
+          content:
+
+            application/json:
+
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /orgs/{org_id}/studies/{study_id}:
 
     get:
 
       summary: Get study
 
       parameters:
+
+        - in: path
+
+          name: org_id
+
+          required: true
+
+          schema: { type: string }
 
         - in: path
 
@@ -512,11 +560,29 @@ paths:
 
               schema: { $ref: '#/components/schemas/Study' }
 
+        '403':
+
+          description: Forbidden - user not in organization
+
+          content:
+
+            application/json:
+
+              schema: { $ref: '#/components/schemas/Error' }
+
     patch:
 
       summary: Update study
 
       parameters:
+
+        - in: path
+
+          name: org_id
+
+          required: true
+
+          schema: { type: string }
 
         - in: path
 
@@ -542,6 +608,8 @@ paths:
 
                 title: { type: string }
 
+                description: { type: string }
+
       responses:
 
         '200':
@@ -554,7 +622,55 @@ paths:
 
               schema: { $ref: '#/components/schemas/Study' }
 
-  /studies/{study_id}/guide:
+        '403':
+
+          description: Forbidden - user not in organization
+
+          content:
+
+            application/json:
+
+              schema: { $ref: '#/components/schemas/Error' }
+
+    delete:
+
+      summary: Delete study
+
+      parameters:
+
+        - in: path
+
+          name: org_id
+
+          required: true
+
+          schema: { type: string }
+
+        - in: path
+
+          name: study_id
+
+          required: true
+
+          schema: { type: string, format: uuid }
+
+      responses:
+
+        '204':
+
+          description: No Content
+
+        '403':
+
+          description: Forbidden - user not in organization
+
+          content:
+
+            application/json:
+
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /orgs/{org_id}/studies/{study_id}/guide:
 
     put:
 
