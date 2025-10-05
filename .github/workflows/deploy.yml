@@ -76,14 +76,10 @@ jobs:
         with:
           project_id: ${{ env.PROJECT_ID }}
 
-      - name: Install mise
-        uses: jdx/mise-action@v2
-
       - name: Install Pulumi CLI
         uses: pulumi/actions@v5
 
-      - name: Check for infrastructure changes
-        id: infra-check
+      - name: Deploy infrastructure and get configuration
         working-directory: ./infra
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
@@ -91,34 +87,8 @@ jobs:
           # Select the dev stack
           pulumi stack select dev
 
-          # Run preview and capture output
-          pulumi preview --diff 2>&1 | tee preview.txt
-
-          # Check if preview indicates changes
-          if grep -q "Resources:" preview.txt && ! grep -q "~ 0 to update" preview.txt; then
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-            echo "⚡ Infrastructure changes detected"
-          else
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-            echo "✅ No infrastructure changes needed"
-          fi
-
-      - name: Deploy infrastructure changes
-        if: steps.infra-check.outputs.has_changes == 'true'
-        working-directory: ./infra
-        env:
-          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
-        run: |
-          pulumi up --yes --skip-preview
-          echo "✅ Infrastructure deployed"
-
-      - name: Get infrastructure configuration from Pulumi
-        working-directory: ./infra
-        env:
-          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
-        run: |
-          # Select the dev stack
-          pulumi stack select dev
+          # Deploy infrastructure (pulumi up decides what needs to change)
+          pulumi up --yes
 
           # Get outputs from Pulumi stack (single source of truth)
           REGION=$(pulumi stack output region)
@@ -138,7 +108,7 @@ jobs:
           echo "FIREBASE_AUTH_DOMAIN=$FIREBASE_AUTH_DOMAIN" >> $GITHUB_ENV
           echo "FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID" >> $GITHUB_ENV
 
-          echo "✅ Retrieved from Pulumi:"
+          echo "✅ Infrastructure deployed and configuration retrieved:"
           echo "  REGION=$REGION"
           echo "  DB_CONNECTION_NAME=$DB_CONNECTION_NAME"
           echo "  BACKEND_SERVICE_NAME=$BACKEND_SERVICE_NAME"
