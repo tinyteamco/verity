@@ -1,7 +1,7 @@
 # Frontend Development Progress
 
 **Last Updated:** 2025-10-06
-**Status:** Phase 3 Complete - shadcn/ui Integration & Single-Page UX
+**Status:** Phase 4 Complete - Bug Fixes, Pre-Commit Improvements & Logout
 
 ## 🎯 Current Objective
 
@@ -106,6 +106,7 @@ Building out the UX to validate backend implementation, following a super admin 
 
 **Test Coverage:**
 ```gherkin
+# Organization Management (11 scenarios)
 Scenario: View empty organizations list
 Scenario: View existing organizations
 Scenario: Create a new organization with owner
@@ -114,6 +115,11 @@ Scenario: Refresh on organization details page
 Scenario: View organization users
 Scenario: Add admin user to organization
 Scenario: Add member user to organization
+Scenario: Logout from dashboard
+Scenario: Logout from organization details page
+Scenario: Cannot access dashboard after logout
+
+# Study Management (5 scenarios)
 Scenario: View empty studies list for organization
 Scenario: Create a new study
 Scenario: Edit study details
@@ -173,7 +179,39 @@ Following the super admin workflow (working inward):
    - All modals use shadcn Dialog components
    - Full E2E test coverage (5 scenarios)
 
-### Phase 4: Interview Flow
+### Phase 4: Bug Fixes & Pre-Commit Improvements (completed ✅)
+
+1. ✅ **Logout Functionality**
+   - Logout button on Dashboard (super admin)
+   - Logout button on OrganizationDetailPage
+   - Sign out from Firebase Auth
+   - Clear localStorage auth state
+   - Clear all user atoms (Jotai state)
+   - Redirect to /login
+   - Full E2E test coverage (3 scenarios)
+
+2. ✅ **Role-Based UI Visibility**
+   - Non-super-admin users can view organization detail pages
+   - Users section only visible to super_admin (conditional rendering)
+   - Studies section visible to all authenticated org users
+   - Fixed Dashboard routing: non-super-admin users redirect to their org detail page
+   - Prevents 403 errors from unauthorized `/api/orgs` calls
+
+3. ✅ **Critical Backend Bug Fixes**
+   - **Type error in studies endpoint**: Fixed `org_id: str` → `org_id: int` (backend/src/api/main.py:494)
+   - **Issue**: PostgreSQL requires exact type match; SQLite tests were more lenient
+   - **Impact**: Production crashes fixed with proper type annotation
+   - Updated BDD tests to reflect validation behavior (422 for invalid org_id)
+
+4. ✅ **TypeScript Pre-Commit Checks**
+   - Added `check-types` target to frontend Makefile
+   - Added `tsc` step to `hk.pkl` pre-commit hook
+   - Created `pre-commit` and `pre-push` targets for frontend
+   - Created root-level `pre-commit` and `pre-push` targets for monorepo
+   - **Result**: TypeScript errors caught BEFORE commit, preventing CI deployment failures
+   - Example fix: Removed unused `CardDescription` imports that broke production build
+
+### Phase 5: Interview Flow (next)
 - Generate interview link
 - Test interview as participant (link-based access)
 - View interview results
@@ -343,12 +381,13 @@ await this.page.request.post(`http://localhost:${port}/api/orgs`, ...)
 
 ## 📊 Test Status
 
-**Frontend E2E:** 13/13 passing (14s total, 2 workers) - Org management (8) + Study management (5)
-**Backend BDD:** 107/107 passing (2.75s) - includes all organization model tests
-**Code Quality:** Zero warnings (ruff + ty)
+**Frontend E2E:** 16/16 passing (16.8s total, 2 workers) - Org management (11) + Study management (5)
+**Backend BDD:** 107/107 passing (2.58s) - includes all organization model tests
+**Code Quality:** Zero warnings (ruff + ty + tsc)
 **Production Build:** ✅ 369KB (test utilities tree-shaken)
-**Pre-push Validation:** ✅ Build + tests must pass before push
-**Production Deployment:** ✅ Successfully deployed with migration applied
+**Pre-commit Hooks:** ✅ TypeScript checks + backend format/lint/types
+**Pre-push Validation:** ✅ Full test suite (backend + frontend) must pass before push
+**Production Deployment:** ✅ Successfully deployed with critical bug fixes
 
 ## 🚀 Running the Stack
 
