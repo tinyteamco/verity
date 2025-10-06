@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom'
 import { useAtom, useSetAtom } from 'jotai'
 import { userAtom, userIdAtom, userEmailAtom, userOrgIdAtom, userOrganizationNameAtom, userRoleAtom, userFirebaseUidAtom } from './atoms/auth'
 import { organizationsAtom } from './atoms/organizations'
@@ -7,6 +7,7 @@ import { OrganizationDetailPage } from './pages/OrganizationDetailPage'
 import { loadAuthState } from './lib/auth-persistence'
 import { getApiUrl } from './lib/api'
 import { initializeAuth } from './lib/auth-init'
+import { auth } from './lib/firebase'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -16,7 +17,14 @@ import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 function Dashboard() {
+  const navigate = useNavigate()
   const [user] = useAtom(userAtom)
+  const setUserId = useSetAtom(userIdAtom)
+  const setUserEmail = useSetAtom(userEmailAtom)
+  const setUserOrgId = useSetAtom(userOrgIdAtom)
+  const setUserOrganizationName = useSetAtom(userOrganizationNameAtom)
+  const setUserRole = useSetAtom(userRoleAtom)
+  const setUserFirebaseUid = useSetAtom(userFirebaseUidAtom)
   const [organizations, setOrganizations] = useAtom(organizationsAtom)
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -125,6 +133,26 @@ function Dashboard() {
     return <Navigate to="/login" replace />
   }
 
+  const handleLogout = async () => {
+    // Sign out from Firebase
+    await auth.signOut()
+
+    // Clear localStorage
+    localStorage.removeItem('firebase_token')
+    localStorage.removeItem('auth_state')
+
+    // Clear user atoms
+    setUserId(null)
+    setUserEmail(null)
+    setUserOrgId(null)
+    setUserOrganizationName(null)
+    setUserRole(null)
+    setUserFirebaseUid(null)
+
+    // Navigate to login
+    navigate('/login')
+  }
+
   if (user.role === 'super_admin') {
     return (
       <div data-testid="admin-dashboard" className="container mx-auto p-6 space-y-6">
@@ -133,6 +161,9 @@ function Dashboard() {
             <h1 className="text-3xl font-bold">Super Admin Dashboard</h1>
             <p data-testid="admin-email" className="text-muted-foreground">{user.email}</p>
           </div>
+          <Button variant="outline" onClick={handleLogout}>
+            Logout
+          </Button>
         </div>
 
         <Card data-testid="organizations-section">

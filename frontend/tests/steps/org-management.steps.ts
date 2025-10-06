@@ -23,7 +23,8 @@ Given('organization {string} exists with users:', async ({ fixtures }, orgName: 
 When('I navigate to the admin dashboard', async ({ page }) => {
   // hydration.apply() called automatically by autoHydrate wrapper
   await page.goto('/')
-  await expect(page).toHaveURL('/')
+  // Don't assert URL here - let Then steps verify the outcome
+  // (logged in users stay on /, logged out users redirect to /login)
 })
 
 Then('I see {string}', async ({ page }, text: string) => {
@@ -36,7 +37,13 @@ Then('I see {string} in the organizations list', async ({ page }, orgName: strin
 })
 
 When('I click {string}', async ({ page }, buttonText: string) => {
-  await page.getByRole('button', { name: buttonText }).click()
+  // Special handling for Logout button - wait for redirect
+  if (buttonText === 'Logout') {
+    await page.getByRole('button', { name: buttonText }).click()
+    await page.waitForURL('/login', { timeout: 5000 })
+  } else {
+    await page.getByRole('button', { name: buttonText }).click()
+  }
 })
 
 When('I enter {string} as the organization name', async ({ page }, name: string) => {
@@ -140,4 +147,11 @@ Then('I see a success message for adding user', async ({ page }) => {
 
   // Modal should be closed
   await expect(page.getByTestId('user-success-modal')).not.toBeVisible()
+})
+
+// Logout steps
+Then('I am redirected to the login page', async ({ page }) => {
+  // Wait for navigation to complete (React Router redirect)
+  await page.waitForURL('/login', { timeout: 5000 })
+  await expect(page).toHaveURL('/login')
 })

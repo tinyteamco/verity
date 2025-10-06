@@ -1,7 +1,8 @@
-import { useParams, Navigate, Link } from 'react-router-dom'
-import { useAtom } from 'jotai'
-import { userAtom } from '../atoms/auth'
+import { useParams, Navigate, Link, useNavigate } from 'react-router-dom'
+import { useAtom, useSetAtom } from 'jotai'
+import { userAtom, userIdAtom, userEmailAtom, userOrgIdAtom, userOrganizationNameAtom, userRoleAtom, userFirebaseUidAtom } from '../atoms/auth'
 import { getApiUrl } from '../lib/api'
+import { auth } from '../lib/firebase'
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -37,7 +38,14 @@ interface Study {
 
 export function OrganizationDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const [user] = useAtom(userAtom)
+  const setUserId = useSetAtom(userIdAtom)
+  const setUserEmail = useSetAtom(userEmailAtom)
+  const setUserOrgId = useSetAtom(userOrgIdAtom)
+  const setUserOrganizationName = useSetAtom(userOrganizationNameAtom)
+  const setUserRole = useSetAtom(userRoleAtom)
+  const setUserFirebaseUid = useSetAtom(userFirebaseUidAtom)
   const [org, setOrg] = useState<Organization | null>(null)
   const [users, setUsers] = useState<User[]>([])
   const [studies, setStudies] = useState<Study[]>([])
@@ -49,8 +57,8 @@ export function OrganizationDetailPage() {
   // Add User modal state
   const [showAddUserModal, setShowAddUserModal] = useState(false)
   const [showUserSuccessModal, setShowUserSuccessModal] = useState(false)
-  const [userEmail, setUserEmail] = useState('')
-  const [userRole, setUserRole] = useState('admin')
+  const [newUserEmail, setNewUserEmail] = useState('')
+  const [newUserRole, setNewUserRole] = useState('admin')
   const [passwordResetLink, setPasswordResetLink] = useState('')
   const [addingUser, setAddingUser] = useState(false)
 
@@ -93,7 +101,7 @@ export function OrganizationDetailPage() {
 
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!userEmail.trim() || !userRole) return
+    if (!newUserEmail.trim() || !newUserRole) return
 
     setAddingUser(true)
     const token = localStorage.getItem('firebase_token')
@@ -106,7 +114,7 @@ export function OrganizationDetailPage() {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email: userEmail, role: userRole }),
+        body: JSON.stringify({ email: newUserEmail, role: newUserRole }),
       })
 
       if (!res.ok) {
@@ -118,8 +126,8 @@ export function OrganizationDetailPage() {
 
       // Close add user modal and reset form
       setShowAddUserModal(false)
-      setUserEmail('')
-      setUserRole('admin')
+      setNewUserEmail('')
+      setNewUserRole('admin')
 
       // Show success modal with password reset link
       if (data.password_reset_link) {
@@ -286,6 +294,26 @@ export function OrganizationDetailPage() {
     }
   }
 
+  const handleLogout = async () => {
+    // Sign out from Firebase
+    await auth.signOut()
+
+    // Clear localStorage
+    localStorage.removeItem('firebase_token')
+    localStorage.removeItem('auth_state')
+
+    // Clear user atoms
+    setUserId(null)
+    setUserEmail(null)
+    setUserOrgId(null)
+    setUserOrganizationName(null)
+    setUserRole(null)
+    setUserFirebaseUid(null)
+
+    // Navigate to login
+    navigate('/login')
+  }
+
   useEffect(() => {
     if (!user || !id) return
 
@@ -348,7 +376,12 @@ export function OrganizationDetailPage() {
 
   return (
     <div data-testid="org-detail-page" className="container mx-auto p-6 space-y-6">
-      <Link to="/" className="text-sm text-muted-foreground hover:text-foreground mb-4 inline-block">← Back to Dashboard</Link>
+      <div className="flex items-center justify-between mb-4">
+        <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">← Back to Dashboard</Link>
+        <Button variant="outline" onClick={handleLogout}>
+          Logout
+        </Button>
+      </div>
 
       <div>
         <h1 data-testid="org-detail-name" className="text-3xl font-bold">{org.display_name}</h1>
@@ -399,15 +432,15 @@ export function OrganizationDetailPage() {
                 id="user-email"
                 data-testid="user-email-input"
                 type="email"
-                value={userEmail}
-                onChange={(e) => setUserEmail(e.target.value)}
+                value={newUserEmail}
+                onChange={(e) => setNewUserEmail(e.target.value)}
                 placeholder="user@example.com"
                 autoFocus
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="user-role">Role</Label>
-              <Select value={userRole} onValueChange={setUserRole}>
+              <Select value={newUserRole} onValueChange={setNewUserRole}>
                 <SelectTrigger id="user-role" data-testid="user-role-select">
                   <SelectValue />
                 </SelectTrigger>
@@ -423,8 +456,8 @@ export function OrganizationDetailPage() {
                 variant="outline"
                 onClick={() => {
                   setShowAddUserModal(false)
-                  setUserEmail('')
-                  setUserRole('admin')
+                  setNewUserEmail('')
+                  setNewUserRole('admin')
                 }}
                 disabled={addingUser}
               >
@@ -433,7 +466,7 @@ export function OrganizationDetailPage() {
               <Button
                 type="submit"
                 data-testid="add-user-submit"
-                disabled={addingUser || !userEmail.trim()}
+                disabled={addingUser || !newUserEmail.trim()}
               >
                 {addingUser ? 'Adding...' : 'Add User'}
               </Button>

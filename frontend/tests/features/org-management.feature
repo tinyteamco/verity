@@ -85,3 +85,22 @@ Feature: Super Admin Organization Management
     And I submit the add user form
     Then I see "dev@techstartup.io" in the users list
     And I see user "dev@techstartup.io" with role "member"
+
+  Scenario: Logout from dashboard
+    When I navigate to the admin dashboard
+    And I click "Logout"
+    Then I am redirected to the login page
+    And I don't see "admin@tinyteam.co"
+
+  Scenario: Logout from organization details page
+    Given organizations "Acme Corp" and "Beta Inc" exist
+    When I navigate to the admin dashboard
+    And I click on the "Acme Corp" organization
+    And I click "Logout"
+    Then I am redirected to the login page
+
+  Scenario: Cannot access dashboard after logout
+    When I navigate to the admin dashboard
+    And I click "Logout"
+    And I navigate to the admin dashboard
+    Then I am redirected to the login page
