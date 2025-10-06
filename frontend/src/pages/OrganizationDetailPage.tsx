@@ -74,7 +74,11 @@ export function OrganizationDetailPage() {
   const [studyError, setStudyError] = useState<string | null>(null)
 
   const fetchUsers = () => {
-    if (!user || !id) return
+    // Only super admins can view users
+    if (!user || !id || user.role !== 'super_admin') {
+      setLoadingUsers(false)
+      return
+    }
 
     const token = localStorage.getItem('firebase_token')
     const apiUrl = getApiUrl()
@@ -351,7 +355,7 @@ export function OrganizationDetailPage() {
     fetchStudies()
   }, [user, id])
 
-  if (!user || user.role !== 'super_admin') {
+  if (!user) {
     return <Navigate to="/login" replace />
   }
 
@@ -389,34 +393,37 @@ export function OrganizationDetailPage() {
         <p className="text-sm text-muted-foreground mt-1">Created: {new Date(org.created_at).toLocaleDateString()}</p>
       </div>
 
-      <Card data-testid="org-users-section">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Users</CardTitle>
-            <Button
-              data-testid="add-user-button"
-              onClick={() => setShowAddUserModal(true)}
-            >
-              Add User
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {loadingUsers ? (
-            <p className="text-muted-foreground">Loading users...</p>
-          ) : users.length === 0 ? (
-            <p className="text-muted-foreground">No users yet</p>
-          ) : (
-            <div data-testid="org-users-list" className="space-y-2">
-              {users.map((u) => (
-                <div key={u.user_id} data-user-email={u.email} className="p-3 border rounded-md">
-                  <span className="font-medium">{u.email}</span> <span className="text-muted-foreground">(<span data-testid="user-role">{u.role}</span>)</span>
-                </div>
-              ))}
+      {/* Users section - only visible to super admins */}
+      {user.role === 'super_admin' && (
+        <Card data-testid="org-users-section">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Users</CardTitle>
+              <Button
+                data-testid="add-user-button"
+                onClick={() => setShowAddUserModal(true)}
+              >
+                Add User
+              </Button>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardHeader>
+          <CardContent>
+            {loadingUsers ? (
+              <p className="text-muted-foreground">Loading users...</p>
+            ) : users.length === 0 ? (
+              <p className="text-muted-foreground">No users yet</p>
+            ) : (
+              <div data-testid="org-users-list" className="space-y-2">
+                {users.map((u) => (
+                  <div key={u.user_id} data-user-email={u.email} className="p-3 border rounded-md">
+                    <span className="font-medium">{u.email}</span> <span className="text-muted-foreground">(<span data-testid="user-role">{u.role}</span>)</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Add User Modal */}
       <Dialog open={showAddUserModal} onOpenChange={setShowAddUserModal}>
