@@ -22,6 +22,11 @@ local fastChecks = new Mapping<String, Step> {
         glob = List("src/**/*.py")
         check = "mise run check:types"
     }
+    ["tsc"] {
+        dir = "frontend"
+        glob = List("src/**/*.{ts,tsx}")
+        check = "make check-types"
+    }
 }
 
 // Comprehensive checks including tests (for pre-push and manual runs)

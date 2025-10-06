@@ -1,7 +1,7 @@
 # Root Makefile for verity monorepo
 SHELL := /bin/bash
 
-.PHONY: bootstrap setup backend-setup backend-dev backend-test backend-check frontend-setup frontend-test help
+.PHONY: bootstrap setup backend-setup backend-dev backend-test backend-check frontend-setup frontend-test frontend-pre-commit frontend-pre-push pre-commit pre-push help
 
 bootstrap: ## One-shot setup for CI/fresh machines (tools + deps + hooks)
 	@echo "🚀 Bootstrapping Verity development environment..."
@@ -40,6 +40,18 @@ frontend-setup: ## Setup frontend
 
 frontend-test: ## Run frontend E2E tests
 	cd frontend && npm run test:e2e:real
+
+frontend-pre-commit: ## Run frontend pre-commit checks
+	cd frontend && $(MAKE) pre-commit
+
+frontend-pre-push: ## Run frontend pre-push checks
+	cd frontend && $(MAKE) pre-push
+
+pre-commit: backend-check frontend-pre-commit ## Run all pre-commit checks
+	@echo "✅ All pre-commit checks passed"
+
+pre-push: backend-test frontend-pre-push ## Run all pre-push checks
+	@echo "✅ All pre-push checks passed"
 
 help: ## Show this help
 	@echo "Verity Monorepo Commands:"

@@ -1,4 +1,4 @@
-.PHONY: setup dev build test test-e2e clean
+.PHONY: setup dev build test test-e2e clean check-types pre-commit pre-push
 
 # Install dependencies
 setup:
@@ -18,6 +18,18 @@ test:
 
 # Alias for consistency
 test-e2e: test
+
+# Type checking
+check-types:
+	mise exec -- npx tsc --noEmit
+
+# Pre-commit checks (fast, local-only)
+pre-commit: check-types
+	@echo "✅ Frontend pre-commit checks passed"
+
+# Pre-push checks (comprehensive, includes tests)
+pre-push: check-types test
+	@echo "✅ Frontend pre-push checks passed"
 
 # Clean generated files
 clean:
