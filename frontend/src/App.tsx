@@ -4,12 +4,16 @@ import { userAtom, userIdAtom, userEmailAtom, userOrgIdAtom, userOrganizationNam
 import { organizationsAtom } from './atoms/organizations'
 import { LoginPage } from './pages/LoginPage'
 import { OrganizationDetailPage } from './pages/OrganizationDetailPage'
-import { StudyListPage } from './pages/StudyListPage'
-import { StudyDetailPage } from './pages/StudyDetailPage'
 import { loadAuthState } from './lib/auth-persistence'
 import { getApiUrl } from './lib/api'
 import { initializeAuth } from './lib/auth-init'
 import { useEffect, useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 function Dashboard() {
   const [user] = useAtom(userAtom)
@@ -123,221 +127,179 @@ function Dashboard() {
 
   if (user.role === 'super_admin') {
     return (
-      <div data-testid="admin-dashboard">
-        <h1>Super Admin Dashboard</h1>
-        <p data-testid="admin-email">{user.email}</p>
+      <div data-testid="admin-dashboard" className="container mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Super Admin Dashboard</h1>
+            <p data-testid="admin-email" className="text-muted-foreground">{user.email}</p>
+          </div>
+        </div>
 
-        <div data-testid="organizations-section">
-          <h2>Organizations</h2>
-          <button
-            data-testid="create-org-button"
-            onClick={() => setShowCreateModal(true)}
-          >
-            Create Organization
-          </button>
-
-          {showCreateModal && (
-            <div data-testid="create-org-modal" style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(0,0,0,0.5)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-              <div style={{
-                backgroundColor: 'white',
-                padding: '2rem',
-                borderRadius: '8px',
-                minWidth: '400px',
-              }}>
-                <h3>Create Organization</h3>
-                <form onSubmit={handleCreateOrg}>
-                  <div style={{ marginBottom: '1rem' }}>
-                    <label htmlFor="org-name">
-                      Organization Slug <span style={{ color: '#666', fontSize: '0.85rem' }}>(lowercase, hyphens only)</span>
-                    </label>
-                    <input
-                      id="org-name"
-                      data-testid="org-name-input"
-                      type="text"
-                      value={orgName}
-                      onChange={(e) => setOrgName(e.target.value.toLowerCase())}
-                      placeholder="my-company"
-                      pattern="[a-z0-9-]+"
-                      style={{
-                        width: '100%',
-                        padding: '0.5rem',
-                        marginTop: '0.25rem',
-                      }}
-                      autoFocus
-                    />
-                  </div>
-                  <div style={{ marginBottom: '1rem' }}>
-                    <label htmlFor="display-name">Display Name</label>
-                    <input
-                      id="display-name"
-                      data-testid="display-name-input"
-                      type="text"
-                      value={displayName}
-                      onChange={(e) => setDisplayName(e.target.value)}
-                      placeholder="My Company Inc."
-                      style={{
-                        width: '100%',
-                        padding: '0.5rem',
-                        marginTop: '0.25rem',
-                      }}
-                    />
-                  </div>
-                  <div style={{ marginBottom: '1rem' }}>
-                    <label htmlFor="description">
-                      Description <span style={{ color: '#666', fontSize: '0.85rem' }}>(optional)</span>
-                    </label>
-                    <textarea
-                      id="description"
-                      data-testid="description-input"
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      placeholder="A brief description of the organization"
-                      style={{
-                        width: '100%',
-                        padding: '0.5rem',
-                        marginTop: '0.25rem',
-                        minHeight: '60px',
-                      }}
-                    />
-                  </div>
-                  <div style={{ marginBottom: '1rem' }}>
-                    <label htmlFor="owner-email">Owner Email</label>
-                    <input
-                      id="owner-email"
-                      data-testid="owner-email-input"
-                      type="email"
-                      value={ownerEmail}
-                      onChange={(e) => setOwnerEmail(e.target.value)}
-                      placeholder="owner@example.com"
-                      style={{
-                        width: '100%',
-                        padding: '0.5rem',
-                        marginTop: '0.25rem',
-                      }}
-                    />
-                  </div>
-                  {createError && (
-                    <div style={{ color: 'red', marginBottom: '1rem', fontSize: '0.9rem' }}>
-                      {createError}
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowCreateModal(false)
-                        setOrgName('')
-                        setDisplayName('')
-                        setDescription('')
-                        setOwnerEmail('')
-                        setCreateError(null)
-                      }}
-                      disabled={creating}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      data-testid="create-org-submit"
-                      disabled={creating || !orgName.trim() || !displayName.trim() || !ownerEmail.trim()}
-                    >
-                      {creating ? 'Creating...' : 'Create'}
-                    </button>
-                  </div>
-                </form>
-              </div>
+        <Card data-testid="organizations-section">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Organizations</CardTitle>
+              <Button
+                data-testid="create-org-button"
+                onClick={() => setShowCreateModal(true)}
+              >
+                Create Organization
+              </Button>
             </div>
-          )}
+          </CardHeader>
+          <CardContent>
 
-          {showSuccessModal && (
-            <div data-testid="success-modal" style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(0,0,0,0.5)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-              <div style={{
-                backgroundColor: 'white',
-                padding: '2rem',
-                borderRadius: '8px',
-                minWidth: '500px',
-                maxWidth: '600px',
-              }}>
-                <h3>✅ Organization Created Successfully!</h3>
-                <p>The organization has been created and the owner account has been provisioned.</p>
+          <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+            <DialogContent data-testid="create-org-modal">
+              <DialogHeader>
+                <DialogTitle>Create Organization</DialogTitle>
+                <DialogDescription>Add a new organization to the platform</DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleCreateOrg} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="org-name">
+                    Organization Slug <span className="text-xs text-muted-foreground">(lowercase, hyphens only)</span>
+                  </Label>
+                  <Input
+                    id="org-name"
+                    data-testid="org-name-input"
+                    type="text"
+                    value={orgName}
+                    onChange={(e) => setOrgName(e.target.value.toLowerCase())}
+                    placeholder="my-company"
+                    pattern="[a-z0-9-]+"
+                    autoFocus
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="display-name">Display Name</Label>
+                  <Input
+                    id="display-name"
+                    data-testid="display-name-input"
+                    type="text"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="My Company Inc."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="description">
+                    Description <span className="text-xs text-muted-foreground">(optional)</span>
+                  </Label>
+                  <Textarea
+                    id="description"
+                    data-testid="description-input"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="A brief description of the organization"
+                    rows={3}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="owner-email">Owner Email</Label>
+                  <Input
+                    id="owner-email"
+                    data-testid="owner-email-input"
+                    type="email"
+                    value={ownerEmail}
+                    onChange={(e) => setOwnerEmail(e.target.value)}
+                    placeholder="owner@example.com"
+                  />
+                </div>
+                {createError && (
+                  <div className="text-sm text-destructive">
+                    {createError}
+                  </div>
+                )}
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowCreateModal(false)
+                      setOrgName('')
+                      setDisplayName('')
+                      setDescription('')
+                      setOwnerEmail('')
+                      setCreateError(null)
+                    }}
+                    disabled={creating}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    data-testid="create-org-submit"
+                    disabled={creating || !orgName.trim() || !displayName.trim() || !ownerEmail.trim()}
+                  >
+                    {creating ? 'Creating...' : 'Create'}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
 
-                <div style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}>
-                  <h4>Password Setup Link</h4>
-                  <p style={{ fontSize: '0.9rem', color: '#666' }}>
+          <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
+            <DialogContent data-testid="success-modal" className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>✅ Organization Created Successfully!</DialogTitle>
+                <DialogDescription>
+                  The organization has been created and the owner account has been provisioned.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-semibold mb-2">Password Setup Link</h4>
+                  <p className="text-sm text-muted-foreground mb-3">
                     Send this link to the organization owner to set up their password:
                   </p>
-                  <div style={{
-                    backgroundColor: '#f5f5f5',
-                    padding: '1rem',
-                    borderRadius: '4px',
-                    wordBreak: 'break-all',
-                    fontSize: '0.85rem',
-                  }}>
+                  <div className="bg-muted p-4 rounded-md break-all text-sm font-mono">
                     <code data-testid="password-reset-link">{passwordResetLink}</code>
                   </div>
-                  <button
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => {
                       navigator.clipboard.writeText(passwordResetLink)
                       alert('Link copied to clipboard!')
                     }}
-                    style={{ marginTop: '0.5rem' }}
+                    className="mt-2"
                   >
                     Copy Link
-                  </button>
+                  </Button>
                 </div>
-
-                <p style={{ fontSize: '0.85rem', color: '#666' }}>
+                <p className="text-sm text-muted-foreground">
                   ⚠️ This link expires in 1 hour
                 </p>
-
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
-                  <button
-                    data-testid="success-modal-close"
-                    onClick={() => setShowSuccessModal(false)}
-                  >
-                    Close
-                  </button>
-                </div>
               </div>
-            </div>
-          )}
+              <DialogFooter>
+                <Button
+                  data-testid="success-modal-close"
+                  onClick={() => setShowSuccessModal(false)}
+                >
+                  Close
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
-          <div data-testid="organizations-list">
-            {loading ? (
-              <p>Loading...</p>
-            ) : organizations.length === 0 ? (
-              <p data-testid="no-orgs">No organizations yet</p>
-            ) : (
-              <ul>
-                {organizations.map((org) => (
-                  <li key={org.org_id} data-testid={`org-${org.org_id}`}>
-                    <Link to={`/orgs/${org.org_id}`}>{org.display_name}</Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
+            <div data-testid="organizations-list" className="mt-4">
+              {loading ? (
+                <p className="text-muted-foreground">Loading...</p>
+              ) : organizations.length === 0 ? (
+                <p data-testid="no-orgs" className="text-muted-foreground">No organizations yet</p>
+              ) : (
+                <div className="space-y-2">
+                  {organizations.map((org) => (
+                    <div key={org.org_id} data-testid={`org-${org.org_id}`} className="p-3 border rounded-md hover:bg-muted/50 transition-colors">
+                      <Link to={`/orgs/${org.org_id}`} className="text-lg font-medium hover:underline">{org.display_name}</Link>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -388,8 +350,6 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/" element={<Dashboard />} />
         <Route path="/orgs/:id" element={<OrganizationDetailPage />} />
-        <Route path="/orgs/:orgId/studies" element={<StudyListPage />} />
-        <Route path="/orgs/:orgId/studies/:studyId" element={<StudyDetailPage />} />
       </Routes>
     </BrowserRouter>
   )

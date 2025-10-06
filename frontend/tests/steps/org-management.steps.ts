@@ -116,7 +116,12 @@ When('I enter {string} as the user email', async ({ page }, email: string) => {
 })
 
 When('I select {string} as the user role', async ({ page }, role: string) => {
-  await page.getByTestId('user-role-select').selectOption(role)
+  // Click the Select trigger to open the dropdown
+  await page.getByTestId('user-role-select').click()
+  // Click the option with the specified role (capitalize first letter)
+  const capitalizedRole = role.charAt(0).toUpperCase() + role.slice(1)
+  // Find the option within the dropdown portal using getByLabel (Radix uses labels for items)
+  await page.getByLabel(capitalizedRole, { exact: true }).click()
 })
 
 When('I submit the add user form', async ({ page }) => {

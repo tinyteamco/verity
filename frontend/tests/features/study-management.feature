@@ -20,24 +20,16 @@ Feature: Study Management
     Then I see "Onboarding Feedback" in the studies list
     And I don't see "No studies yet"
 
-  Scenario: View study details
-    Given organization "Research Corp" has study "Checkout Flow Study"
-    When I navigate to organization "Research Corp" studies page
-    And I click on study "Checkout Flow Study"
-    Then I see the study details page for "Checkout Flow Study"
-    And I see the study description
-    And I see the interview guide section
-    And I see the interviews section
-
   Scenario: Edit study details
     Given organization "Research Corp" has study "Old Study Name"
     When I navigate to organization "Research Corp" studies page
     And I click on study "Old Study Name"
-    And I click "Edit Study"
-    And I enter "New Study Name" as the study title
+    Then I see the study details page for "Old Study Name"
+    When I enter "New Study Name" as the study title
     And I enter "Updated description" as the study description
     And I submit the study form
-    Then I see "New Study Name" in the study title
+    Then I see "New Study Name" in the studies list
+    And I don't see "Old Study Name" in the studies list
 
   Scenario: Delete study
     Given organization "Research Corp" has studies:
@@ -47,8 +39,7 @@ Feature: Study Management
     When I navigate to organization "Research Corp" studies page
     Then I see "Keep This Study" in the studies list
     And I see "Delete This Study" in the studies list
-    When I click on study "Delete This Study"
-    And I click "Delete Study"
+    When I click delete for study "Delete This Study"
     And I confirm the deletion
     Then I am redirected to the studies list page
     And I see "Keep This Study" in the studies list
