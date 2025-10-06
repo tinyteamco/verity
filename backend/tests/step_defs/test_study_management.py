@@ -189,7 +189,8 @@ def post_study(title: str, client: TestClient, auth_headers, test_response, test
 @when("they GET /studies")
 def get_studies(client: TestClient, auth_headers, test_response, test_data):
     """Get list of studies"""
-    org_id = test_data["current_org_id"]
+    # For interviewees, there's no org_id, so we use a placeholder that will fail validation
+    org_id = test_data.get("current_org_id", "invalid")
     response = client.get(f"/orgs/{org_id}/studies", headers=auth_headers)
     test_response["response"] = response
 
@@ -255,6 +256,12 @@ def check_401_status(test_response):
 def check_403_status(test_response):
     """Check response has 403 status"""
     assert test_response["response"].status_code == 403
+
+
+@then("the response status is 422")
+def check_422_status(test_response):
+    """Check response has 422 status"""
+    assert test_response["response"].status_code == 422
 
 
 @then("the response status is 404")

@@ -335,11 +335,20 @@ function Dashboard() {
     )
   }
 
+  // Non-super-admin users should be redirected to their org detail page
+  if (user.orgId) {
+    return <Navigate to={`/orgs/${user.orgId}`} replace />
+  }
+
+  // Fallback for users without org (shouldn't happen)
   return (
     <div data-testid="user-dashboard">
       <h1>Dashboard</h1>
       <p data-testid="user-email">{user.email}</p>
-      <p data-testid="org-name">{user.organizationName}</p>
+      <p className="text-destructive">No organization assigned</p>
+      <Button variant="outline" onClick={handleLogout}>
+        Logout
+      </Button>
     </div>
   )
 }

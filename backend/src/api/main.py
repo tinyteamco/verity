@@ -491,7 +491,7 @@ async def create_study(
 
 @api_router.get("/orgs/{org_id}/studies", response_model=StudyList)
 async def list_studies(
-    org_id: str,
+    org_id: int,
     current_user: Annotated[AuthUser, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> StudyList:

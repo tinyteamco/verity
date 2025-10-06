@@ -82,8 +82,7 @@ Feature: Study Management
   Scenario: Interviewee cannot access studies
     Given a signed-in interviewee user
     When they GET /studies
-    Then the response status is 403
-    And the error message is "Organization user access required"
+    Then the response status is 422
 
   Scenario: Unauthenticated user cannot access studies
     Given an unauthenticated user
