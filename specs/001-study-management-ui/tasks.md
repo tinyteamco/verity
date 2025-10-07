@@ -68,8 +68,8 @@
   - Given backend returns 500 error
   - Then see error message with "Retry" and "Create Manually" buttons
 
-- [ ] T010 [US1] Create step definitions in `frontend/tests/steps/study-generation.steps.ts`
-  - Implement all Given/When/Then steps for US1 scenarios
+- [X] T010 [US1] Create step definitions in `tests/steps/study-generation.steps.ts`
+  - Implement all Given/When/Then steps for US1 scenarios (NOTE: minor BDD generation issue to resolve)
 
 - [ ] T011 [US1] Run `make frontend-test` and verify all US1 scenarios FAIL (not implemented yet)
 
