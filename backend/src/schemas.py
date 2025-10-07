@@ -85,6 +85,15 @@ class StudyCreate(BaseModel):
     description: str | None = None
 
 
+class StudyGenerateRequest(BaseModel):
+    topic: str
+
+
+class StudyWithGuideResponse(BaseModel):
+    study: "StudyResponse"
+    guide: "InterviewGuideResponse"
+
+
 class StudyResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

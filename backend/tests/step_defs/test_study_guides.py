@@ -316,3 +316,116 @@ def check_403_status(response_data):
 @then("the response status is 404")
 def check_404_status(response_data):
     assert response_data["response"].status_code == 404
+
+
+@then("the response status is 500")
+def check_500_status(response_data):
+    assert response_data["response"].status_code == 500
+
+
+# New steps for AI-generated study creation
+
+
+@given("a signed-in super admin user")
+def set_super_admin_user(current_user_headers, super_admin_token):
+    """Set current user to super admin"""
+    current_user_headers["Authorization"] = f"Bearer {super_admin_token}"
+
+
+@when(parsers.parse('they POST /orgs/{org_id:d}/studies/generate with topic "{topic}"'))
+def post_generate_study(client, response_data, current_user_headers, org_id, topic):
+    response = client.post(
+        f"/orgs/{org_id}/studies/generate",
+        json={"topic": topic},
+        headers=current_user_headers,
+    )
+    response_data["response"] = response
+    response_data["json"] = response.json() if response.status_code in [200, 201] else None
+
+
+@then("the response has a study object")
+def check_has_study_object(response_data):
+    json_data = response_data["json"]
+    assert json_data is not None
+    assert "study" in json_data
+    assert "study_id" in json_data["study"]
+    assert "title" in json_data["study"]
+    assert "description" in json_data["study"]
+
+
+@then("the response has a guide object")
+def check_has_guide_object(response_data):
+    json_data = response_data["json"]
+    assert json_data is not None
+    assert "guide" in json_data
+    assert "study_id" in json_data["guide"]
+    assert "content_md" in json_data["guide"]
+    assert "updated_at" in json_data["guide"]
+
+
+@then("the study title is a slug")
+def check_study_title_is_slug(response_data):
+    """Verify the study title is a lowercase slug with hyphens"""
+    json_data = response_data["json"]
+    assert json_data is not None
+    title = json_data["study"]["title"]
+    # Should be lowercase
+    assert title == title.lower()
+    # Should only contain alphanumeric + hyphens
+    import re
+
+    assert re.match(r"^[a-z0-9-]+$", title)
+    # Should not start or end with hyphen
+    assert not title.startswith("-")
+    assert not title.endswith("-")
+
+
+@then(parsers.parse('the study description is "{expected_description}"'))
+def check_study_description(response_data, expected_description):
+    json_data = response_data["json"]
+    assert json_data is not None
+    assert json_data["study"]["description"] == expected_description
+
+
+@then(parsers.parse('the guide content_md contains "{text}" or "{alt_text}"'))
+def check_guide_content_contains_either(response_data, text, alt_text):
+    """Check if guide content contains either text or alt_text (case insensitive)"""
+    json_data = response_data["json"]
+    assert json_data is not None
+    content = json_data["guide"]["content_md"].lower()
+    assert text.lower() in content or alt_text.lower() in content
+
+
+@then(parsers.parse("the guide content_md length is greater than {min_length:d}"))
+def check_guide_content_length(response_data, min_length):
+    json_data = response_data["json"]
+    assert json_data is not None
+    content = json_data["guide"]["content_md"]
+    assert len(content) > min_length
+
+
+@given("the LLM service will fail when generating interview guides")
+def mock_llm_failure(monkeypatch):
+    """Mock the LLM service to raise an exception when generating interview guides"""
+
+    def failing_guide_generator(topic: str) -> str:
+        raise RuntimeError("Simulated LLM failure")
+
+    # Patch where the function is imported in api/main.py
+    monkeypatch.setattr("src.api.main.generate_interview_guide", failing_guide_generator)
+
+
+@then(parsers.parse('no study was created with description "{description}"'))
+def check_no_study_created(client, org_user_token, description):
+    """Verify that no study with this description exists (rollback worked)"""
+    from src.models import Study
+    from tests.conftest import TestingSessionLocal
+
+    db_session = TestingSessionLocal()
+    try:
+        study = db_session.query(Study).filter(Study.description == description).first()
+        assert study is None, (
+            f"Study with description '{description}' should not exist after rollback"
+        )
+    finally:
+        db_session.close()
