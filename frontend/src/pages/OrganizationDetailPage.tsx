@@ -826,8 +826,27 @@ export function OrganizationDetailPage() {
               )}
 
               {!loadingGuide && !currentGuide && !guideError && (
-                <div className="text-sm text-muted-foreground">
-                  No interview guide yet
+                <div className="space-y-3">
+                  <div className="text-sm text-muted-foreground">
+                    No interview guide yet
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        // Create an empty guide and enter edit mode
+                        setCurrentGuide({
+                          study_id: selectedStudy!.study_id,
+                          content_md: '',
+                          updated_at: new Date().toISOString(),
+                        })
+                        setIsEditingGuide(true)
+                      }}
+                    >
+                      Add Guide Manually
+                    </Button>
+                  </div>
                 </div>
               )}
 
