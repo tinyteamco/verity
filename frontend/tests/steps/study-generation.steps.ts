@@ -43,17 +43,11 @@ Given('organization {string} has a study with an interview guide', async ({ page
     throw new Error(`Failed to create guide: ${guideResponse.status()} ${await guideResponse.text()}`)
   }
 
-  // Store study ID for later use
-  await page.evaluate((sid) => {
+  // Store IDs for use in When steps
+  await page.evaluate(({ sid, oid }) => {
     sessionStorage.setItem('test_study_id', sid)
-  }, studyId)
-
-  // Navigate to the organization page so the study is visible
-  await page.goto(`/organizations/${orgId}`)
-  await page.waitForLoadState('networkidle')
-
-  // Wait for the study to appear in the studies list
-  await page.waitForSelector(`[data-testid="study-${studyId}"]`, { timeout: 10000 })
+    sessionStorage.setItem('test_org_id', oid)
+  }, { sid: studyId, oid: orgId })
 })
 
 Given('organization {string} has a study without an interview guide', async ({ page, fixtures }, orgName: string) => {
@@ -80,16 +74,11 @@ Given('organization {string} has a study without an interview guide', async ({ p
   const result = await response.json()
   const studyId = result.study_id
 
-  await page.evaluate((sid) => {
+  // Store IDs for use in When steps
+  await page.evaluate(({ sid, oid }) => {
     sessionStorage.setItem('test_study_id', sid)
-  }, studyId)
-
-  // Navigate to the organization page so the study is visible
-  await page.goto(`/organizations/${orgId}`)
-  await page.waitForLoadState('networkidle')
-
-  // Wait for the study to appear in the studies list
-  await page.waitForSelector(`[data-testid="study-${studyId}"]`, { timeout: 10000 })
+    sessionStorage.setItem('test_org_id', oid)
+  }, { sid: studyId, oid: orgId })
 })
 
 // When steps for generation flow
@@ -115,12 +104,27 @@ When('the backend returns 500 error', async ({ page }) => {
 })
 
 When('I navigate to the study detail page', async ({ page }) => {
-  const studyId = await page.evaluate(() => sessionStorage.getItem('test_study_id'))
-  if (!studyId) {
-    throw new Error('No study ID found in session storage')
+  const { studyId, orgId } = await page.evaluate(() => ({
+    studyId: sessionStorage.getItem('test_study_id'),
+    orgId: sessionStorage.getItem('test_org_id')
+  }))
+
+  if (!studyId || !orgId) {
+    throw new Error('No study ID or org ID found in session storage')
   }
-  // Click the study by its test ID (uses the actual study ID we stored)
+
+  // Navigate to org page
+  await page.goto(`/organizations/${orgId}`)
+  await page.waitForLoadState('networkidle')
+
+  // Wait for studies list to load
+  await page.waitForSelector('[data-testid="studies-list"]', { timeout: 10000 })
+
+  // Click on the study to open detail modal
   await page.getByTestId(`study-${studyId}`).click()
+
+  // Wait for modal to open
+  await page.waitForSelector('[data-testid="edit-study-modal"]', { timeout: 5000 })
 })
 
 When('I modify the interview guide content', async ({ page }) => {
