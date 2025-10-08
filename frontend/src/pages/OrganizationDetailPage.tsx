@@ -1,7 +1,7 @@
 import { useParams, Navigate, Link, useNavigate } from 'react-router-dom'
 import { useAtom, useSetAtom } from 'jotai'
 import { userAtom, userIdAtom, userEmailAtom, userOrgIdAtom, userOrganizationNameAtom, userRoleAtom, userFirebaseUidAtom } from '../atoms/auth'
-import { getApiUrl, generateStudy } from '../lib/api'
+import { getApiUrl, generateStudy, getGuide } from '../lib/api'
 import { auth } from '../lib/firebase'
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,9 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { StudyGuideViewer } from '../components/StudyGuideViewer'
+import { StudyGuideEditor } from '../components/StudyGuideEditor'
+import type { InterviewGuide } from '../types/study'
 
 interface Organization {
   org_id: string
@@ -79,6 +82,34 @@ export function OrganizationDetailPage() {
   const [generatingStudy, setGeneratingStudy] = useState(false)
   const [generateError, setGenerateError] = useState<string | null>(null)
   const [topicValidationError, setTopicValidationError] = useState<string | null>(null)
+
+  // Interview guide state
+  const [currentGuide, setCurrentGuide] = useState<InterviewGuide | null>(null)
+  const [isEditingGuide, setIsEditingGuide] = useState(false)
+  const [loadingGuide, setLoadingGuide] = useState(false)
+  const [guideError, setGuideError] = useState<string | null>(null)
+
+  const fetchGuide = async (studyId: string) => {
+    setLoadingGuide(true)
+    setGuideError(null)
+
+    const token = localStorage.getItem('firebase_token')
+    if (!token) {
+      setGuideError('Authentication required')
+      setLoadingGuide(false)
+      return
+    }
+
+    try {
+      const guide = await getGuide(studyId, token)
+      setCurrentGuide(guide)
+    } catch (err: any) {
+      console.error('[FetchGuide] Error:', err)
+      setGuideError(err.message)
+    } finally {
+      setLoadingGuide(false)
+    }
+  }
 
   const fetchUsers = () => {
     // Only super admins can view users
@@ -219,50 +250,6 @@ export function OrganizationDetailPage() {
       fetchStudies()
     } catch (err: any) {
       console.error('[CreateStudy] Error:', err)
-      setStudyError(err.message)
-    } finally {
-      setSavingStudy(false)
-    }
-  }
-
-  const handleEditStudy = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!selectedStudy || !studyTitle.trim()) return
-
-    setSavingStudy(true)
-    setStudyError(null)
-    const token = localStorage.getItem('firebase_token')
-    const apiUrl = getApiUrl()
-
-    try {
-      const res = await fetch(`${apiUrl}/api/orgs/${id}/studies/${selectedStudy.study_id}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title: studyTitle,
-          description: studyDescription || undefined,
-        }),
-      })
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ detail: 'Unknown error' }))
-        throw new Error(errorData.detail || `HTTP ${res.status}`)
-      }
-
-      // Close modal and reset
-      setShowEditStudyModal(false)
-      setSelectedStudy(null)
-      setStudyTitle('')
-      setStudyDescription('')
-      setStudyError(null)
-
-      // Refresh studies list
-      fetchStudies()
-    } catch (err: any) {
-      console.error('[EditStudy] Error:', err)
       setStudyError(err.message)
     } finally {
       setSavingStudy(false)
@@ -631,6 +618,8 @@ export function OrganizationDetailPage() {
                       setSelectedStudy(s)
                       setStudyTitle(s.title)
                       setStudyDescription(s.description || '')
+                      setIsEditingGuide(false)
+                      fetchGuide(s.study_id)
                       setShowEditStudyModal(true)
                     }}
                   >
@@ -802,68 +791,82 @@ export function OrganizationDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Study Modal */}
+      {/* Study Detail Modal */}
       <Dialog open={showEditStudyModal} onOpenChange={setShowEditStudyModal}>
-        <DialogContent data-testid="edit-study-modal">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="edit-study-modal">
           <DialogHeader>
-            <DialogTitle>Edit Study</DialogTitle>
-            <DialogDescription>Update study details</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleEditStudy} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-study-title">Study Title</Label>
-              <Input
-                id="edit-study-title"
-                data-testid="study-title-input"
-                type="text"
-                value={studyTitle}
-                onChange={(e) => setStudyTitle(e.target.value)}
-                placeholder="My Research Study"
-                autoFocus
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-study-description">
-                Description <span className="text-xs text-muted-foreground">(optional)</span>
-              </Label>
-              <Textarea
-                id="edit-study-description"
-                data-testid="study-description-input"
-                value={studyDescription}
-                onChange={(e) => setStudyDescription(e.target.value)}
-                placeholder="A brief description of the study"
-                rows={3}
-              />
-            </div>
-            {studyError && (
-              <div className="text-sm text-destructive">
-                {studyError}
-              </div>
+            <DialogTitle data-testid="study-title">{selectedStudy?.title}</DialogTitle>
+            {selectedStudy?.description && (
+              <DialogDescription data-testid="study-description">{selectedStudy.description}</DialogDescription>
             )}
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Interview Guide Section */}
+            <div className="border-t pt-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Interview Guide</h3>
+                {!isEditingGuide && currentGuide && (
+                  <Button
+                    data-testid="edit-guide-button"
+                    onClick={() => setIsEditingGuide(true)}
+                    size="sm"
+                  >
+                    Edit Guide
+                  </Button>
+                )}
+              </div>
+
+              {loadingGuide && (
+                <div className="text-sm text-muted-foreground">Loading guide...</div>
+              )}
+
+              {guideError && (
+                <div className="text-sm text-destructive">{guideError}</div>
+              )}
+
+              {!loadingGuide && !currentGuide && !guideError && (
+                <div className="text-sm text-muted-foreground">
+                  No interview guide yet
+                </div>
+              )}
+
+              {currentGuide && !isEditingGuide && (
+                <div data-testid="guide-viewer">
+                  <StudyGuideViewer guide={currentGuide} />
+                </div>
+              )}
+
+              {currentGuide && isEditingGuide && selectedStudy && (
+                <StudyGuideEditor
+                  studyId={selectedStudy.study_id}
+                  guide={currentGuide}
+                  onSave={(updatedGuide) => {
+                    setCurrentGuide(updatedGuide)
+                    setIsEditingGuide(false)
+                    // Show success message (optional, could add toast here)
+                  }}
+                  onCancel={() => setIsEditingGuide(false)}
+                />
+              )}
+            </div>
+          </div>
+
+          {!isEditingGuide && (
             <DialogFooter>
               <Button
                 type="button"
-                variant="outline"
                 onClick={() => {
                   setShowEditStudyModal(false)
                   setSelectedStudy(null)
-                  setStudyTitle('')
-                  setStudyDescription('')
-                  setStudyError(null)
+                  setCurrentGuide(null)
+                  setIsEditingGuide(false)
                 }}
-                disabled={savingStudy}
               >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                data-testid="edit-study-submit"
-                disabled={savingStudy || !studyTitle.trim()}
-              >
-                {savingStudy ? 'Saving...' : 'Save'}
+                Close
               </Button>
             </DialogFooter>
-          </form>
+          )}
         </DialogContent>
       </Dialog>
 

@@ -9,26 +9,51 @@ Given('organization {string} has a study with an interview guide', async ({ page
   const token = await page.evaluate(() => localStorage.getItem('firebase_token'))
   const backendPort = (page as any).__backendPort__
 
-  // Create study via generation endpoint (which creates both study and guide)
-  const response = await page.request.post(`http://localhost:${backendPort}/api/orgs/${orgId}/studies/generate`, {
+  // Create study manually (not via generation to avoid LLM dependency)
+  const studyResponse = await page.request.post(`http://localhost:${backendPort}/api/orgs/${orgId}/studies`, {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
     },
     data: {
-      topic: 'How do people shop in supermarkets?',
+      title: 'Test Study with Guide',
+      description: 'A study for testing guide features',
     },
   })
 
-  if (!response.ok()) {
-    throw new Error(`Failed to generate study with guide: ${response.status()} ${await response.text()}`)
+  if (!studyResponse.ok()) {
+    throw new Error(`Failed to create study: ${studyResponse.status()} ${await studyResponse.text()}`)
   }
 
-  const result = await response.json()
+  const studyResult = await studyResponse.json()
+  const studyId = studyResult.study_id
+
+  // Create interview guide for the study
+  const guideResponse = await page.request.put(`http://localhost:${backendPort}/api/studies/${studyId}/guide`, {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    data: {
+      content_md: '# Interview Guide\n\n## Introduction\n\nWelcome to the interview.\n\n## Main Questions\n\n1. How do you currently approach this task?\n2. What challenges do you face?\n3. What would make it easier?',
+    },
+  })
+
+  if (!guideResponse.ok()) {
+    throw new Error(`Failed to create guide: ${guideResponse.status()} ${await guideResponse.text()}`)
+  }
+
   // Store study ID for later use
-  await page.evaluate((studyId) => {
-    sessionStorage.setItem('test_study_id', studyId)
-  }, result.study.study_id)
+  await page.evaluate((sid) => {
+    sessionStorage.setItem('test_study_id', sid)
+  }, studyId)
+
+  // Navigate to the organization page so the study is visible
+  await page.goto(`/organizations/${orgId}`)
+  await page.waitForLoadState('networkidle')
+
+  // Wait for the study to appear in the studies list
+  await page.waitForSelector(`[data-testid="study-${studyId}"]`, { timeout: 10000 })
 })
 
 Given('organization {string} has a study without an interview guide', async ({ page, fixtures }, orgName: string) => {
@@ -53,9 +78,18 @@ Given('organization {string} has a study without an interview guide', async ({ p
   }
 
   const result = await response.json()
-  await page.evaluate((studyId) => {
-    sessionStorage.setItem('test_study_id', studyId)
-  }, result.study_id)
+  const studyId = result.study_id
+
+  await page.evaluate((sid) => {
+    sessionStorage.setItem('test_study_id', sid)
+  }, studyId)
+
+  // Navigate to the organization page so the study is visible
+  await page.goto(`/organizations/${orgId}`)
+  await page.waitForLoadState('networkidle')
+
+  // Wait for the study to appear in the studies list
+  await page.waitForSelector(`[data-testid="study-${studyId}"]`, { timeout: 10000 })
 })
 
 // When steps for generation flow
@@ -85,9 +119,8 @@ When('I navigate to the study detail page', async ({ page }) => {
   if (!studyId) {
     throw new Error('No study ID found in session storage')
   }
-  // For now, studies are shown in modals on the org page
-  // We'll need to update this once we have proper study detail pages
-  await page.getByTestId('studies-list').getByText(/Manual Study|Generated/).click()
+  // Click the study by its test ID (uses the actual study ID we stored)
+  await page.getByTestId(`study-${studyId}`).click()
 })
 
 When('I modify the interview guide content', async ({ page }) => {
@@ -117,9 +150,16 @@ Then('I see a loading indicator', async ({ page }) => {
 Then('after generation completes, I see a new study with generated title', async ({ page }) => {
   // Wait for loading to disappear
   await expect(page.getByTestId('generation-loading')).not.toBeVisible({ timeout: 65000 })
-  // Should redirect to study or show success
-  // For now, just check that we're not still on the generation form
-  await expect(page.getByTestId('generate-study-modal')).not.toBeVisible()
+
+  // Check if there's an error (if so, test should fail with helpful message)
+  const errorVisible = await page.getByText(/Generation took too long|Failed to generate/).isVisible().catch(() => false)
+  if (errorVisible) {
+    const errorText = await page.getByText(/Generation took too long|Failed to generate/).textContent()
+    throw new Error(`Generation failed with error: ${errorText}`)
+  }
+
+  // Wait for modal to close (with animation time)
+  await expect(page.getByTestId('generate-study-modal')).not.toBeVisible({ timeout: 10000 })
 })
 
 Then('I see the interview guide content', async ({ page }) => {
