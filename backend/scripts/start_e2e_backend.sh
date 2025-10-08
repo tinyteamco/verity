@@ -37,16 +37,19 @@ TEST_ID="$(sh -c 'echo $$')_$(date +%s%N)"
 
 # Allocate dynamic ports with locks
 STUB_PORT=$(find_and_reserve_port)
+LLM_STUB_PORT=$(find_and_reserve_port)
 BACKEND_PORT=$(find_and_reserve_port)
 
 # Output port information immediately so test harness doesn't wait
 echo "STUB_PORT=$STUB_PORT"
+echo "LLM_STUB_PORT=$LLM_STUB_PORT"
 echo "BACKEND_PORT=$BACKEND_PORT"
 
-echo "🔍 Test ID: $TEST_ID, Stub: $STUB_PORT, Backend: $BACKEND_PORT" >&2
+echo "🔍 Test ID: $TEST_ID, Auth: $STUB_PORT, LLM: $LLM_STUB_PORT, Backend: $BACKEND_PORT" >&2
 
 echo "🚀 Starting E2E test stack with dynamic ports..." >&2
 echo "  - Firebase Auth Stub (port $STUB_PORT)" >&2
+echo "  - LLM API Stub (port $LLM_STUB_PORT)" >&2
 echo "  - Backend API (port $BACKEND_PORT)" >&2
 echo "" >&2
 
@@ -56,7 +59,12 @@ cd "$BACKEND_DIR"
 STUB_PORT=$STUB_PORT mise exec -- uv run python scripts/firebase_auth_stub.py > /tmp/stub_${STUB_PORT}.log 2>&1 &
 STUB_PID=$!
 
-# Wait for stub to be ready
+# Start LLM Stub on dynamic port
+echo "Starting LLM Stub on port $LLM_STUB_PORT..." >&2
+LLM_STUB_PORT=$LLM_STUB_PORT mise exec -- uv run python scripts/llm_stub.py > /tmp/llm_stub_${LLM_STUB_PORT}.log 2>&1 &
+LLM_STUB_PID=$!
+
+# Wait for Firebase Auth Stub to be ready
 echo "Waiting for Firebase Auth Stub to be ready..." >&2
 for i in {1..30}; do
   if curl -s http://localhost:$STUB_PORT/ >/dev/null 2>&1; then
@@ -65,7 +73,22 @@ for i in {1..30}; do
   fi
   if [ $i -eq 30 ]; then
     echo "❌ Firebase Auth Stub failed to start" >&2
-    kill $STUB_PID 2>/dev/null || true
+    kill $STUB_PID $LLM_STUB_PID 2>/dev/null || true
+    exit 1
+  fi
+  sleep 0.1
+done
+
+# Wait for LLM Stub to be ready
+echo "Waiting for LLM Stub to be ready..." >&2
+for i in {1..30}; do
+  if curl -s http://localhost:$LLM_STUB_PORT/ >/dev/null 2>&1; then
+    echo "✅ LLM Stub is ready on port $LLM_STUB_PORT!" >&2
+    break
+  fi
+  if [ $i -eq 30 ]; then
+    echo "❌ LLM Stub failed to start" >&2
+    kill $STUB_PID $LLM_STUB_PID 2>/dev/null || true
     exit 1
   fi
   sleep 0.1
@@ -96,6 +119,7 @@ export APP_ENV="test"
 export DATABASE_URL="sqlite:///$DB_FILE"
 export FIREBASE_AUTH_EMULATOR_HOST="localhost:$STUB_PORT"
 export USE_FIREBASE_STUB="true"
+export ANTHROPIC_BASE_URL="http://localhost:$LLM_STUB_PORT"
 
 # Create database schema
 echo "Creating database schema for $DATABASE_URL..." >&2
@@ -125,11 +149,12 @@ echo "✅ Database ready at $DB_FILE" >&2
 # Cleanup function
 cleanup() {
   echo "" >&2
-  echo "Shutting down E2E test stack (ports $STUB_PORT, $BACKEND_PORT)..." >&2
-  kill $STUB_PID 2>/dev/null || true
+  echo "Shutting down E2E test stack (ports $STUB_PORT, $LLM_STUB_PORT, $BACKEND_PORT)..." >&2
+  kill $STUB_PID $LLM_STUB_PID 2>/dev/null || true
 
   # Release port locks
   rmdir "/tmp/port_${STUB_PORT}.lock" 2>/dev/null || true
+  rmdir "/tmp/port_${LLM_STUB_PORT}.lock" 2>/dev/null || true
   rmdir "/tmp/port_${BACKEND_PORT}.lock" 2>/dev/null || true
 
   exit
@@ -138,7 +163,7 @@ trap cleanup EXIT INT TERM
 
 # Start uvicorn on dynamic port (use exec to replace shell process)
 echo "Starting backend API on port $BACKEND_PORT with DATABASE_URL=$DATABASE_URL..." >&2
-exec mise exec -- env DATABASE_URL="$DATABASE_URL" APP_ENV="$APP_ENV" FIREBASE_AUTH_EMULATOR_HOST="$FIREBASE_AUTH_EMULATOR_HOST" USE_FIREBASE_STUB="$USE_FIREBASE_STUB" uv run uvicorn src.api.main:app \
+exec mise exec -- env DATABASE_URL="$DATABASE_URL" APP_ENV="$APP_ENV" FIREBASE_AUTH_EMULATOR_HOST="$FIREBASE_AUTH_EMULATOR_HOST" USE_FIREBASE_STUB="$USE_FIREBASE_STUB" ANTHROPIC_BASE_URL="$ANTHROPIC_BASE_URL" uv run uvicorn src.api.main:app \
     --host 0.0.0.0 \
     --port $BACKEND_PORT \
     --log-level debug > /tmp/backend_${BACKEND_PORT}.log 2>&1
