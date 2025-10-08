@@ -23,7 +23,7 @@ from ..auth import (
 )
 from ..database import get_db
 from ..database_utils import check_database_connectivity_with_session, ensure_database_connectivity
-from ..llm_service import generate_interview_guide, generate_study_title
+from ..llm_service import generate_interview_guide_async, generate_study_title_async
 from ..models import (
     AudioRecording,
     Interview,
@@ -514,7 +514,7 @@ async def generate_study_from_topic(
 
     # Generate study title/slug from topic using LLM
     try:
-        title = generate_study_title(request.topic)
+        title = await generate_study_title_async(request.topic)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate study title: {e!s}") from e
 
@@ -529,7 +529,7 @@ async def generate_study_from_topic(
 
     # Generate interview guide from topic using LLM
     try:
-        guide_content = generate_interview_guide(request.topic)
+        guide_content = await generate_interview_guide_async(request.topic)
     except Exception as e:
         db.rollback()
         raise HTTPException(

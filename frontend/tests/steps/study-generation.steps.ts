@@ -167,8 +167,26 @@ Then('after generation completes, I see a new study with generated title', async
 })
 
 Then('I see the interview guide content', async ({ page }) => {
-  // Guide should be visible in the study view
-  await expect(page.getByTestId('guide-viewer')).toBeVisible()
+  // After generation, the modal closes. We need to click on the newly created study to see the guide.
+  // Wait for studies list to be visible
+  await page.waitForSelector('[data-testid="studies-list"]', { timeout: 5000 })
+
+  // Wait a bit for any animations to complete
+  await page.waitForTimeout(500)
+
+  // Click on the study title (the clickable span inside the first study)
+  const firstStudy = page.locator('[data-testid^="study-"]').first()
+  const studyTitle = firstStudy.locator('.font-medium.cursor-pointer')
+
+  // Ensure it's visible and clickable
+  await studyTitle.waitFor({ state: 'visible', timeout: 5000 })
+  await studyTitle.click()
+
+  // Wait for the study detail modal to open
+  await page.waitForSelector('[data-testid="edit-study-modal"]', { timeout: 5000 })
+
+  // Now the guide should be visible in the study detail view
+  await expect(page.getByTestId('guide-viewer')).toBeVisible({ timeout: 10000 })
 })
 
 Then('I see validation error {string}', async ({ page }, errorMessage: string) => {

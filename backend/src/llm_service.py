@@ -47,8 +47,23 @@ def _is_test_mode() -> bool:
     return os.getenv("APP_ENV") == "local" and os.getenv("ANTHROPIC_API_KEY") is None
 
 
-async def _generate_study_title_async(topic: str) -> str:
-    """Async version of study title generation."""
+async def generate_study_title_async(topic: str) -> str:
+    """
+    Generate a short, URL-safe slug from a research topic (async).
+
+    Args:
+        topic: The research topic provided by the user
+
+    Returns:
+        A lowercase, hyphenated slug (2-5 words)
+
+    Example:
+        >>> title = await generate_study_title_async(
+        ...     "How do freelancers choose project management tools?"
+        ... )
+        >>> title
+        "freelancer-project-management"
+    """
     model = _get_test_model_for_slug() if _is_test_mode() else "anthropic:claude-3-5-sonnet-latest"
 
     agent = Agent(
@@ -70,8 +85,23 @@ Return only the slug, no explanation.""",
     return slug
 
 
-async def _generate_interview_guide_async(topic: str) -> str:
-    """Async version of interview guide generation."""
+async def generate_interview_guide_async(topic: str) -> str:
+    """
+    Generate a comprehensive interview guide from a research topic (async).
+
+    Args:
+        topic: The research topic provided by the user
+
+    Returns:
+        Markdown-formatted interview guide with sections and questions
+
+    Example:
+        >>> guide = await generate_interview_guide_async(
+        ...     "How do people shop in supermarkets?"
+        ... )
+        >>> "# Welcome" in guide
+        True
+    """
     model = (
         _get_test_model_for_guide(topic)
         if _is_test_mode()
@@ -117,7 +147,9 @@ def _run_async(coro: Coroutine[Any, Any, str]) -> str:
 
 def generate_study_title(topic: str) -> str:
     """
-    Generate a short, URL-safe slug from a research topic.
+    Generate a short, URL-safe slug from a research topic (sync wrapper).
+
+    DEPRECATED: Use generate_study_title_async() directly in async contexts.
 
     Args:
         topic: The research topic provided by the user
@@ -129,12 +161,14 @@ def generate_study_title(topic: str) -> str:
         >>> generate_study_title("How do freelancers choose project management tools?")
         "freelancer-project-management"
     """
-    return _run_async(_generate_study_title_async(topic))
+    return _run_async(generate_study_title_async(topic))
 
 
 def generate_interview_guide(topic: str) -> str:
     """
-    Generate a comprehensive interview guide from a research topic.
+    Generate a comprehensive interview guide from a research topic (sync wrapper).
+
+    DEPRECATED: Use generate_interview_guide_async() directly in async contexts.
 
     Args:
         topic: The research topic provided by the user
@@ -147,4 +181,4 @@ def generate_interview_guide(topic: str) -> str:
         >>> "# Welcome" in guide
         True
     """
-    return _run_async(_generate_interview_guide_async(topic))
+    return _run_async(generate_interview_guide_async(topic))
