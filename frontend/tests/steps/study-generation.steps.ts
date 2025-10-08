@@ -109,16 +109,56 @@ When('I navigate to the study detail page', async ({ page }) => {
     orgId: sessionStorage.getItem('test_org_id')
   }))
 
-  if (!studyId || !orgId) {
-    throw new Error('No study ID or org ID found in session storage')
+  if (!studyId) {
+    throw new Error('No study ID found in session storage')
   }
 
-  // Navigate to org page
+  if (!orgId) {
+    throw new Error('No org ID found in session storage')
+  }
+
+  // Debug: Check current URL before navigation
+  console.log(`[Debug] Current URL before navigation: ${page.url()}`)
+  console.log(`[Debug] Navigating to org ${orgId}, looking for study ${studyId}`)
+
+  // Navigate to org page (even if we're already there, it ensures clean state)
   await page.goto(`/organizations/${orgId}`)
   await page.waitForLoadState('networkidle')
 
-  // Wait for studies list to load
-  await page.waitForSelector('[data-testid="studies-list"]', { timeout: 10000 })
+  // Debug: Check if we're on the right page
+  console.log(`[Debug] After navigation, URL: ${page.url()}`)
+
+  // Check if we got redirected to login (auth issue)
+  if (page.url().includes('/login')) {
+    throw new Error('Got redirected to login - authentication issue')
+  }
+
+  // Wait for the page to fully load - check for the org title
+  try {
+    await page.waitForSelector('h1', { timeout: 5000 })
+  } catch (e) {
+    // Take screenshot for debugging
+    await page.screenshot({ path: `test-results/debug-no-h1-${Date.now()}.png` })
+    const bodyText = await page.locator('body').textContent()
+    console.log(`[Debug] Page body text: ${bodyText?.substring(0, 200)}`)
+    throw e
+  }
+
+  // Wait for studies section to be visible
+  await page.waitForSelector('text=Studies', { timeout: 5000 })
+
+  // Wait for either studies list or "No studies yet" message
+  const studiesListOrEmpty = await Promise.race([
+    page.waitForSelector('[data-testid="studies-list"]', { timeout: 10000 }).then(() => 'list'),
+    page.waitForSelector('text=No studies yet', { timeout: 10000 }).then(() => 'empty')
+  ])
+
+  if (studiesListOrEmpty === 'empty') {
+    // If we see "No studies yet", the study wasn't created properly or isn't showing up
+    // Take a screenshot for debugging
+    await page.screenshot({ path: `test-results/debug-no-studies-${Date.now()}.png` })
+    throw new Error('Studies list is empty - study not found')
+  }
 
   // Click on the study to open detail modal
   await page.getByTestId(`study-${studyId}`).click()
