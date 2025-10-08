@@ -57,9 +57,7 @@ Given('organization {string} has a study without an interview guide', async ({ p
 })
 
 // When steps for generation flow
-When('I click {string}', async ({ page }, buttonText: string) => {
-  await page.getByRole('button', { name: buttonText }).click()
-})
+// Note: 'When I click {string}' is already defined in org-management.steps.ts
 
 When('I enter {string} as the topic', async ({ page }, topic: string) => {
   await page.getByTestId('topic-input').fill(topic)

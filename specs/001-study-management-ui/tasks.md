@@ -69,9 +69,12 @@
   - Then see error message with "Retry" and "Create Manually" buttons
 
 - [X] T010 [US1] Create step definitions in `tests/steps/study-generation.steps.ts`
-  - Implement all Given/When/Then steps for US1 scenarios (NOTE: minor BDD generation issue to resolve)
+  - Implement all Given/When/Then steps for US1 scenarios
 
-- [ ] T011 [US1] Run `make frontend-test` and verify all US1 scenarios FAIL (not implemented yet)
+- [X] T011 [US1] Run `make frontend-test` and verify all US1 scenarios FAIL (not implemented yet)
+  - Fixed duplicate step definition (`When I click {string}` was defined in both org-management and study-generation)
+  - BDD tests generated successfully - all 11 scenarios found
+  - Verified tests fail correctly (UI not implemented yet)
 
 ### Implementation for User Story 1
 
