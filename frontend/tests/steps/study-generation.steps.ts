@@ -7,9 +7,10 @@ const { Given, When, Then } = createBdd()
 Given('organization {string} has a study with an interview guide', async ({ page, fixtures }, orgName: string) => {
   const orgId = await fixtures.getOrganizationId(orgName)
   const token = await page.evaluate(() => localStorage.getItem('firebase_token'))
+  const backendPort = (page as any).__backendPort__
 
   // Create study via generation endpoint (which creates both study and guide)
-  const response = await page.request.post(`http://localhost:8001/api/orgs/${orgId}/studies/generate`, {
+  const response = await page.request.post(`http://localhost:${backendPort}/api/orgs/${orgId}/studies/generate`, {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
@@ -33,9 +34,10 @@ Given('organization {string} has a study with an interview guide', async ({ page
 Given('organization {string} has a study without an interview guide', async ({ page, fixtures }, orgName: string) => {
   const orgId = await fixtures.getOrganizationId(orgName)
   const token = await page.evaluate(() => localStorage.getItem('firebase_token'))
+  const backendPort = (page as any).__backendPort__
 
   // Create study manually (no guide)
-  const response = await page.request.post(`http://localhost:8001/api/orgs/${orgId}/studies`, {
+  const response = await page.request.post(`http://localhost:${backendPort}/api/orgs/${orgId}/studies`, {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
