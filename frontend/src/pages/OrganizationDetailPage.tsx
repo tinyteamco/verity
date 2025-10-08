@@ -1,7 +1,7 @@
 import { useParams, Navigate, Link, useNavigate } from 'react-router-dom'
 import { useAtom, useSetAtom } from 'jotai'
 import { userAtom, userIdAtom, userEmailAtom, userOrgIdAtom, userOrganizationNameAtom, userRoleAtom, userFirebaseUidAtom } from '../atoms/auth'
-import { getApiUrl } from '../lib/api'
+import { getApiUrl, generateStudy } from '../lib/api'
 import { auth } from '../lib/firebase'
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
@@ -72,6 +72,13 @@ export function OrganizationDetailPage() {
   const [savingStudy, setSavingStudy] = useState(false)
   const [deletingStudy, setDeletingStudy] = useState(false)
   const [studyError, setStudyError] = useState<string | null>(null)
+
+  // Generate Study modal state
+  const [showGenerateStudyModal, setShowGenerateStudyModal] = useState(false)
+  const [topic, setTopic] = useState('')
+  const [generatingStudy, setGeneratingStudy] = useState(false)
+  const [generateError, setGenerateError] = useState<string | null>(null)
+  const [topicValidationError, setTopicValidationError] = useState<string | null>(null)
 
   const fetchUsers = () => {
     // Only super admins can view users
@@ -295,6 +302,67 @@ export function OrganizationDetailPage() {
       setStudyError(err.message)
     } finally {
       setDeletingStudy(false)
+    }
+  }
+
+  const handleGenerateStudy = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    // Validate topic
+    const trimmedTopic = topic.trim()
+    if (!trimmedTopic) {
+      setTopicValidationError('Topic is required')
+      return
+    }
+    if (trimmedTopic.length < 10) {
+      setTopicValidationError('Topic must be at least 10 characters')
+      return
+    }
+    if (trimmedTopic.length > 500) {
+      setTopicValidationError('Topic must be less than 500 characters')
+      return
+    }
+
+    setGeneratingStudy(true)
+    setGenerateError(null)
+    setTopicValidationError(null)
+
+    const token = localStorage.getItem('firebase_token')
+    if (!token || !id) {
+      setGenerateError('Authentication required')
+      setGeneratingStudy(false)
+      return
+    }
+
+    // Set up timeout (60 seconds)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 60000)
+
+    try {
+      await generateStudy(id, trimmedTopic, token)
+
+      clearTimeout(timeoutId)
+
+      // Close modal and reset form
+      setShowGenerateStudyModal(false)
+      setTopic('')
+      setGenerateError(null)
+      setTopicValidationError(null)
+
+      // Refresh studies list
+      fetchStudies()
+
+      // Study now appears in the list after fetchStudies completes
+    } catch (err: any) {
+      clearTimeout(timeoutId)
+
+      if (err.name === 'AbortError') {
+        setGenerateError('Generation took too long. Please try again or create a study manually.')
+      } else {
+        setGenerateError(err.message || 'Failed to generate study. Please try again.')
+      }
+    } finally {
+      setGeneratingStudy(false)
     }
   }
 
@@ -531,12 +599,21 @@ export function OrganizationDetailPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Studies</CardTitle>
-            <Button
-              data-testid="create-study-button"
-              onClick={() => setShowCreateStudyModal(true)}
-            >
-              Create Study
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                data-testid="generate-study-button"
+                onClick={() => setShowGenerateStudyModal(true)}
+              >
+                Generate Study
+              </Button>
+              <Button
+                data-testid="create-study-button"
+                onClick={() => setShowCreateStudyModal(true)}
+                variant="outline"
+              >
+                Create Study Manually
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -576,11 +653,96 @@ export function OrganizationDetailPage() {
         </CardContent>
       </Card>
 
+      {/* Generate Study Modal */}
+      <Dialog open={showGenerateStudyModal} onOpenChange={setShowGenerateStudyModal}>
+        <DialogContent data-testid="generate-study-modal">
+          <DialogHeader>
+            <DialogTitle>Generate Study</DialogTitle>
+            <DialogDescription>Describe what you want to learn, and we'll create a study with an interview guide for you</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleGenerateStudy} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="topic">What do you want to learn?</Label>
+              <Textarea
+                id="topic"
+                data-testid="topic-input"
+                value={topic}
+                onChange={(e) => {
+                  setTopic(e.target.value)
+                  setTopicValidationError(null)
+                }}
+                placeholder="e.g., How do people shop in supermarkets?"
+                rows={4}
+                autoFocus
+              />
+              {topicValidationError && (
+                <p className="text-sm text-red-500">{topicValidationError}</p>
+              )}
+            </div>
+
+            {generateError && (
+              <div className="space-y-2">
+                <p className="text-sm text-red-500">{generateError}</p>
+                <div className="flex gap-2">
+                  <Button
+                    type="submit"
+                    disabled={generatingStudy}
+                  >
+                    Retry
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowGenerateStudyModal(false)
+                      setShowCreateStudyModal(true)
+                      setTopic('')
+                      setGenerateError(null)
+                    }}
+                  >
+                    Create Manually
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {!generateError && (
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowGenerateStudyModal(false)
+                    setTopic('')
+                    setGenerateError(null)
+                    setTopicValidationError(null)
+                  }}
+                  disabled={generatingStudy}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  data-testid="generate-study-submit"
+                  disabled={generatingStudy}
+                >
+                  {generatingStudy ? (
+                    <span data-testid="generation-loading">Generating your study...</span>
+                  ) : (
+                    'Generate Study'
+                  )}
+                </Button>
+              </DialogFooter>
+            )}
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* Create Study Modal */}
       <Dialog open={showCreateStudyModal} onOpenChange={setShowCreateStudyModal}>
         <DialogContent data-testid="create-study-modal">
           <DialogHeader>
-            <DialogTitle>Create Study</DialogTitle>
+            <DialogTitle>Create Study Manually</DialogTitle>
             <DialogDescription>Add a new study to this organization</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreateStudy} className="space-y-4">

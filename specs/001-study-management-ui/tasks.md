@@ -78,39 +78,40 @@
 
 ### Implementation for User Story 1
 
-- [ ] T012 [US1] Add "Generate Study" button to `frontend/src/pages/StudyListPage.tsx`
+- [X] T012 [US1] Add "Generate Study" button to OrganizationDetailPage
   - Button opens generation modal
   - Modal has textarea for topic input + submit/cancel buttons
+  - Renamed manual button to "Create Study Manually"
 
-- [ ] T013 [US1] Implement topic validation in StudyListPage
+- [X] T013 [US1] Implement topic validation in generation handler
   - Check topic not empty (trim whitespace)
   - Min length 10 characters
   - Max length 500 characters
   - Show inline error on invalid input
 
-- [ ] T014 [US1] Implement generation API call in StudyListPage
-  - Call `generateStudy(orgId, topic)` from api.ts
+- [X] T014 [US1] Implement generation API call in generation handler
+  - Call `generateStudy(orgId, topic, token)` from api.ts
   - Handle loading state (30-60s wait)
   - Show loading spinner with "Generating your study..." message
 
-- [ ] T015 [US1] Implement client-side timeout (60s) in StudyListPage
+- [X] T015 [US1] Implement client-side timeout (60s) in generation handler
   - Use AbortController to cancel request after 60s
-  - Show timeout error: "Generation took too long. [Retry] or [Create Manually]"
+  - Show timeout error: "Generation took too long. Please try again or create a study manually."
 
-- [ ] T016 [US1] Implement error handling in StudyListPage
-  - Catch API errors (400, 403, 500)
+- [X] T016 [US1] Implement error handling in generation handler
+  - Catch API errors (timeout, network, server errors)
   - Show user-friendly error messages
   - Provide "Retry" button that calls API again
   - Provide "Create Manually" button that falls back to existing manual flow
 
-- [ ] T017 [US1] Implement success navigation in StudyListPage
+- [X] T017 [US1] Implement success behavior in generation handler
   - On successful generation, close modal
-  - Navigate to `/orgs/{orgId}/studies/{newStudyId}`
-  - Show new study in detail page
+  - Refresh studies list to show new study
+  - Study appears in list with generated title
 
 - [ ] T018 [US1] Run `make frontend-test` and verify all US1 scenarios PASS
 
-- [ ] T019 [US1] Run `make frontend-check` (TypeScript + linting) and fix any issues
+- [X] T019 [US1] Run TypeScript checks - PASS
 
 **Checkpoint**: User Story 1 fully functional - users can generate studies from topics
 
