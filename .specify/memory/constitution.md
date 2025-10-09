@@ -1,17 +1,15 @@
 <!--
 Sync Impact Report:
-Version: 1.0.0 → 1.1.0 (MINOR - clarified development methodology and testing strategy)
+Version: 1.1.0 → 1.2.0 (MINOR - added testing principle for stub services)
 Modified Principles:
-  - V. Inside-Out Development → Outside-In Development (corrected methodology)
-  - VII. Observability & Debugging → Deployment-Complete Commits (expanded scope)
+  - Testing Strategy section expanded with stub service guidance
 Added Sections:
-  - Testing Hierarchy clarified (BDD-only, future considerations documented)
-  - Deployment completion requirement in Development Workflow
+  - IX. Stub Services Over Mocking (new testing principle)
 Removed Sections: N/A
 Templates Requiring Updates:
-  ✅ plan-template.md - Constitution Check section compatible (line 30)
-  ✅ spec-template.md - User scenarios and requirements alignment verified
-  ✅ tasks-template.md - Task categorization aligns with principles (testing, user story structure)
+  ✅ plan-template.md - Constitution Check compatible (no changes needed)
+  ✅ spec-template.md - No changes needed (user scenarios unaffected)
+  ✅ tasks-template.md - Test task patterns align with stub service principle
 Follow-up TODOs: None
 -->
 
@@ -111,6 +109,27 @@ All operations **MUST** be observable through:
 
 **Rationale**: Debug-ability is critical for production operations and incident response.
 
+### IX. Stub Services Over Mocking
+
+When testing code that depends on external services, **PREFER** stub services over code-level mocking.
+
+Implementation requirements:
+- Stub services **MUST** conform to the real API contract
+- Stub services **MUST** respond over TCP (HTTP/gRPC/etc.)
+- Stub services **MUST** support dynamic port allocation for parallel test execution
+- Test fixtures **MUST** manage stub lifecycle (auto start/stop)
+
+**Rationale**: Stub services provide superior test realism by exercising the full network stack, serialization, and client code paths. They enable true parallel test execution without port conflicts and catch integration issues that mocks miss (e.g., serialization errors, HTTP header handling, timeout behavior).
+
+**Examples**:
+- Firebase Auth: `scripts/firebase_auth_stub.py` (JWT token generation, user management)
+- LLM API: `scripts/llm_stub.py` (Claude API-compatible endpoint)
+
+**When mocking is acceptable**:
+- Pure functions with no I/O
+- Testing error handling for specific exception types
+- Unit tests of business logic isolated from I/O
+
 ## Security Requirements
 
 ### Authentication & Authorization
@@ -151,6 +170,14 @@ Before deploying endpoints touching organization-scoped data:
 - **Backend BDD**: pytest-bdd for API behavior and business logic
 - BDD tests at both layers express requirements as executable specifications
 
+**External Service Testing**:
+- **Stub Services** (PREFERRED): TCP-based API-compatible stubs for external services
+  - Firebase Auth stub (`scripts/firebase_auth_stub.py`)
+  - LLM API stub (`scripts/llm_stub.py`)
+  - Dynamic port allocation for parallel execution
+  - Managed by test fixtures (pytest/Playwright)
+- **Mocking** (LIMITED USE): Only for pure functions and specific error conditions
+
 **Future Considerations** (not currently implemented):
 - **Contract Tests**: OpenAPI spec validation (could add if needed)
 - **Unit Tests**: Isolated component tests (could add if needed)
@@ -172,7 +199,7 @@ Pre-push hooks **MUST** pass before push:
 - **Auth**: Firebase Auth with multi-tenancy
 - **Storage**: MinIO (local), GCS (production)
 - **Infrastructure**: Pulumi (Python), GCP Cloud Run
-- **Testing**: pytest-bdd, Playwright
+- **Testing**: pytest-bdd, Playwright, stub services (FastAPI-based)
 - **Quality**: ruff (format/lint), ty (type check), hk (git hooks)
 - **CI/CD**: GitHub Actions with act for local testing
 
@@ -196,6 +223,7 @@ All pull requests **MUST** verify compliance with:
 - Zero Warnings Policy (all checks pass)
 - Multi-Tenancy Security (authorization checks present)
 - Code quality standards (ruff + ty clean)
+- Testing approach (stub services preferred over mocks)
 
 Complexity that violates simplicity principles **MUST** be justified with:
 - Clear business need
@@ -207,5 +235,6 @@ For detailed implementation guidance and examples, developers should reference:
 - `CLAUDE.md` - Agent-specific development guidance
 - `/docs/002-architecture/` - Architecture decision records
 - `/docs/002-architecture/004-security-guidelines.md` - Security patterns and anti-patterns
+- `/backend/docs/test-isolation.md` - Stub service implementation patterns
 
-**Version**: 1.1.0 | **Ratified**: 2025-10-07 | **Last Amended**: 2025-10-07
+**Version**: 1.2.0 | **Ratified**: 2025-10-07 | **Last Amended**: 2025-10-08

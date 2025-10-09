@@ -1,4 +1,4 @@
-import type { StudyWithGuide, InterviewGuide, GuideUpdateRequest } from '../types/study';
+import type { Study, StudyWithGuide, InterviewGuide, GuideUpdateRequest } from '../types/study';
 
 /**
  * Get the API base URL based on environment
@@ -111,6 +111,30 @@ export async function updateGuide(
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.detail || 'Failed to save guide');
+  }
+
+  return await response.json();
+}
+
+export async function updateStudy(
+  orgId: string,
+  studyId: string,
+  title: string,
+  description: string,
+  token: string
+): Promise<Study> {
+  const response = await fetch(`${getApiUrl()}/api/orgs/${orgId}/studies/${studyId}`, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ title, description }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to update study');
   }
 
   return await response.json();

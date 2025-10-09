@@ -1,7 +1,7 @@
 import { useParams, Navigate, Link, useNavigate } from 'react-router-dom'
 import { useAtom, useSetAtom } from 'jotai'
 import { userAtom, userIdAtom, userEmailAtom, userOrgIdAtom, userOrganizationNameAtom, userRoleAtom, userFirebaseUidAtom } from '../atoms/auth'
-import { getApiUrl, generateStudy, getGuide } from '../lib/api'
+import { getApiUrl, generateStudy, getGuide, updateStudy } from '../lib/api'
 import { auth } from '../lib/firebase'
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
@@ -72,6 +72,7 @@ export function OrganizationDetailPage() {
   const [selectedStudy, setSelectedStudy] = useState<Study | null>(null)
   const [studyTitle, setStudyTitle] = useState('')
   const [studyDescription, setStudyDescription] = useState('')
+  const [isEditingStudy, setIsEditingStudy] = useState(false)
   const [savingStudy, setSavingStudy] = useState(false)
   const [deletingStudy, setDeletingStudy] = useState(false)
   const [studyError, setStudyError] = useState<string | null>(null)
@@ -88,6 +89,7 @@ export function OrganizationDetailPage() {
   const [isEditingGuide, setIsEditingGuide] = useState(false)
   const [loadingGuide, setLoadingGuide] = useState(false)
   const [guideError, setGuideError] = useState<string | null>(null)
+  const [guideSaveSuccess, setGuideSaveSuccess] = useState(false)
 
   const fetchGuide = async (studyId: string) => {
     setLoadingGuide(true)
@@ -619,6 +621,7 @@ export function OrganizationDetailPage() {
                       setStudyTitle(s.title)
                       setStudyDescription(s.description || '')
                       setIsEditingGuide(false)
+                      setIsEditingStudy(false)
                       fetchGuide(s.study_id)
                       setShowEditStudyModal(true)
                     }}
@@ -795,9 +798,46 @@ export function OrganizationDetailPage() {
       <Dialog open={showEditStudyModal} onOpenChange={setShowEditStudyModal}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="edit-study-modal">
           <DialogHeader>
-            <DialogTitle data-testid="study-title">{selectedStudy?.title}</DialogTitle>
-            {selectedStudy?.description && (
-              <DialogDescription data-testid="study-description">{selectedStudy.description}</DialogDescription>
+            {isEditingStudy ? (
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="study-title">Study Title</Label>
+                  <Input
+                    id="study-title"
+                    data-testid="study-title-input"
+                    value={studyTitle}
+                    onChange={(e) => setStudyTitle(e.target.value)}
+                    placeholder="Enter study title"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="study-description">Description</Label>
+                  <Textarea
+                    id="study-description"
+                    data-testid="study-description-input"
+                    value={studyDescription}
+                    onChange={(e) => setStudyDescription(e.target.value)}
+                    placeholder="Enter study description"
+                    className="min-h-[100px]"
+                  />
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <DialogTitle data-testid="study-title">{selectedStudy?.title}</DialogTitle>
+                  <Button
+                    onClick={() => setIsEditingStudy(true)}
+                    size="sm"
+                    variant="outline"
+                  >
+                    Edit Details
+                  </Button>
+                </div>
+                {selectedStudy?.description && (
+                  <DialogDescription data-testid="study-description">{selectedStudy.description}</DialogDescription>
+                )}
+              </>
             )}
           </DialogHeader>
 
@@ -816,6 +856,13 @@ export function OrganizationDetailPage() {
                   </Button>
                 )}
               </div>
+
+              {/* Success message */}
+              {guideSaveSuccess && (
+                <div className="mb-4 p-3 bg-green-100 text-green-800 rounded-md border border-green-300">
+                  Guide saved successfully
+                </div>
+              )}
 
               {loadingGuide && (
                 <div className="text-sm text-muted-foreground">Loading guide...</div>
@@ -863,7 +910,9 @@ export function OrganizationDetailPage() {
                   onSave={(updatedGuide) => {
                     setCurrentGuide(updatedGuide)
                     setIsEditingGuide(false)
-                    // Show success message (optional, could add toast here)
+                    setGuideSaveSuccess(true)
+                    // Auto-hide success message after 3 seconds
+                    setTimeout(() => setGuideSaveSuccess(false), 3000)
                   }}
                   onCancel={() => setIsEditingGuide(false)}
                 />
@@ -873,17 +922,66 @@ export function OrganizationDetailPage() {
 
           {!isEditingGuide && (
             <DialogFooter>
-              <Button
-                type="button"
-                onClick={() => {
-                  setShowEditStudyModal(false)
-                  setSelectedStudy(null)
-                  setCurrentGuide(null)
-                  setIsEditingGuide(false)
-                }}
-              >
-                Close
-              </Button>
+              {isEditingStudy ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setIsEditingStudy(false)
+                      setStudyTitle(selectedStudy?.title || '')
+                      setStudyDescription(selectedStudy?.description || '')
+                    }}
+                    disabled={savingStudy}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={async () => {
+                      if (!selectedStudy) return
+                      setSavingStudy(true)
+                      setStudyError(null)
+
+                      const token = localStorage.getItem('firebase_token')
+                      if (!token) {
+                        setStudyError('Authentication required')
+                        setSavingStudy(false)
+                        return
+                      }
+
+                      try {
+                        const updatedStudy = await updateStudy(id!, selectedStudy.study_id, studyTitle, studyDescription, token)
+                        setStudies(studies.map(s => s.study_id === updatedStudy.study_id ? updatedStudy : s))
+                        setSelectedStudy(updatedStudy)
+                        setIsEditingStudy(false)
+                        setShowEditStudyModal(false)
+                      } catch (err: any) {
+                        setStudyError(err.message || 'Failed to update study')
+                      } finally {
+                        setSavingStudy(false)
+                      }
+                    }}
+                    disabled={savingStudy || !studyTitle.trim()}
+                    data-testid="edit-study-submit"
+                  >
+                    {savingStudy ? 'Saving...' : 'Save'}
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setShowEditStudyModal(false)
+                    setSelectedStudy(null)
+                    setCurrentGuide(null)
+                    setIsEditingGuide(false)
+                    setIsEditingStudy(false)
+                  }}
+                >
+                  Close
+                </Button>
+              )}
             </DialogFooter>
           )}
         </DialogContent>

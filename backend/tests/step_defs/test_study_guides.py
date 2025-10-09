@@ -408,11 +408,11 @@ def check_guide_content_length(response_data, min_length):
 def mock_llm_failure(monkeypatch):
     """Mock the LLM service to raise an exception when generating interview guides"""
 
-    def failing_guide_generator(topic: str) -> str:
+    async def failing_guide_generator(topic: str) -> str:
         raise RuntimeError("Simulated LLM failure")
 
-    # Patch where the function is imported in api/main.py
-    monkeypatch.setattr("src.api.main.generate_interview_guide", failing_guide_generator)
+    # Patch where the function is imported and used in api/main.py
+    monkeypatch.setattr("src.api.main.generate_interview_guide_async", failing_guide_generator)
 
 
 @then(parsers.parse('no study was created with description "{description}"'))
