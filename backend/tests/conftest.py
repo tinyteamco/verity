@@ -12,6 +12,11 @@ from collections.abc import Generator
 # Set test environment FIRST, before any imports
 os.environ["APP_ENV"] = "local"
 
+# Set dummy LLM API configuration before importing pydantic-ai models
+# The actual stub will be started by the fixture, but we need the env var set early
+# to ensure the Anthropic client uses the right base URL
+os.environ["ANTHROPIC_API_KEY"] = "test-api-key"  # Dummy key for tests
+
 import firebase_admin
 import pytest
 from fastapi.testclient import TestClient
@@ -19,7 +24,7 @@ from firebase_admin import auth
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-# Now import the app
+# Import app AFTER setting environment variables
 from src.api.main import app
 from src.database import Base, get_db
 
@@ -80,7 +85,54 @@ def firebase_stub() -> Generator[int, None, None]:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def setup_firebase(firebase_stub: int) -> None:
+def llm_stub() -> Generator[int, None, None]:
+    """
+    Start an LLM API stub for this test session on a random free port.
+    This ensures each test run gets its own isolated LLM stub.
+    """
+    # Find a free port
+    stub_port = find_free_port()
+
+    # Start the stub process
+    stub_process = subprocess.Popen(
+        ["uv", "run", "python", "scripts/llm_stub.py"],
+        env={**os.environ, "LLM_STUB_PORT": str(stub_port)},
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    # Wait for stub to be ready
+    max_attempts = 30
+    for _ in range(max_attempts):
+        try:
+            import requests
+
+            response = requests.get(f"http://localhost:{stub_port}", timeout=1)
+            if response.status_code == 200:
+                break
+        except requests.RequestException:
+            time.sleep(0.1)
+    else:
+        stub_process.kill()
+        raise RuntimeError(f"LLM stub failed to start on port {stub_port}")
+
+    # Set environment variables for pydantic-ai to use the stub
+    os.environ["ANTHROPIC_BASE_URL"] = f"http://localhost:{stub_port}/v1"
+    # Set a dummy API key (stub doesn't validate it but pydantic-ai requires one)
+    os.environ["ANTHROPIC_API_KEY"] = "test-api-key"
+
+    yield stub_port
+
+    # Cleanup
+    stub_process.terminate()
+    try:
+        stub_process.wait(timeout=2)
+    except subprocess.TimeoutExpired:
+        stub_process.kill()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_firebase(firebase_stub: int, llm_stub: int) -> None:
     """Initialize Firebase Admin SDK after stub is running."""
     # Clear any existing Firebase apps
     firebase_admin._apps = {}
