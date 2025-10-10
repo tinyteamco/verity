@@ -137,20 +137,20 @@
 
 ### BDD Tests for User Story 2.5 (WRITE FIRST, ENSURE THEY FAIL) ⚠️
 
-- [ ] T045 [P] [US2.5] Write Gherkin scenario "Pipecat fetches interview data with valid token returns 200 with study guide" in backend/tests/features/interview_data_api.feature
-- [ ] T046 [P] [US2.5] Write Gherkin scenario "Pipecat calls with completed interview token returns 410 Gone" in backend/tests/features/interview_data_api.feature
-- [ ] T047 [P] [US2.5] Write Gherkin scenario "Pipecat calls with invalid token returns 404" in backend/tests/features/interview_data_api.feature
-- [ ] T048 [P] [US2.5] Write Gherkin scenario "Pipecat fetches interview for deleted study returns 410 Gone" in backend/tests/features/interview_data_api.feature
-- [ ] T049 [US2.5] Implement step definitions for interview_data_api.feature in backend/tests/step_defs/test_interview_data_api.py
-- [ ] T050 [US2.5] Run tests to verify they FAIL (expected behavior before implementation)
+- [X] T045 [P] [US2.5] Write Gherkin scenario "Pipecat fetches interview data with valid token returns 200 with study guide" in backend/tests/features/interview_data_api.feature
+- [X] T046 [P] [US2.5] Write Gherkin scenario "Pipecat calls with completed interview token returns 410 Gone" in backend/tests/features/interview_data_api.feature
+- [X] T047 [P] [US2.5] Write Gherkin scenario "Pipecat calls with invalid token returns 404" in backend/tests/features/interview_data_api.feature
+- [X] T048 [P] [US2.5] Write Gherkin scenario "Pipecat calls with expired token returns 410 Gone" in backend/tests/features/interview_data_api.feature (updated from "deleted study" to "expired token")
+- [X] T049 [US2.5] Implement step definitions for interview_data_api.feature in backend/tests/step_defs/test_interview_data_api.py
+- [X] T050 [US2.5] Run tests to verify they FAIL (expected behavior before implementation)
 
 ### Backend Implementation for User Story 2.5
 
-- [ ] T051 [US2.5] Create GET /interview/{access_token} endpoint in backend/src/api/routers/interviews.py (returns study title and interview guide)
-- [ ] T052 [P] [US2.5] Add validation for access_token format (UUID) in GET /interview/{access_token}
-- [ ] T053 [P] [US2.5] Add check for interview status (return 410 if completed) in GET /interview/{access_token}
-- [ ] T054 [P] [US2.5] Add check for token expiration (return 410 if expires_at passed) in GET /interview/{access_token}
-- [ ] T055 [US2.5] Run BDD tests to verify US2.5 backend implementation passes
+- [X] T051 [US2.5] Update GET /interview/{access_token} endpoint in backend/src/api/main.py (returns study title and interview guide)
+- [X] T052 [P] [US2.5] Add validation for access_token format (UUID) in GET /interview/{access_token}
+- [X] T053 [P] [US2.5] Add check for interview status (return 410 if completed) in GET /interview/{access_token}
+- [X] T054 [P] [US2.5] Add check for token expiration (return 410 if expires_at passed) in GET /interview/{access_token}
+- [X] T055 [US2.5] Run BDD tests to verify US2.5 backend implementation passes
 
 **Checkpoint**: At this point, pipecat can fetch interview data to conduct interviews (P1 core value delivered)
 

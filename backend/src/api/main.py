@@ -942,12 +942,44 @@ async def get_interview_public(
     access_token: str,
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
-    """Access interview via link (public endpoint)"""
+    """
+    Fetch interview data for pipecat (public endpoint).
+
+    Called by pipecat after participant is redirected from Verity.
+    Returns study title and interview guide for conducting the interview.
+
+    Args:
+        access_token: Interview access token (UUID v4)
+        db: Database session
+
+    Returns:
+        Interview data with study guide
+
+    Raises:
+        404: Interview not found
+        410 Gone: Interview already completed or token expired
+    """
     # Get the interview by access token
     interview = db.query(Interview).filter(Interview.access_token == access_token).first()
 
-    if not interview or interview.status == "completed":
-        raise HTTPException(status_code=404, detail="Interview not found or already completed")
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+
+    # Check if interview is already completed
+    if interview.status == "completed":
+        raise HTTPException(status_code=410, detail="Interview already completed")
+
+    # Check if interview token has expired
+    if interview.expires_at:
+        # Ensure both datetimes are timezone-aware for comparison
+        now_utc = datetime.now(UTC)
+        expires_at = (
+            interview.expires_at
+            if interview.expires_at.tzinfo
+            else interview.expires_at.replace(tzinfo=UTC)
+        )
+        if expires_at < now_utc:
+            raise HTTPException(status_code=410, detail="Interview access token expired")
 
     # Get the study and interview guide
     study = db.query(Study).filter(Study.id == interview.study_id).first()
