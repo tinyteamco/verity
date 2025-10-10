@@ -10,6 +10,7 @@ MINIO_ENDPOINT = "http://localhost:9000"
 MINIO_ACCESS_KEY = "minioadmin"
 MINIO_SECRET_KEY = "minioadmin"
 APP_ENV = "development"
+GCS_BUCKET_NAME = "verity-artifacts-dev"
 
 [tasks."check:format"]
 description = "Check code formatting"

@@ -23,11 +23,11 @@
 
 **Purpose**: Provision shared storage for interview artifacts (blocking prerequisite for all user stories)
 
-- [ ] T001 [Infra] Add GCS bucket resource to infra/__main__.py with uniform bucket-level access and public access prevention
-- [ ] T002 [Infra] Add IAM binding for Verity backend service account (roles/storage.objectAdmin) in infra/__main__.py
-- [ ] T003 [Infra] Export bucket name and URL as Pulumi outputs in infra/__main__.py
-- [ ] T004 [Infra] Deploy infrastructure via GitHub Actions (stack: dev, action: up)
-- [ ] T005 [Infra] Add GCS_BUCKET_NAME environment variable to backend/.mise.toml from Pulumi outputs
+- [X] T001 [Infra] Add GCS bucket resource to infra/__main__.py with uniform bucket-level access and public access prevention
+- [X] T002 [Infra] Add IAM binding for Verity backend service account (roles/storage.objectAdmin) in infra/__main__.py
+- [X] T003 [Infra] Export bucket name and URL as Pulumi outputs in infra/__main__.py
+- [X] T004 [Infra] Deploy infrastructure via GitHub Actions (stack: dev, action: up)
+- [X] T005 [Infra] Add GCS_BUCKET_NAME environment variable to backend/.mise.toml from Pulumi outputs
 
 **Checkpoint**: GCS bucket provisioned and accessible from backend - ready for database model phase
 
