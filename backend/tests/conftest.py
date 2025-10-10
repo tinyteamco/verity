@@ -121,6 +121,10 @@ def llm_stub() -> Generator[int, None, None]:
     # Set a dummy API key (stub doesn't validate it but pydantic-ai requires one)
     os.environ["ANTHROPIC_API_KEY"] = "test-api-key"
 
+    print(f"\n[DEBUG] LLM Stub started on port {stub_port}")
+    print(f"[DEBUG] ANTHROPIC_BASE_URL={os.environ['ANTHROPIC_BASE_URL']}")
+    print(f"[DEBUG] ANTHROPIC_API_KEY={os.environ['ANTHROPIC_API_KEY']}")
+
     yield stub_port
 
     # Cleanup
