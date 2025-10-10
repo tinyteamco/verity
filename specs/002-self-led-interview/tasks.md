@@ -41,27 +41,27 @@
 
 ### Study Model Modifications
 
-- [ ] T006 [P] [Foundation] Add slug field (String(63), unique, indexed) to backend/src/api/models/study.py
-- [ ] T007 [P] [Foundation] Add participant_identity_flow enum field to backend/src/api/models/study.py
-- [ ] T008 [Foundation] Generate Alembic migration for Study model changes using `alembic revision --autogenerate -m "add study slug and participant_identity_flow"`
+- [X] T006 [P] [Foundation] Add slug field (String(63), unique, indexed) to backend/src/models.py
+- [X] T007 [P] [Foundation] Add participant_identity_flow enum field to backend/src/models.py
+- [X] T008 [Foundation] Generate Alembic migration for Study model changes using `alembic revision --autogenerate -m "add study slug and participant_identity_flow"`
 
 ### Interview Model
 
-- [ ] T009 [P] [Foundation] Create Interview model in backend/src/api/models/interview.py with fields: id, study_id, access_token (UUID), status (enum), created_at, completed_at, expires_at, external_participant_id, platform_source, verity_user_id, claimed_at, transcript_url, recording_url, pipecat_session_id, notes
-- [ ] T010 [P] [Foundation] Add relationship Study.interviews and Interview.study in models
-- [ ] T011 [Foundation] Generate Alembic migration for Interview model using `alembic revision --autogenerate -m "add interview model"`
+- [X] T009 [P] [Foundation] Update Interview model in backend/src/models.py with fields: expires_at, external_participant_id, platform_source, verity_user_id, claimed_at, pipecat_session_id (existing fields already present)
+- [X] T010 [P] [Foundation] Add relationship Interview.verity_user in models (Study.interviews already exists)
+- [X] T011 [Foundation] Generate Alembic migration for Interview model using `alembic revision --autogenerate -m "add interview model"`
 
 ### VerityUser & ParticipantProfile Models
 
-- [ ] T012 [P] [Foundation] Create VerityUser model in backend/src/api/models/verity_user.py with fields: id, firebase_uid (unique), email (unique), display_name, created_at, last_sign_in
-- [ ] T013 [P] [Foundation] Create ParticipantProfile model in backend/src/api/models/verity_user.py with fields: id, verity_user_id (unique FK), platform_identities (JSON)
-- [ ] T014 [P] [Foundation] Add relationships VerityUser.interviews, VerityUser.profile, Interview.verity_user
-- [ ] T015 [Foundation] Generate Alembic migration for VerityUser and ParticipantProfile models using `alembic revision --autogenerate -m "add verity_user and participant_profile models"`
+- [X] T012 [P] [Foundation] Create VerityUser model in backend/src/models.py with fields: id, firebase_uid (unique), email (unique), display_name, created_at, last_sign_in
+- [X] T013 [P] [Foundation] Create ParticipantProfile model in backend/src/models.py with fields: id, verity_user_id (unique FK), platform_identities (JSON)
+- [X] T014 [P] [Foundation] Add relationships VerityUser.interviews, VerityUser.profile, Interview.verity_user
+- [X] T015 [Foundation] Generate Alembic migration for VerityUser and ParticipantProfile models using `alembic revision --autogenerate -m "add verity_user and participant_profile models"`
 
 ### Database Migration Execution
 
-- [ ] T016 [Foundation] Run all migrations using `alembic upgrade head` in local dev environment
-- [ ] T017 [Foundation] Verify database schema matches data-model.md using database inspection
+- [X] T016 [Foundation] Run all migrations using `alembic upgrade head` in local dev environment
+- [X] T017 [Foundation] Verify database schema matches data-model.md using database inspection
 
 **Checkpoint**: Foundation ready - all models exist, all user stories can now be implemented in parallel
 
