@@ -35,19 +35,18 @@
 
 **Content Quality**: Specification focuses on user needs and business value. No technical implementation details (frameworks, databases, etc.). Written in plain language suitable for stakeholders.
 
-**Requirements**: 51 functional requirements (FR-001 through FR-051), all testable and unambiguous. No [NEEDS CLARIFICATION] markers - all decisions made using industry standards, existing backend implementation, pipecat-momtest codebase analysis, and recruitment platform integration patterns.
+**Requirements**: 45 functional requirements (FR-001 through FR-045), all testable and unambiguous. No [NEEDS CLARIFICATION] markers - all decisions made using industry standards, existing backend implementation, pipecat-momtest codebase analysis, and recruitment platform integration patterns.
 
 Requirement categories:
-- Link Generation & Management: FR-001 to FR-005 (5 requirements)
-- Participant Access: FR-006 to FR-009 (4 requirements)
-- Interview Completion (Callback): FR-010 to FR-014 (5 requirements)
-- Artifact Management: FR-015 to FR-018 (4 requirements)
-- Interview Tracking: FR-019 to FR-023 (5 requirements)
-- Optional Participant Sign-In: FR-024 to FR-026 (3 requirements)
-- Security & Privacy: FR-027 to FR-029 (3 requirements)
-- Pipecat Integration: FR-030 to FR-036 (7 requirements)
-- Recruitment Platform (Reusable Links): FR-037 to FR-041 (5 requirements)
-- Participant Identity & Sign-In: FR-042 to FR-051 (10 requirements)
+- Participant Access (Reusable Links): FR-001 to FR-004 (4 requirements)
+- Interview Completion (Callback): FR-005 to FR-009 (5 requirements)
+- Artifact Management: FR-010 to FR-013 (4 requirements)
+- Interview Tracking: FR-014 to FR-017 (4 requirements)
+- Optional Participant Sign-In: FR-018 to FR-020 (3 requirements)
+- Security & Privacy: FR-021 to FR-023 (3 requirements)
+- Pipecat Integration: FR-024 to FR-030 (7 requirements)
+- Recruitment Platform (On-the-Fly): FR-031 to FR-035 (5 requirements)
+- Participant Identity & Sign-In: FR-036 to FR-045 (10 requirements)
 
 **Success Criteria**: 10 measurable criteria, all technology-agnostic:
 - Time-based (10 seconds, 5 seconds, 3 clicks, under 2 seconds API, under 30 seconds claim)
@@ -112,7 +111,7 @@ No clarifications needed - all critical decisions were made based on:
   - CORS configuration for public endpoints
 
 - **Verity Frontend**:
-  - Link generation UI (manual, reusable template display)
+  - Study settings page with reusable link template display (copy-to-clipboard)
   - Interview list/detail views (transcripts inline, audio download)
   - Interstitial page for pre-interview sign-in
   - Thank-you page with claim flow
@@ -124,7 +123,7 @@ No clarifications needed - all critical decisions were made based on:
   - Support Verity access tokens in WebSocket flow
 
 The backend already has most required endpoints per the OpenAPI spec, so implementation will primarily focus on:
-1. Frontend UI for all new flows (links, dashboards, sign-in)
+1. Frontend UI for all new flows (reusable link template, dashboards, sign-in)
 2. Integration orchestration (redirects, callbacks)
 3. Participant identity system (VerityUser, claim flow)
-4. Recruitment platform reusable links (on-the-fly interview creation)
+4. On-the-fly interview creation from reusable links
