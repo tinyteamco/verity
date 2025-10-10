@@ -3,6 +3,8 @@
 **Date**: 2025-10-10
 **Feature**: [spec.md](./spec.md)
 
+**Note**: This is the detailed implementation guide. For the big picture and implementation roadmap, see **[plan.md](./plan.md)**.
+
 This guide provides step-by-step instructions for implementing the self-led interview execution feature following BDD-First Development (Constitution principle I).
 
 ---

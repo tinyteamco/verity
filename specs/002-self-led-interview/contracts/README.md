@@ -6,6 +6,21 @@ This directory contains API contract definitions for the self-led interview exec
 
 - `api-endpoints.yaml`: OpenAPI 3.0 specification for all new endpoints
 
+## Implementation Workflow
+
+When implementing these endpoints:
+
+1. **Write BDD tests first** - See [quickstart.md](../quickstart.md#testing-workflow) for BDD cycle
+2. **Check data model** - See [data-model.md](../data-model.md) for schema details
+3. **Follow security patterns** - See section "Authorization Patterns" below
+4. **Reference implementation code** - See [quickstart.md](../quickstart.md) Phases 3-5
+
+**Example**: Implementing `GET /study/{slug}/start`:
+- **Requirements**: [plan.md § Phase 3](../plan.md#phase-3-backend-api---public-interview-access-4-hours)
+- **BDD test**: [quickstart.md § Step 3.1](../quickstart.md#step-31-write-bdd-tests-first)
+- **Database model**: [data-model.md § Interview](../data-model.md#interview-new)
+- **Implementation**: [quickstart.md § Step 3.2](../quickstart.md#step-32-implement-public-interview-router)
+
 ## Endpoint Categories
 
 ### Public Interview Access (No Auth)
