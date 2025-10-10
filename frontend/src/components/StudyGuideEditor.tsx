@@ -78,7 +78,7 @@ export function StudyGuideEditor({ studyId, guide, onSave, onCancel }: StudyGuid
       </div>
 
       {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-800 text-sm">
+        <div className="text-sm text-destructive">
           {error}
         </div>
       )}

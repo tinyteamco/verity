@@ -668,13 +668,13 @@ export function OrganizationDetailPage() {
                 autoFocus
               />
               {topicValidationError && (
-                <p className="text-sm text-red-500">{topicValidationError}</p>
+                <p className="text-sm text-destructive">{topicValidationError}</p>
               )}
             </div>
 
             {generateError && (
               <div className="space-y-2">
-                <p className="text-sm text-red-500">{generateError}</p>
+                <p className="text-sm text-destructive">{generateError}</p>
                 <div className="flex gap-2">
                   <Button
                     type="submit"
