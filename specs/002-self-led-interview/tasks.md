@@ -164,20 +164,20 @@
 
 ### BDD Tests for User Story 3 (WRITE FIRST, ENSURE THEY FAIL) ⚠️
 
-- [ ] T056 [P] [US3] Write Gherkin scenario "Verity receives completion callback with storage paths marks interview completed" in backend/tests/features/interview_completion.feature
-- [ ] T057 [P] [US3] Write Gherkin scenario "Completion callback includes streaming transcript makes it viewable" in backend/tests/features/interview_completion.feature
-- [ ] T058 [P] [US3] Write Gherkin scenario "Completion callback includes audio storage path makes audio downloadable" in backend/tests/features/interview_completion.feature
-- [ ] T059 [P] [US3] Write Gherkin scenario "Pipecat retries completion callback for already complete interview returns 200 idempotent" in backend/tests/features/interview_completion.feature
-- [ ] T060 [US3] Implement step definitions for interview_completion.feature in backend/tests/step_defs/test_interview_completion.py
-- [ ] T061 [US3] Run tests to verify they FAIL (expected behavior before implementation)
+- [X] T056 [P] [US3] Write Gherkin scenario "Verity receives completion callback with storage paths marks interview completed" in backend/tests/features/interview_completion.feature
+- [X] T057 [P] [US3] Write Gherkin scenario "Completion callback includes streaming transcript makes it viewable" in backend/tests/features/interview_completion.feature
+- [X] T058 [P] [US3] Write Gherkin scenario "Completion callback includes audio storage path makes audio downloadable" in backend/tests/features/interview_completion.feature
+- [X] T059 [P] [US3] Write Gherkin scenario "Pipecat retries completion callback for already complete interview returns 200 idempotent" in backend/tests/features/interview_completion.feature
+- [X] T060 [US3] Implement step definitions for interview_completion.feature in backend/tests/step_defs/test_interview_completion.py
+- [X] T061 [US3] Run tests to verify they FAIL (expected behavior before implementation)
 
 ### Backend Implementation for User Story 3
 
-- [ ] T062 [US3] Create POST /interview/{access_token}/complete endpoint in backend/src/api/routers/interviews.py (accepts transcript_url, recording_url, notes)
-- [ ] T063 [P] [US3] Add interview status update logic (pending → completed) in POST /interview/{access_token}/complete
-- [ ] T064 [P] [US3] Add artifact reference storage (transcript_url, recording_url) in POST /interview/{access_token}/complete
-- [ ] T065 [P] [US3] Add idempotent check (return 200 if already completed) in POST /interview/{access_token}/complete
-- [ ] T066 [US3] Run BDD tests to verify US3 backend implementation passes
+- [X] T062 [US3] Create POST /interview/{access_token}/complete endpoint in backend/src/api/main.py (accepts transcript_url, recording_url, notes)
+- [X] T063 [P] [US3] Add interview status update logic (pending → completed) in POST /interview/{access_token}/complete
+- [X] T064 [P] [US3] Add artifact reference storage (transcript_url, recording_url) in POST /interview/{access_token}/complete
+- [X] T065 [P] [US3] Add idempotent check (return 200 if already completed) in POST /interview/{access_token}/complete
+- [X] T066 [US3] Run BDD tests to verify US3 backend implementation passes
 
 **Checkpoint**: At this point, pipecat can complete interviews and Verity stores artifact references (P2 value delivered)
 

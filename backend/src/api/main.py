@@ -1021,8 +1021,10 @@ async def complete_interview(
     if not interview:
         raise HTTPException(status_code=404, detail="Interview not found")
 
+    # Idempotent: If already completed, return 200 without updating
+    # This allows pipecat to safely retry the callback
     if interview.status == "completed":
-        raise HTTPException(status_code=400, detail="Interview already completed")
+        return {"message": "Interview completed successfully"}
 
     # Update interview with completion data
     interview.status = "completed"
