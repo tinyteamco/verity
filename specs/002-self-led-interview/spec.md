@@ -17,6 +17,8 @@
 
 - **Q: Should we support both reusable links AND programmatic API for recruitment platforms?** → **A: Reusable links only (YAGNI)**. Reusable link pattern handles all identified use cases: on-the-fly interview creation, participant tracking, deduplication. Programmatic API deferred until real requirement emerges. Can add later if needed.
 
+- **Q: What happens when reusable link is accessed without pid parameter?** → **A: pid is optional**. If present, stores external_participant_id and enables deduplication by external_participant_id + study_id. If absent, creates anonymous interview (no external_participant_id). This makes reusable links flexible for both recruitment platforms AND direct distribution.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Generate and Share Interview Link (Priority: P1)
@@ -114,9 +116,10 @@ As a researcher, I generate a reusable study link with a readable slug that recr
 **Acceptance Scenarios**:
 
 1. **Given** I have created a study with slug "freelancer-tool-selection", **When** I view study settings, **Then** I see a reusable link template: `https://verity.com/study/freelancer-tool-selection/start?pid={{PARTICIPANT_ID}}`
-2. **Given** a recruitment platform uses the reusable link with pid=prolific_123, **When** the participant clicks it, **Then** Verity creates a new interview on-the-fly and redirects to pipecat
-3. **Given** the same participant ID accesses the link twice, **When** the second access occurs, **Then** they see "Interview already completed" (no duplicate interviews)
-4. **Given** an interview was completed via reusable link, **When** I view interviews, **Then** I see the external participant ID (e.g., "prolific_123") associated with the interview
+2. **Given** a recruitment platform uses the reusable link with pid=prolific_123, **When** the participant clicks it, **Then** Verity creates a new interview on-the-fly with external_participant_id and redirects to pipecat
+3. **Given** someone accesses the reusable link without a pid parameter, **When** they click it, **Then** Verity creates an anonymous interview (no external_participant_id) and redirects to pipecat
+4. **Given** the same participant ID accesses the link twice, **When** the second access occurs, **Then** they see "Interview already completed" (no duplicate interviews)
+5. **Given** an interview was completed via reusable link with pid, **When** I view interviews, **Then** I see the external participant ID (e.g., "prolific_123") associated with the interview
 
 ---
 
@@ -200,6 +203,9 @@ As a signed-in participant, I view my complete participation history across all 
 - What happens when the same external participant ID accesses a reusable study link multiple times?
   - **Handling**: First access creates interview and redirects; subsequent accesses show "Interview already completed" (deduplication by external_participant_id + study_id)
 
+- What happens when a reusable study link is accessed without a pid parameter?
+  - **Handling**: Creates anonymous interview (no external_participant_id); each access creates a new interview (no deduplication); useful for direct distribution where participant tracking isn't needed
+
 - How does the system prevent participant ID spoofing on reusable links?
   - **Handling**: No validation in MVP - reusable links are for trusted recruitment platforms; external_id is stored for tracking, not authentication; future enhancement could add HMAC signatures
 
@@ -219,9 +225,9 @@ This feature supports two primary integration patterns:
 
 ### Recruitment Platform Integration
 
-External recruitment platforms (Prolific, UserTesting, Respondent.io, UserInterviews) integrate with Verity using **reusable study links**.
+External recruitment platforms (Prolific, UserTesting, Respondent.io, UserInterviews) integrate with Verity using **reusable study links**. The `pid` parameter is **optional**, making the same link work for both recruitment platforms AND direct distribution.
 
-**How it works**:
+**How it works (with pid - recruitment platform)**:
 ```
 1. Researcher creates study with slug: "freelancer-tool-selection"
 2. Verity provides template URL:
@@ -241,13 +247,26 @@ External recruitment platforms (Prolific, UserTesting, Respondent.io, UserInterv
 6. (Optional) Verity webhook to platform: "Interview completed by prolific_abc123"
 ```
 
-**Deduplication**: External_participant_id + study_id ensures one interview per participant per study
+**How it works (without pid - direct distribution)**:
+```
+1. Researcher shares: https://verity.com/study/freelancer-tool-selection/start
+2. When participant clicks:
+   - Verity creates Interview record on-the-fly (anonymous, no external_participant_id)
+   - Generates unique access_token
+   - Redirects 302 to: https://interview.verity.com?token={access_token}
+3. Same interview flow as above
+```
+
+**Deduplication**:
+- **With pid**: external_participant_id + study_id ensures one interview per participant per study
+- **Without pid**: Each access creates new interview (no deduplication)
 
 **Benefits**:
 - Simple integration (no API auth required)
 - Works with all major recruitment platforms
 - Readable, shareable URLs using study slug
 - On-the-fly interview creation (unlimited participants)
+- Flexible: Same link works for platforms AND direct distribution
 
 **Completion Webhooks (Optional)
 
@@ -480,9 +499,9 @@ The **interactive interview component** (pipecat-momtest: https://github.com/tin
 **Recruitment Platform Integration**
 
 - **FR-038**: System MUST provide reusable study links using study slug format: `https://verity.com/study/{slug}/start?pid={{PARTICIPANT_ID}}`
-- **FR-039**: System MUST create Interview records on-the-fly when reusable study links are accessed with external_participant_id
-- **FR-040**: System MUST store external_participant_id from query parameter when creating interviews via reusable links
-- **FR-041**: System MUST prevent duplicate interviews for the same external_participant_id + study_id combination (show "already completed" message)
+- **FR-039**: System MUST create Interview records on-the-fly when reusable study links are accessed (with or without pid parameter)
+- **FR-040**: System MUST store external_participant_id from pid query parameter when present (nullable if pid absent)
+- **FR-041**: System MUST prevent duplicate interviews for the same external_participant_id + study_id combination when pid is present (show "already completed" message)
 - **FR-042**: System MUST support optional interstitial page before interview showing "Continue as Guest" or "Sign In" options
 - **FR-043**: System MUST support webhook configuration per study (webhook_url, webhook_secret, events)
 - **FR-044**: System MUST send completion webhooks to configured URLs with HMAC signature verification
