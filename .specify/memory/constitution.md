@@ -1,15 +1,15 @@
 <!--
 Sync Impact Report:
-Version: 1.1.0 → 1.2.0 (MINOR - added testing principle for stub services)
+Version: 1.2.0 → 1.3.0 (MINOR - added E2E error testing guidance)
 Modified Principles:
-  - Testing Strategy section expanded with stub service guidance
+  - Testing Strategy section expanded with network-level error mocking guidance
 Added Sections:
-  - IX. Stub Services Over Mocking (new testing principle)
+  - E2E Error Testing subsection under Testing Strategy
 Removed Sections: N/A
 Templates Requiring Updates:
   ✅ plan-template.md - Constitution Check compatible (no changes needed)
   ✅ spec-template.md - No changes needed (user scenarios unaffected)
-  ✅ tasks-template.md - Test task patterns align with stub service principle
+  ✅ tasks-template.md - Test task patterns align with error testing principle
 Follow-up TODOs: None
 -->
 
@@ -178,6 +178,17 @@ Before deploying endpoints touching organization-scoped data:
   - Managed by test fixtures (pytest/Playwright)
 - **Mocking** (LIMITED USE): Only for pure functions and specific error conditions
 
+**E2E Error Testing**:
+When testing error conditions (timeouts, server errors, network failures) in E2E tests, **PREFER** network-level mocking over application-level mocks:
+
+- **Frontend E2E** (Playwright): Use `page.route()` to intercept and control network requests
+  - `route.abort('timedout')` - Simulate network timeout
+  - `route.fulfill({ status: 500, ... })` - Simulate server errors
+  - `route.fulfill({ status: 429, ... })` - Simulate rate limiting
+- **Backend E2E** (pytest-bdd): Use stub service response configuration or `monkeypatch` at service boundaries
+
+**Rationale**: Network-level mocking provides superior test realism by exercising the full client error handling path including fetch/retry logic, error message extraction, and UI error states. This catches issues that application-level mocks miss (e.g., timeout detection, network error messages, retry behavior).
+
 **Future Considerations** (not currently implemented):
 - **Contract Tests**: OpenAPI spec validation (could add if needed)
 - **Unit Tests**: Isolated component tests (could add if needed)
@@ -237,4 +248,4 @@ For detailed implementation guidance and examples, developers should reference:
 - `/docs/002-architecture/004-security-guidelines.md` - Security patterns and anti-patterns
 - `/backend/docs/test-isolation.md` - Stub service implementation patterns
 
-**Version**: 1.2.0 | **Ratified**: 2025-10-07 | **Last Amended**: 2025-10-08
+**Version**: 1.3.0 | **Ratified**: 2025-10-07 | **Last Amended**: 2025-10-10
