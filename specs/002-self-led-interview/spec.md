@@ -60,7 +60,7 @@ As the pipecat-momtest application, I fetch interview data via Verity's public A
 
 **Acceptance Scenarios**:
 
-1. **Given** pipecat calls `GET /interview/{token}`, **When** token is valid, **Then** Verity returns 200 with `{study_title, interview_guide, system_instructions}`
+1. **Given** pipecat calls `GET /interview/{token}`, **When** token is valid, **Then** Verity returns 200 with `{study_title, interview_guide}`
 2. **Given** pipecat calls with completed interview token, **When** request is made, **Then** Verity returns 410 Gone
 3. **Given** pipecat calls with invalid token, **When** request is made, **Then** Verity returns 404
 4. **Given** study has been deleted, **When** pipecat fetches interview data, **Then** Verity returns 410 Gone
@@ -369,9 +369,8 @@ The **interactive interview component** (pipecat-momtest: https://github.com/tin
 3. Pipecat-momtest fetches interview data
    └─> GET https://api.verity.com/interview/{access_token}
        Response: {
-         "study_title": "...",
-         "interview_guide": "# Section 1\n\n1. Question...",
-         "system_instructions": "You are conducting a Mom Test interview..."
+         "study_title": "Freelancer Tool Selection Research",
+         "interview_guide": "# Welcome\n\nThank you for participating...\n\n## Section 1: Background\n\n1. Tell me about..."
        }
 
 4. Pipecat-momtest conducts live interview
@@ -407,13 +406,17 @@ The **interactive interview component** (pipecat-momtest: https://github.com/tin
 ```json
 {
   "study_title": "Freelancer Tool Selection Research",
-  "interview_guide": "# Welcome\n\nThank you for participating...\n\n## Section 1: Background\n\n1. Tell me about...",
-  "system_instructions": "You are conducting a Mom Test interview. Your goal is to..."
+  "interview_guide": "# Welcome\n\nThank you for participating...\n\n## Section 1: Background\n\n1. Tell me about..."
 }
 ```
 - **Errors**:
   - `404`: Invalid or expired access token
   - `410`: Interview already completed
+
+**Notes**:
+- `study_title`: Display name of the study
+- `interview_guide`: Markdown content from the study's interview guide (replaces hardcoded prompts in pipecat)
+- System prompt behavior: Pipecat determines how to use the guide (current implementation has hardcoded system prompt in `_system.md`)
 
 #### Pipecat → Verity (Completion Callback)
 
@@ -534,7 +537,7 @@ The **interactive interview component** (pipecat-momtest: https://github.com/tin
 
 **Integration Requirements (Pipecat-momtest)**
 
-- **FR-031**: System MUST provide public `GET /interview/{access_token}` endpoint that returns study title, interview guide content, and system instructions (no authentication required)
+- **FR-031**: System MUST provide public `GET /interview/{access_token}` endpoint that returns study title and interview guide content (no authentication required)
 - **FR-032**: System MUST provide public `POST /interview/{access_token}/complete` endpoint that accepts completion callback with storage paths and streaming transcript
 - **FR-033**: System MUST accept GCS storage path format (`gs://bucket/path`) in completion callback for audio artifacts
 - **FR-034**: System MUST mark interviews as completed and store completion timestamp when receiving completion callback (covered by FR-014)
