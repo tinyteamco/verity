@@ -37,6 +37,7 @@ required_apis = [
     "secretmanager.googleapis.com",    # Secret Manager
     "firebase.googleapis.com",         # Firebase
     "firebasehosting.googleapis.com",  # Firebase Hosting
+    "storage.googleapis.com",          # Cloud Storage (GCS)
 ]
 
 enabled_services = []
@@ -203,6 +204,32 @@ db_user = gcp.sql.User(
     name="verity_app",
     instance=db_instance.name,
     password=db_password,
+)
+
+# =============================================================================
+# Cloud Storage (GCS)
+# =============================================================================
+
+# GCS bucket for interview artifacts (audio recordings and transcripts)
+artifacts_bucket = gcp.storage.Bucket(
+    "interview-artifacts",
+    name=resource_name("artifacts"),  # verity-artifacts-{stack}
+    location="EU",  # Multi-region for high availability
+    storage_class="STANDARD",  # Standard for frequently accessed data
+    # Security: Uniform bucket-level access (IAM-only, no ACLs)
+    uniform_bucket_level_access=gcp.storage.BucketUniformBucketLevelAccessArgs(
+        enabled=True,
+    ),
+    # Security: Prevent accidental public exposure
+    public_access_prevention="enforced",
+)
+
+# Grant Verity backend read/write access to artifacts bucket
+verity_bucket_iam = gcp.storage.BucketIAMBinding(
+    "verity-artifacts-access",
+    bucket=artifacts_bucket.name,
+    role="roles/storage.objectAdmin",  # Full object CRUD + metadata
+    members=[backend_sa.email.apply(lambda email: f"serviceAccount:{email}")],
 )
 
 # =============================================================================
@@ -403,3 +430,7 @@ web_app_config = web_app.app_id.apply(
 pulumi.export("firebase_api_key", web_app_config.api_key)
 pulumi.export("firebase_auth_domain", web_app_config.auth_domain)
 pulumi.export("firebase_project_id", project)
+
+# Cloud Storage
+pulumi.export("artifacts_bucket_name", artifacts_bucket.name)
+pulumi.export("artifacts_bucket_url", artifacts_bucket.url)
