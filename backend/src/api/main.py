@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from firebase_admin import auth
@@ -87,7 +87,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "http://localhost:3000",
-    ],  # Vite dev server + potential prod
+        "http://localhost:8080",  # Pipecat local dev
+    ],  # Vite dev server + potential prod + pipecat
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -486,6 +487,8 @@ async def create_study(
         study_id=str(study.id),
         title=study.title,
         description=study.description,
+        slug=study.slug,
+        participant_identity_flow=study.participant_identity_flow,
         org_id=str(study.organization_id),
         created_at=study.created_at,
         updated_at=study.updated_at,
@@ -557,6 +560,8 @@ async def generate_study_from_topic(
             study_id=str(study.id),
             title=study.title,
             description=study.description,
+            slug=study.slug,
+            participant_identity_flow=study.participant_identity_flow,
             org_id=str(study.organization_id),
             created_at=study.created_at,
             updated_at=study.updated_at,
@@ -593,6 +598,8 @@ async def list_studies(
             study_id=str(study.id),
             title=study.title,
             description=study.description,
+            slug=study.slug,
+            participant_identity_flow=study.participant_identity_flow,
             org_id=str(study.organization_id),
             created_at=study.created_at,
             updated_at=study.updated_at,
@@ -630,6 +637,8 @@ async def get_study(
         study_id=str(study.id),
         title=study.title,
         description=study.description,
+        slug=study.slug,
+        participant_identity_flow=study.participant_identity_flow,
         org_id=str(study.organization_id),
         created_at=study.created_at,
         updated_at=study.updated_at,
@@ -673,6 +682,8 @@ async def update_study(
         study_id=str(study.id),
         title=study.title,
         description=study.description,
+        slug=study.slug,
+        participant_identity_flow=study.participant_identity_flow,
         org_id=str(study.organization_id),
         created_at=study.created_at,
         updated_at=study.updated_at,
@@ -1215,6 +1226,76 @@ async def finalize_transcript(
         full_text=transcript.full_text,
         created_at=transcript.created_at,
     )
+
+
+# Public Interview Access Endpoints (No Authentication Required, No /api prefix)
+
+
+@app.get("/study/{slug}/start")
+async def access_reusable_study_link(
+    slug: str,
+    db: Annotated[Session, Depends(get_db)],
+    pid: Annotated[str | None, Query()] = None,
+) -> RedirectResponse:
+    """
+    Public endpoint for accessing reusable study links.
+    Creates interview on-the-fly and redirects to pipecat with access_token.
+
+    Args:
+        slug: Study slug (URL-friendly identifier)
+        pid: Optional external participant ID from recruitment platform
+        db: Database session
+
+    Returns:
+        302 redirect to pipecat with access_token and verity_api parameters
+    """
+    import uuid
+    from datetime import timedelta
+
+    # Get environment variables
+    pipecat_url = os.getenv("PIPECAT_URL", "http://localhost:8080")
+    verity_api_base = os.getenv("VERITY_API_BASE", "http://localhost:8000/api")
+
+    # Look up study by slug
+    study = db.query(Study).filter(Study.slug == slug).first()
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
+
+    # Infer platform_source from pid prefix if provided
+    platform_source = None
+    if pid and "_" in pid:
+        # Extract platform from pid prefix (e.g., "prolific_abc123" -> "prolific")
+        platform_source = pid.split("_")[0]
+
+    # Check for existing interview (deduplication)
+    existing_interview = None
+    if pid:
+        existing_interview = (
+            db.query(Interview)
+            .filter(Interview.study_id == study.id, Interview.external_participant_id == pid)
+            .first()
+        )
+
+    if existing_interview:
+        # Use existing interview access token
+        access_token = existing_interview.access_token
+    else:
+        # Create new interview
+        access_token = str(uuid.uuid4())
+        interview = Interview(
+            study_id=study.id,
+            access_token=access_token,
+            status="pending",
+            external_participant_id=pid,
+            platform_source=platform_source,
+            expires_at=datetime.now(UTC) + timedelta(days=7),
+        )
+        db.add(interview)
+        db.commit()
+
+    # Redirect to pipecat with access_token and verity_api
+    redirect_url = f"{pipecat_url}/?access_token={access_token}&verity_api={verity_api_base}"
+    return RedirectResponse(url=redirect_url, status_code=302)
 
 
 # Test-only endpoints (only available in test/development environments)

@@ -75,20 +75,20 @@
 
 ### BDD Tests for User Story 1 (WRITE FIRST, ENSURE THEY FAIL) ⚠️
 
-- [ ] T018 [P] [US1] Write Gherkin scenario "Researcher views reusable link template" in backend/tests/features/study_settings.feature
-- [ ] T019 [P] [US1] Write Gherkin scenario "Participant accesses reusable link with pid" in backend/tests/features/interview_access.feature
-- [ ] T020 [P] [US1] Write Gherkin scenario "Participant accesses reusable link without pid" in backend/tests/features/interview_access.feature
-- [ ] T021 [P] [US1] Write Gherkin scenario "Deduplication prevents duplicate interview for same external_participant_id" in backend/tests/features/interview_access.feature
-- [ ] T022 [US1] Implement step definitions for interview_access.feature in backend/tests/step_defs/test_interview_access.py
-- [ ] T023 [US1] Run tests to verify they FAIL (expected behavior before implementation)
+- [X] T018 [P] [US1] Write Gherkin scenario "Researcher views reusable link template" in backend/tests/features/study_settings.feature
+- [X] T019 [P] [US1] Write Gherkin scenario "Participant accesses reusable link with pid" in backend/tests/features/interview_access.feature
+- [X] T020 [P] [US1] Write Gherkin scenario "Participant accesses reusable link without pid" in backend/tests/features/interview_access.feature
+- [X] T021 [P] [US1] Write Gherkin scenario "Deduplication prevents duplicate interview for same external_participant_id" in backend/tests/features/interview_access.feature
+- [X] T022 [US1] Implement step definitions for interview_access.feature in backend/tests/step_defs/test_interview_access.py
+- [X] T023 [US1] Run tests to verify they FAIL (expected behavior before implementation)
 
 ### Backend Implementation for User Story 1
 
-- [ ] T024 [P] [US1] Create GET /study/{slug}/start endpoint in backend/src/api/routers/interviews.py (creates interview on-the-fly, redirects to pipecat)
-- [ ] T025 [P] [US1] Add deduplication logic for external_participant_id + study_id in interviews.py
-- [ ] T026 [P] [US1] Add PIPECAT_URL and VERITY_API_BASE environment variables to backend/.mise.toml
-- [ ] T027 [US1] Add CORS configuration for pipecat domain in backend/src/api/main.py
-- [ ] T028 [US1] Run BDD tests to verify US1 backend implementation passes
+- [X] T024 [P] [US1] Create GET /study/{slug}/start endpoint in backend/src/api/main.py (creates interview on-the-fly, redirects to pipecat)
+- [X] T025 [P] [US1] Add deduplication logic for external_participant_id + study_id in main.py
+- [X] T026 [P] [US1] Add PIPECAT_URL and VERITY_API_BASE environment variables to backend/.mise.toml
+- [X] T027 [US1] Add CORS configuration for pipecat domain in backend/src/api/main.py
+- [X] T028 [US1] Run BDD tests to verify US1 backend implementation passes
 
 ### Frontend Implementation for User Story 1
 
