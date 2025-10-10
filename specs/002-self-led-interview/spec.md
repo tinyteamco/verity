@@ -19,6 +19,8 @@
 
 - **Q: What happens when reusable link is accessed without pid parameter?** → **A: pid is optional**. If present, stores external_participant_id and enables deduplication by external_participant_id + study_id. If absent, creates anonymous interview (no external_participant_id). This makes reusable links flexible for both recruitment platforms AND direct distribution.
 
+- **Q: How does the system decide whether to show pre-interview sign-in?** → **A: Study-level setting + pid presence**. Study has `participant_identity_flow` setting (anonymous/claim_after/allow_pre_signin). **Key rule: When pid is present (recruitment platform), ALWAYS skip pre-interview sign-in to reduce friction.** Pre-interview interstitial only shows for direct links (no pid) when setting is "allow_pre_signin". Post-interview claim availability depends on study setting. This prioritizes frictionless entry for recruitment platforms.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Generate and Share Interview Link (Priority: P1)
@@ -125,35 +127,35 @@ As a researcher, I generate a reusable study link with a readable slug that recr
 
 ### User Story 6 - Pre-Interview Optional Sign-In (Priority: P2)
 
-As a participant, I have the option to sign in before starting an interview so my participation is automatically tracked across all platforms without needing to claim it afterward.
+As a participant accessing a direct link (no pid), I have the option to sign in before starting an interview when the study allows pre-sign-in, so my participation is automatically tracked.
 
-**Why this priority**: Improves user experience for repeat participants and enables Verity to build a participant database. While optional (anonymous flow still works), this provides long-term value for participant retention.
+**Why this priority**: Improves user experience for repeat participants and enables Verity to build a participant database. Only applies to direct links (no pid) when study setting is "allow_pre_signin". Recruitment platform links (with pid) skip pre-interview sign-in for frictionless entry.
 
-**Independent Test**: Access an interview link while signed in and verify the interview is automatically associated with the user account. Delivers value by simplifying participation tracking.
+**Independent Test**: Access a direct interview link (no pid) for a study with "allow_pre_signin" setting and verify interstitial appears with sign-in option. Delivers value by simplifying participation tracking for direct distribution.
 
 **Acceptance Scenarios**:
 
-1. **Given** I click an interview link, **When** the interstitial page loads, **Then** I see options: "Continue as Guest" or "Sign In"
-2. **Given** I choose "Sign In" and authenticate, **When** I complete the interview, **Then** it automatically appears in my participation history
-3. **Given** I choose "Continue as Guest", **When** I complete the interview, **Then** I still see an option to claim it afterward
-4. **Given** I am already signed in to Verity, **When** I access a new interview link, **Then** my session is recognized and the interview is auto-linked
+1. **Given** I access a direct link (no pid) for a study with "allow_pre_signin", **When** the interstitial page loads, **Then** I see options: "Continue as Guest" or "Sign In"
+2. **Given** I access a recruitment platform link (with pid), **When** processing the link, **Then** Verity skips pre-interview sign-in and redirects directly to pipecat (friction reduction)
+3. **Given** I choose "Sign In" and authenticate on interstitial, **When** I complete the interview, **Then** it automatically appears in my participation history
+4. **Given** I am already signed in to Verity, **When** I access a direct link (no pid), **Then** my session is recognized and the interview is auto-linked (no interstitial shown)
 
 ---
 
 ### User Story 7 - Post-Interview Claim and Cross-Platform Identity (Priority: P3)
 
-As a participant, I can sign in after completing anonymous interviews to claim them and view my complete participation history across all platforms (Prolific, Respondent, direct links) in one dashboard.
+As a participant, I can sign in after completing anonymous interviews to claim them and view my complete participation history across all platforms (Prolific, Respondent, direct links) in one dashboard when the study allows post-interview claim.
 
-**Why this priority**: Enables Verity to build participant profiles and provide value to repeat participants. Supports cross-platform identity reconciliation. Nice-to-have feature that can be deferred.
+**Why this priority**: Enables Verity to build participant profiles and provide value to repeat participants. Supports cross-platform identity reconciliation. Only available for studies with "claim_after" or "allow_pre_signin" settings. Nice-to-have feature that can be deferred.
 
-**Independent Test**: Complete multiple anonymous interviews from different sources, sign in once, and verify all interviews appear in a unified dashboard with their original platform sources visible.
+**Independent Test**: Complete multiple anonymous interviews from different sources (for studies with claim enabled), sign in once, and verify all interviews appear in a unified dashboard with their original platform sources visible.
 
 **Acceptance Scenarios**:
 
-1. **Given** I have completed an interview anonymously from Prolific (external_id: prolific_123), **When** I click "Sign In to Track My Interviews" on the thank-you page, **Then** I can authenticate and the interview is linked to my Verity account
-2. **Given** I am signed in and complete an interview from Respondent (external_id: respondent_789), **When** I view my dashboard, **Then** I see both Prolific and Respondent interviews with their platform sources labeled
-3. **Given** I have claimed multiple interviews across platforms, **When** I view my profile, **Then** I see my total participation count and completion dates
-4. **Given** I complete another interview from Prolific with a different external_id, **When** it auto-links to my Verity account, **Then** the system knows both Prolific IDs belong to the same person
+1. **Given** I have completed an interview anonymously from Prolific (external_id: prolific_123) for a study with "claim_after" setting, **When** I see the thank-you page, **Then** I see "Sign In to Track My Interviews" option
+2. **Given** I click "Sign In to Track My Interviews" and authenticate, **When** claim succeeds, **Then** the interview is linked to my Verity account
+3. **Given** I am signed in and complete an interview from Respondent (external_id: respondent_789), **When** I view my dashboard, **Then** I see both Prolific and Respondent interviews with their platform sources labeled
+4. **Given** I have completed an interview for a study with "anonymous" setting, **When** I see the thank-you page, **Then** no claim option is shown (respects study setting)
 
 ---
 
@@ -502,7 +504,10 @@ The **interactive interview component** (pipecat-momtest: https://github.com/tin
 - **FR-039**: System MUST create Interview records on-the-fly when reusable study links are accessed (with or without pid parameter)
 - **FR-040**: System MUST store external_participant_id from pid query parameter when present (nullable if pid absent)
 - **FR-041**: System MUST prevent duplicate interviews for the same external_participant_id + study_id combination when pid is present (show "already completed" message)
-- **FR-042**: System MUST support optional interstitial page before interview showing "Continue as Guest" or "Sign In" options
+- **FR-042**: System MUST display pre-interview interstitial based on study's participant_identity_flow setting and pid presence:
+  - When pid present (recruitment platform): Skip interstitial, redirect directly to interview (friction reduction)
+  - When pid absent AND study setting is "allow_pre_signin" AND user not signed in: Show interstitial with "Continue as Guest" or "Sign In" options
+  - Otherwise: Proceed directly to interview
 - **FR-043**: System MUST support webhook configuration per study (webhook_url, webhook_secret, events)
 - **FR-044**: System MUST send completion webhooks to configured URLs with HMAC signature verification
 - **FR-045**: System MUST retry failed webhooks with exponential backoff (3 attempts: immediate, 5min, 1hr)
@@ -520,7 +525,13 @@ The **interactive interview component** (pipecat-momtest: https://github.com/tin
 - **FR-054**: Participation dashboard MUST display platform source for each interview (e.g., "Prolific", "Respondent", "Direct")
 - **FR-055**: System MUST aggregate participation statistics across all platforms for signed-in users
 
+**Study Configuration**
+
+- **FR-056**: Study MUST have configurable participant_identity_flow setting with values: "anonymous" (no identity tracking), "claim_after" (post-interview claim available), or "allow_pre_signin" (pre-interview sign-in for direct links only)
+
 ### Key Entities
+
+- **Study**: Represents a research study with interview guide. Contains title, unique slug (for reusable links), interview guide content (markdown), participant_identity_flow setting (anonymous/claim_after/allow_pre_signin), and optional webhook configuration. Belongs to one Organization. Has many Interviews and Share Links.
 
 - **Interview**: Represents a single participant's response session for a study. Contains access token, status (pending/completed/completion_pending), completion timestamp, pipecat session ID, external_participant_id (from recruitment platform, nullable), verity_user_id (from sign-in, nullable), source platform identifier, and optional metadata. Linked to exactly one Study. Can have both external_participant_id AND verity_user_id for cross-platform identity reconciliation.
 
