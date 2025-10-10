@@ -120,6 +120,7 @@ export DATABASE_URL="sqlite:///$DB_FILE"
 export FIREBASE_AUTH_EMULATOR_HOST="localhost:$STUB_PORT"
 export USE_FIREBASE_STUB="true"
 export ANTHROPIC_BASE_URL="http://localhost:$LLM_STUB_PORT"
+export ANTHROPIC_API_KEY="test-api-key"  # Dummy key for LLM stub
 
 # Create database schema
 echo "Creating database schema for $DATABASE_URL..." >&2
@@ -163,7 +164,7 @@ trap cleanup EXIT INT TERM
 
 # Start uvicorn on dynamic port (use exec to replace shell process)
 echo "Starting backend API on port $BACKEND_PORT with DATABASE_URL=$DATABASE_URL..." >&2
-exec mise exec -- env DATABASE_URL="$DATABASE_URL" APP_ENV="$APP_ENV" FIREBASE_AUTH_EMULATOR_HOST="$FIREBASE_AUTH_EMULATOR_HOST" USE_FIREBASE_STUB="$USE_FIREBASE_STUB" ANTHROPIC_BASE_URL="$ANTHROPIC_BASE_URL" uv run uvicorn src.api.main:app \
+exec mise exec -- env DATABASE_URL="$DATABASE_URL" APP_ENV="$APP_ENV" FIREBASE_AUTH_EMULATOR_HOST="$FIREBASE_AUTH_EMULATOR_HOST" USE_FIREBASE_STUB="$USE_FIREBASE_STUB" ANTHROPIC_BASE_URL="$ANTHROPIC_BASE_URL" ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" uv run uvicorn src.api.main:app \
     --host 0.0.0.0 \
     --port $BACKEND_PORT \
     --log-level debug > /tmp/backend_${BACKEND_PORT}.log 2>&1
