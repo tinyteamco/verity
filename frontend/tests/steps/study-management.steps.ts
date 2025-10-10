@@ -68,8 +68,11 @@ When('I click on study {string}', async ({ page }, studyTitle: string) => {
 
 // Study details modal - now in modal instead of separate page
 Then('I see the study details page for {string}', async ({ page }, studyTitle: string) => {
-  // Edit modal should be visible with study title
+  // Detail modal should be visible
   await expect(page.getByTestId('edit-study-modal')).toBeVisible()
+  // Click "Edit Details" to enter edit mode
+  await page.getByRole('button', { name: 'Edit Details' }).click()
+  // Now we should see the input fields with the study title
   await expect(page.getByTestId('study-title-input')).toHaveValue(studyTitle)
 })
 

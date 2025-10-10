@@ -68,3 +68,35 @@ Feature: Study Guide Management
   Scenario: Unauthenticated users cannot access study guides
     When an unauthenticated user gets /studies/1/guide
     Then the response status is 401
+
+  Scenario Outline: Generate study with AI-generated interview guide from topic
+    Given a signed-in organization user with role "<role>"
+    When they POST /orgs/1/studies/generate with topic "How do freelancers choose project management tools?"
+    Then the response status is 201
+    And the response has a study object
+    And the response has a guide object
+    And the study title is a slug
+    And the study description is "How do freelancers choose project management tools?"
+    And the guide content_md contains "interview" or "question"
+    And the guide content_md length is greater than 50
+
+    Examples:
+      | role   |
+      | owner  |
+      | admin  |
+      | member |
+
+  Scenario: Super admin can generate study for any organization
+    Given a signed-in super admin user
+    When they POST /orgs/1/studies/generate with topic "User onboarding feedback"
+    Then the response status is 201
+    And the response has a study object
+    And the response has a guide object
+
+  Scenario: Study creation is rolled back when interview guide generation fails
+    Given a signed-in organization user with role "admin"
+    And the LLM service will fail when generating interview guides
+    When they POST /orgs/1/studies/generate with topic "Test topic"
+    Then the response status is 500
+    And the response contains an error message
+    And no study was created with description "Test topic"

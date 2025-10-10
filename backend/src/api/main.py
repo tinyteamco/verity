@@ -23,6 +23,7 @@ from ..auth import (
 )
 from ..database import get_db
 from ..database_utils import check_database_connectivity_with_session, ensure_database_connectivity
+from ..llm_service import generate_interview_guide_async, generate_study_title_async
 from ..models import (
     AudioRecording,
     Interview,
@@ -47,9 +48,11 @@ from ..schemas import (
     OrganizationWithOwnerResponse,
     OwnerCreationResponse,
     StudyCreate,
+    StudyGenerateRequest,
     StudyList,
     StudyResponse,
     StudyUpdate,
+    StudyWithGuideResponse,
     TranscriptFinalizeRequest,
     TranscriptResponse,
     UserCreate,
@@ -486,6 +489,83 @@ async def create_study(
         org_id=str(study.organization_id),
         created_at=study.created_at,
         updated_at=study.updated_at,
+    )
+
+
+@api_router.post(
+    "/orgs/{org_id}/studies/generate", response_model=StudyWithGuideResponse, status_code=201
+)
+async def generate_study_from_topic(
+    org_id: str,
+    request: StudyGenerateRequest,
+    current_user: Annotated[AuthUser, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> StudyWithGuideResponse:
+    """Generate a new study with interview guide from a research topic using AI"""
+    # Verify user has access to this org (owner/admin/member or super_admin)
+    if not current_user.is_super_admin:
+        user_in_org = (
+            db.query(User)
+            .filter(User.firebase_uid == current_user.firebase_uid, User.organization_id == org_id)
+            .first()
+        )
+        if not user_in_org:
+            raise HTTPException(status_code=403, detail="User not in organization")
+
+    # Generate study title/slug from topic using LLM
+    try:
+        title = await generate_study_title_async(request.topic)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate study title: {e!s}") from e
+
+    # Create study with generated title and topic as description
+    study = Study(
+        title=title,
+        description=request.topic,
+        organization_id=org_id,
+    )
+    db.add(study)
+    db.flush()  # Get study.id without committing
+
+    # Generate interview guide from topic using LLM
+    try:
+        guide_content = await generate_interview_guide_async(request.topic)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500, detail=f"Failed to generate interview guide: {e!s}"
+        ) from e
+
+    # Create interview guide
+    guide = InterviewGuide(
+        study_id=study.id,
+        content_md=guide_content,
+    )
+    db.add(guide)
+
+    # Commit transaction (creates both study and guide)
+    try:
+        db.commit()
+        db.refresh(study)
+        db.refresh(guide)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {e!s}") from e
+
+    return StudyWithGuideResponse(
+        study=StudyResponse(
+            study_id=str(study.id),
+            title=study.title,
+            description=study.description,
+            org_id=str(study.organization_id),
+            created_at=study.created_at,
+            updated_at=study.updated_at,
+        ),
+        guide=InterviewGuideResponse(
+            study_id=str(guide.study_id),
+            content_md=guide.content_md,
+            updated_at=guide.updated_at,
+        ),
     )
 
 

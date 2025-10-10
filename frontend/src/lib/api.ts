@@ -1,3 +1,5 @@
+import type { Study, StudyWithGuide, InterviewGuide, GuideUpdateRequest } from '../types/study';
+
 /**
  * Get the API base URL based on environment
  *
@@ -26,4 +28,114 @@ export function getApiUrl(): string {
 
   // Production - use relative URL (Firebase Hosting proxies /api/** to Cloud Run)
   return ''
+}
+
+/**
+ * Generate a study from a research topic
+ * @param orgId Organization ID
+ * @param topic What the researcher wants to learn
+ * @param token Firebase JWT token
+ * @returns Study with auto-generated interview guide
+ */
+export async function generateStudy(
+  orgId: string,
+  topic: string,
+  token: string
+): Promise<StudyWithGuide> {
+  const response = await fetch(`${getApiUrl()}/api/orgs/${orgId}/studies/generate`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ topic }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to generate study');
+  }
+
+  return await response.json();
+}
+
+/**
+ * Get the interview guide for a study
+ * @param studyId Study ID
+ * @param token Firebase JWT token
+ * @returns Interview guide or null if not found
+ */
+export async function getGuide(
+  studyId: string,
+  token: string
+): Promise<InterviewGuide | null> {
+  const response = await fetch(`${getApiUrl()}/api/studies/${studyId}/guide`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (response.status === 404) {
+    return null; // No guide yet
+  }
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to load guide');
+  }
+
+  return await response.json();
+}
+
+/**
+ * Update or create interview guide for a study
+ * @param studyId Study ID
+ * @param contentMd Markdown content
+ * @param token Firebase JWT token
+ * @returns Updated interview guide
+ */
+export async function updateGuide(
+  studyId: string,
+  contentMd: string,
+  token: string
+): Promise<InterviewGuide> {
+  const response = await fetch(`${getApiUrl()}/api/studies/${studyId}/guide`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ content_md: contentMd } as GuideUpdateRequest),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to save guide');
+  }
+
+  return await response.json();
+}
+
+export async function updateStudy(
+  orgId: string,
+  studyId: string,
+  title: string,
+  description: string,
+  token: string
+): Promise<Study> {
+  const response = await fetch(`${getApiUrl()}/api/orgs/${orgId}/studies/${studyId}`, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ title, description }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to update study');
+  }
+
+  return await response.json();
 }
