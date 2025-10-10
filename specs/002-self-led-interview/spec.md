@@ -25,21 +25,23 @@
 
 - **Q: Should webhooks be included for recruitment platform completion notifications?** → **A: Defer to post-MVP (YAGNI)**. Webhooks are automation convenience, not core requirement. Most platforms track completion on their side. Manual process works for MVP: researcher checks Verity for completions. Add webhooks later if platforms actually request it or manual checking becomes painful. Rationale: Reduces complexity, removes technical barrier for non-technical researchers, aligns with MVP-First principle.
 
+- **Q: Should we support both pre-generated links AND on-the-fly reusable links?** → **A: On-the-fly reusable links only (YAGNI)**. Reusable study link pattern handles all MVP use cases: recruitment platforms (with pid), direct distribution (without pid), interview tracking (Interview records auto-created), pipecat integration (access_tokens generated per interview). Pre-generated links add complexity without clear value: unnecessary generation UI, link management dashboard, ShareLink entity, campaign tracking. Defer pre-generated links until researchers need link-level metadata or campaign tracking. Rationale: Simpler UI (copy template URL from study settings), simpler data model (no ShareLink entity), fewer requirements (46 vs 51), aligns with MVP-First principle.
+
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Generate and Share Interview Link (Priority: P1)
+### User Story 1 - Share Reusable Study Link (Priority: P1)
 
-As a researcher, I create a unique shareable link for my study so that participants can access the interview without needing an account or login.
+As a researcher, I copy my study's reusable link template so that participants can access the interview without needing an account or login.
 
-**Why this priority**: This is the foundation of the self-led interview flow. Without the ability to generate and share links, no interviews can happen. This is the critical path that enables all other functionality.
+**Why this priority**: This is the foundation of the self-led interview flow. Without the ability to share links, no interviews can happen. Reusable links enable both recruitment platform integration (with pid) and direct distribution (without pid).
 
-**Independent Test**: Can be fully tested by creating a study, generating an interview link, and verifying the link is accessible without authentication. Delivers immediate value by enabling researchers to distribute interviews.
+**Independent Test**: Can be fully tested by creating a study, copying the reusable link template, accessing it, and verifying it creates an interview on-the-fly. Delivers immediate value by enabling researchers to distribute interviews.
 
 **Acceptance Scenarios**:
 
-1. **Given** I have a study with an interview guide, **When** I click "Generate Interview Link", **Then** I see a unique shareable URL that I can copy
-2. **Given** I have generated an interview link, **When** I share it with a participant, **Then** they can access the interview without logging in
-3. **Given** I have multiple active links for a study, **When** I view the study details, **Then** I see a list of all active interview links with creation dates
+1. **Given** I have a study with an interview guide, **When** I view study settings, **Then** I see a reusable link template I can copy: `https://verity.com/study/{slug}/start?pid={{PARTICIPANT_ID}}`
+2. **Given** I share the link with a participant (with or without pid), **When** they access it, **Then** Verity creates an interview on-the-fly and redirects to pipecat
+3. **Given** I use the link for recruitment platforms, **When** I provide the template to Prolific/Respondent, **Then** they can substitute their participant IDs and send participants to my study
 
 ---
 
@@ -190,20 +192,20 @@ As a signed-in participant, I view my complete participation history across all 
 - What happens when storage paths in completion callback reference missing files?
   - **Handling**: Verity marks interview as "completion_pending"; logs error with storage path for debugging; provides admin interface to verify storage and update paths; researcher sees "artifacts pending" status until resolved
 
-- What happens when a researcher deletes a study that has pending interview links?
-  - **Handling**: Interview links become invalid; participants see "This study is no longer available" message from Verity (before redirect to pipecat)
+- What happens when a researcher deletes a study with a reusable link?
+  - **Handling**: Reusable study link becomes invalid; participants see "This study is no longer available" message from Verity (before redirect to pipecat)
 
 - How does the system handle participants navigating away mid-interview?
   - **Handling**: Pipecat-momtest handles this; on disconnect, saves recording/transcript and sends completion callback to Verity; partial interviews are stored as completed
 
 - What happens when pipecat-momtest is unavailable (deployment down)?
-  - **Handling**: Verity redirect fails; participant sees browser error; no graceful degradation in MVP; researcher can regenerate links once pipecat is back online
+  - **Handling**: Verity redirect fails; participant sees browser error; no graceful degradation in MVP; reusable study link remains accessible once pipecat is back online
 
 - What happens when multiple researchers from the same organization try to view the same interview simultaneously?
   - **Handling**: Standard concurrent read access; no locking needed for viewing
 
-- How does the system handle interview links shared on social media or public forums?
-  - **Handling**: Links work for anyone with the URL; no additional restrictions in MVP; one-time use per link (marked complete after first session); rate limiting may be added later
+- How does the system handle reusable study links shared on social media or public forums?
+  - **Handling**: Links work for anyone with the URL; no additional restrictions in MVP; when pid absent, each access creates new interview (no deduplication); rate limiting may be added later
 
 - What happens when the same external participant ID accesses a reusable study link multiple times?
   - **Handling**: First access creates interview and redirects; subsequent accesses show "Interview already completed" (deduplication by external_participant_id + study_id)
@@ -278,11 +280,11 @@ The **interactive interview component** (pipecat-momtest: https://github.com/tin
 ### Integration Flow
 
 ```
-1. Researcher generates interview link in Verity
-   └─> Verity creates Interview record with access_token
+1. Participant accesses reusable study link (with or without pid)
+   └─> Verity creates Interview record on-the-fly with access_token
 
-2. Participant clicks link
-   └─> Verity redirects to: https://interview.verity.com?token={access_token}
+2. Verity redirects to pipecat
+   └─> Redirect URL: https://interview.verity.com?token={access_token}
 
 3. Pipecat-momtest fetches interview data
    └─> GET https://api.verity.com/interview/{access_token}
@@ -412,100 +414,89 @@ The **interactive interview component** (pipecat-momtest: https://github.com/tin
 
 ### Functional Requirements
 
-**Link Generation & Management**
-
-- **FR-001**: Researchers MUST be able to generate unique interview links for any study they have access to
-- **FR-002**: Each interview link MUST contain a unique access token that cannot be guessed or enumerated
-- **FR-003**: Researchers MUST be able to view all active interview links for their studies
-- **FR-004**: System MUST display when each interview link was created and by whom
-- **FR-005**: Researchers MUST be able to deactivate an interview link without deleting the interview data
-
 **Participant Access**
 
-- **FR-006**: Participants MUST be able to access an interview using only the unique link (no authentication required)
-- **FR-007**: System MUST display the study title and full interview guide when a participant accesses a valid link
-- **FR-008**: System MUST show a clear error message when an interview link is invalid, expired, or deactivated
-- **FR-009**: System MUST prevent access to interview links from studies that have been deleted
+- **FR-001**: Participants MUST be able to access an interview using only the reusable study link (no authentication required)
+- **FR-002**: System MUST display reusable study link template in study settings for researchers to copy
+- **FR-003**: System MUST show a clear error message when a study link is invalid or study has been deleted
+- **FR-004**: System MUST prevent access to interviews from studies that have been deleted
 
 **Interview Completion (via Pipecat-momtest Callback)**
 
-- **FR-010**: System MUST accept completion callbacks from pipecat-momtest containing storage paths, streaming transcript, and completion timestamp
-- **FR-011**: System MUST validate access tokens in completion callbacks match existing pending interviews
-- **FR-012**: System MUST prevent duplicate interview access after completion (show "already completed" message)
-- **FR-013**: System MUST handle idempotent completion callbacks gracefully (no errors on retry)
-- **FR-014**: System MUST store the completion timestamp when receiving completion callback from pipecat-momtest
+- **FR-005**: System MUST accept completion callbacks from pipecat-momtest containing storage paths, streaming transcript, and completion timestamp
+- **FR-006**: System MUST validate access tokens in completion callbacks match existing pending interviews
+- **FR-007**: System MUST prevent duplicate interview access after completion (show "already completed" message)
+- **FR-008**: System MUST handle idempotent completion callbacks gracefully (no errors on retry)
+- **FR-009**: System MUST store the completion timestamp when receiving completion callback from pipecat-momtest
 
 **Artifact Management (Transcripts & Recordings)**
 
-- **FR-015**: System MUST store artifact storage path references (GCS paths) provided in completion callback
-- **FR-016**: System MUST store streaming transcript from completion callback for immediate researcher viewing
-- **FR-017**: Researchers MUST be able to view streaming transcripts inline and download audio recordings via authenticated API endpoints that proxy artifacts from shared storage (e.g., `GET /api/orgs/{org_id}/interviews/{interview_id}/audio`)
-- **FR-018**: System MUST generate batch transcript from stored audio asynchronously (source of truth, higher accuracy than streaming transcript)
+- **FR-010**: System MUST store artifact storage path references (GCS paths) provided in completion callback
+- **FR-011**: System MUST store streaming transcript from completion callback for immediate researcher viewing
+- **FR-012**: Researchers MUST be able to view streaming transcripts inline and download audio recordings via authenticated API endpoints that proxy artifacts from shared storage (e.g., `GET /api/orgs/{org_id}/interviews/{interview_id}/audio`)
+- **FR-013**: System MUST generate batch transcript from stored audio asynchronously (source of truth, higher accuracy than streaming transcript)
 
 **Interview Tracking**
 
-- **FR-019**: Researchers MUST be able to view a list of all interviews (pending and completed) for their studies
-- **FR-020**: System MUST display interview status (pending, completed, completion_pending) and completion date if applicable
-- **FR-021**: System MUST show which interview link was used to access each interview
-- **FR-022**: System MUST display transcript content inline for completed interviews
-- **FR-023**: System MUST provide authenticated API endpoints for downloading audio recordings from completed interviews (backend proxies from GCS)
+- **FR-014**: Researchers MUST be able to view a list of all interviews (pending and completed) for their studies
+- **FR-015**: System MUST display interview status (pending, completed, completion_pending) and completion date if applicable
+- **FR-016**: System MUST display transcript content inline for completed interviews
+- **FR-017**: System MUST provide authenticated API endpoints for downloading audio recordings from completed interviews (backend proxies from GCS)
 
 **Optional Participant Sign-In**
 
-- **FR-024**: Participants MAY optionally sign in to associate an interview with their account
-- **FR-025**: Participants who sign in MUST be able to view their participation history across all studies
-- **FR-026**: System MUST allow participants to claim previously completed anonymous interviews after signing in
+- **FR-018**: Participants MAY optionally sign in to associate an interview with their account
+- **FR-019**: Participants who sign in MUST be able to view their participation history across all studies
+- **FR-020**: System MUST allow participants to claim previously completed anonymous interviews after signing in
 
 **Security & Privacy**
 
-- **FR-027**: System MUST enforce multi-tenancy: researchers can only view interviews for studies within their organization
-- **FR-028**: System MUST NOT expose participant identity unless they explicitly sign in
-- **FR-029**: Interview links MUST be accessible over HTTPS only (no unencrypted access)
+- **FR-021**: System MUST enforce multi-tenancy: researchers can only view interviews for studies within their organization
+- **FR-022**: System MUST NOT expose participant identity unless they explicitly sign in
+- **FR-023**: Interview links MUST be accessible over HTTPS only (no unencrypted access)
 
 **Integration Requirements (Pipecat-momtest)**
 
-- **FR-030**: System MUST provide public `GET /interview/{access_token}` endpoint that returns study title and interview guide content (no authentication required)
-- **FR-031**: System MUST provide public `POST /interview/{access_token}/complete` endpoint that accepts completion callback with storage paths and streaming transcript
-- **FR-032**: System MUST accept GCS storage path format (`gs://bucket/path`) in completion callback for audio artifacts
-- **FR-033**: System MUST mark interviews as completed and store completion timestamp when receiving completion callback (covered by FR-014)
-- **FR-034**: Generated interview links MUST redirect to pipecat-momtest with access token as query parameter (e.g., `{PIPECAT_BASE_URL}?token={access_token}`)
-- **FR-035**: System MUST support CORS on public interview endpoints to allow cross-origin requests from pipecat-momtest application
-- **FR-036**: System MUST reference artifacts in shared storage via path (no download or copy needed)
+- **FR-024**: System MUST provide public `GET /interview/{access_token}` endpoint that returns study title and interview guide content (no authentication required)
+- **FR-025**: System MUST provide public `POST /interview/{access_token}/complete` endpoint that accepts completion callback with storage paths and streaming transcript
+- **FR-026**: System MUST accept GCS storage path format (`gs://bucket/path`) in completion callback for audio artifacts
+- **FR-027**: System MUST mark interviews as completed and store completion timestamp when receiving completion callback (covered by FR-009)
+- **FR-028**: On-the-fly created interviews MUST redirect to pipecat-momtest with access token as query parameter (e.g., `{PIPECAT_BASE_URL}?token={access_token}`)
+- **FR-029**: System MUST support CORS on public interview endpoints to allow cross-origin requests from pipecat-momtest application
+- **FR-030**: System MUST reference artifacts in shared storage via path (no download or copy needed)
 
 **Recruitment Platform Integration**
 
-- **FR-037**: System MUST provide reusable study links using study slug format: `https://verity.com/study/{slug}/start?pid={{PARTICIPANT_ID}}`
-- **FR-038**: System MUST create Interview records on-the-fly when reusable study links are accessed (with or without pid parameter)
-- **FR-039**: System MUST store external_participant_id from pid query parameter when present (nullable if pid absent)
-- **FR-040**: System MUST prevent duplicate interviews for the same external_participant_id + study_id combination when pid is present (show "already completed" message)
-- **FR-041**: System MUST display pre-interview interstitial based on study's participant_identity_flow setting and pid presence:
+- **FR-031**: System MUST provide reusable study links using study slug format: `https://verity.com/study/{slug}/start?pid={{PARTICIPANT_ID}}`
+- **FR-032**: System MUST create Interview records on-the-fly when reusable study links are accessed (with or without pid parameter)
+- **FR-033**: System MUST store external_participant_id from pid query parameter when present (nullable if pid absent)
+- **FR-034**: System MUST prevent duplicate interviews for the same external_participant_id + study_id combination when pid is present (show "already completed" message)
+- **FR-035**: System MUST display pre-interview interstitial based on study's participant_identity_flow setting and pid presence:
   - When pid present (recruitment platform): Skip interstitial, redirect directly to interview (friction reduction)
   - When pid absent AND study setting is "allow_pre_signin" AND user not signed in: Show interstitial with "Continue as Guest" or "Sign In" options
   - Otherwise: Proceed directly to interview
 
 **Participant Identity & Sign-In**
 
-- **FR-042**: Participants MUST be able to optionally sign in before starting an interview (pre-interview sign-in)
-- **FR-043**: System MUST auto-link interviews to signed-in participants (populate verity_user_id on Interview creation)
-- **FR-044**: System MUST display sign-in/register option on interview completion page for anonymous participants
-- **FR-045**: System MUST allow claiming anonymous interviews by linking them to verity_user_id after authentication
-- **FR-046**: Interview records MUST store BOTH external_participant_id (from platform) AND verity_user_id (from sign-in) when available
-- **FR-047**: System MUST support cross-platform identity reconciliation (same verity_user_id across different external_participant_ids)
-- **FR-048**: Signed-in participants MUST be able to view complete participation history across all platforms and studies
-- **FR-049**: Participation dashboard MUST display platform source for each interview (e.g., "Prolific", "Respondent", "Direct")
-- **FR-050**: System MUST aggregate participation statistics across all platforms for signed-in users
+- **FR-036**: Participants MUST be able to optionally sign in before starting an interview (pre-interview sign-in)
+- **FR-037**: System MUST auto-link interviews to signed-in participants (populate verity_user_id on Interview creation)
+- **FR-038**: System MUST display sign-in/register option on interview completion page for anonymous participants
+- **FR-039**: System MUST allow claiming anonymous interviews by linking them to verity_user_id after authentication
+- **FR-040**: Interview records MUST store BOTH external_participant_id (from platform) AND verity_user_id (from sign-in) when available
+- **FR-041**: System MUST support cross-platform identity reconciliation (same verity_user_id across different external_participant_ids)
+- **FR-042**: Signed-in participants MUST be able to view complete participation history across all platforms and studies
+- **FR-043**: Participation dashboard MUST display platform source for each interview (e.g., "Prolific", "Respondent", "Direct")
+- **FR-044**: System MUST aggregate participation statistics across all platforms for signed-in users
 
 **Study Configuration**
 
-- **FR-051**: Study MUST have configurable participant_identity_flow setting with values: "anonymous" (no identity tracking), "claim_after" (post-interview claim available), or "allow_pre_signin" (pre-interview sign-in for direct links only)
+- **FR-045**: Study MUST have configurable participant_identity_flow setting with values: "anonymous" (no identity tracking), "claim_after" (post-interview claim available), or "allow_pre_signin" (pre-interview sign-in for direct links only)
 
 ### Key Entities
 
-- **Study**: Represents a research study with interview guide. Contains title, unique slug (for reusable links), interview guide content (markdown), participant_identity_flow setting (anonymous/claim_after/allow_pre_signin). Belongs to one Organization. Has many Interviews and Share Links.
+- **Study**: Represents a research study with interview guide. Contains title, unique slug (for reusable links), interview guide content (markdown), participant_identity_flow setting (anonymous/claim_after/allow_pre_signin). Belongs to one Organization. Has many Interviews.
 
-- **Interview**: Represents a single participant's response session for a study. Contains access token, status (pending/completed/completion_pending), completion timestamp, pipecat session ID, external_participant_id (from recruitment platform, nullable), verity_user_id (from sign-in, nullable), source platform identifier, and optional metadata. Linked to exactly one Study. Can have both external_participant_id AND verity_user_id for cross-platform identity reconciliation.
-
-- **Share Link**: A generated unique URL for accessing a study's interview. Contains creation timestamp, creator identifier, active/deactivated status, and generation method (manual, API). Multiple share links can exist for one Study. Used for pre-generated interview links via UI or API.
+- **Interview**: Represents a single participant's response session for a study. Contains access token, status (pending/completed/completion_pending), completion timestamp, pipecat session ID, external_participant_id (from recruitment platform, nullable), verity_user_id (from sign-in, nullable), source platform identifier, and optional metadata. Linked to exactly one Study. Created on-the-fly when participants access reusable study links. Can have both external_participant_id AND verity_user_id for cross-platform identity reconciliation.
 
 - **Transcript**: Text artifact from a completed interview showing conversation between participant and AI interviewer. Two types: (1) **Streaming transcript** from pipecat (real-time, lower accuracy, immediate availability) stored directly in database; (2) **Batch transcript** generated from audio (higher accuracy, source of truth) created asynchronously. Linked to exactly one Interview.
 
@@ -519,7 +510,7 @@ The **interactive interview component** (pipecat-momtest: https://github.com/tin
 
 ### Measurable Outcomes
 
-- **SC-001**: Researchers can generate an interview link and copy it to their clipboard in under 10 seconds
+- **SC-001**: Researchers can copy the reusable study link template to their clipboard in under 5 seconds
 - **SC-002**: Participants can access an interview within 5 seconds of clicking a link (no authentication delays, no authentication required)
 - **SC-003**: Participants can complete interviews automatically without manual upload steps (pipecat handles recording/transcript)
 - **SC-004**: Researchers can view all completed interviews for a study and access recordings within 3 clicks
@@ -533,7 +524,8 @@ The **interactive interview component** (pipecat-momtest: https://github.com/tin
 
 ### In Scope
 
-- Link generation and basic management (manual UI, reusable study links)
+- Reusable study link template display (copy from study settings)
+- On-the-fly interview creation when participants access reusable links
 - Public access to interviews via unique tokens (no authentication required)
 - Pipecat-momtest integration (callback-based completion, shared storage)
 - Interview submission and status tracking (pending, completed, completion_pending)
@@ -552,9 +544,9 @@ The **interactive interview component** (pipecat-momtest: https://github.com/tin
 - Real-time transcript display during interview - handled by separate component
 
 **Deferred to Future Iterations**:
+- Pre-generated interview links with individual link management (ShareLink entity, link generation UI, deactivation, campaign tracking)
 - Webhook integration for recruitment platforms (completion notifications with HMAC signatures)
 - Link expiration dates and auto-deactivation
-- Bulk link generation UI (API supports it, but no batch UI)
 - Live interview progress tracking from Verity dashboard (real-time status updates)
 - Multi-file uploads per interview (single transcript + audio only)
 - Advanced analytics (completion rates, drop-off analysis, platform comparison)
@@ -572,7 +564,6 @@ The **interactive interview component** (pipecat-momtest: https://github.com/tin
 - Only audio file formats supported (WebM from pipecat, no video)
 - Two transcripts per interview: streaming (immediate, lower accuracy) and batch (async, source of truth)
 - One audio recording per interview (no multi-part submissions in MVP)
-- Interview links cannot be edited after creation (must deactivate and create new)
 - Reusable study links require study to have a unique slug (auto-generated from title)
 - External participant IDs are not validated (trusted recruitment platforms assumption)
 - Shared GCS bucket requires IAC configuration granting access to both Verity and pipecat service accounts
