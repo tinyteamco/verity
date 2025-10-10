@@ -35,23 +35,24 @@
 
 **Content Quality**: Specification focuses on user needs and business value. No technical implementation details (frameworks, databases, etc.). Written in plain language suitable for stakeholders.
 
-**Requirements**: 45 functional requirements (FR-001 through FR-045), all testable and unambiguous. No [NEEDS CLARIFICATION] markers - all decisions made using industry standards, existing backend implementation, pipecat-momtest codebase analysis, and recruitment platform integration patterns.
+**Requirements**: 46 functional requirements (FR-001 through FR-046), all testable and unambiguous. No [NEEDS CLARIFICATION] markers - all decisions made using industry standards, existing backend implementation, pipecat-momtest codebase analysis, and recruitment platform integration patterns.
 
 Requirement categories:
-- Participant Access (Reusable Links): FR-001 to FR-004 (4 requirements)
-- Interview Completion (Callback): FR-005 to FR-009 (5 requirements)
-- Artifact Management: FR-010 to FR-013 (4 requirements)
-- Interview Tracking: FR-014 to FR-017 (4 requirements)
-- Optional Participant Sign-In: FR-018 to FR-020 (3 requirements)
-- Security & Privacy: FR-021 to FR-023 (3 requirements)
-- Pipecat Integration: FR-024 to FR-030 (7 requirements)
-- Recruitment Platform (On-the-Fly): FR-031 to FR-035 (5 requirements)
-- Participant Identity & Sign-In: FR-036 to FR-045 (10 requirements)
+- Infrastructure: FR-001 (1 requirement - shared GCS bucket via Pulumi)
+- Participant Access (Reusable Links): FR-002 to FR-005 (4 requirements)
+- Interview Completion (Callback): FR-006 to FR-010 (5 requirements)
+- Artifact Management: FR-011 to FR-014 (4 requirements)
+- Interview Tracking: FR-015 to FR-018 (4 requirements)
+- Optional Participant Sign-In: FR-019 to FR-021 (3 requirements)
+- Security & Privacy: FR-022 to FR-024 (3 requirements)
+- Pipecat Integration: FR-025 to FR-031 (7 requirements)
+- Recruitment Platform (On-the-Fly): FR-032 to FR-036 (5 requirements)
+- Participant Identity & Sign-In: FR-037 to FR-046 (10 requirements)
 
-**Success Criteria**: 10 measurable criteria, all technology-agnostic:
-- Time-based (10 seconds, 5 seconds, 3 clicks, under 2 seconds API, under 30 seconds claim)
-- Performance-based (95% success rate, automatic completion)
-- Outcome-based (completion rate improvement, on-the-fly creation, cross-platform dashboard)
+**Success Criteria**: 3 core measurable outcomes (removed speculative timing targets and aspirational metrics):
+- Automatic artifact upload (proves pipecat integration works)
+- Researchers can view artifacts (proves results collection works)
+- On-the-fly interview creation (proves architecture works)
 
 **Acceptance Scenarios**: 9 user stories with complete Given/When/Then scenarios. Each story is independently testable and prioritized (P1-P3).
 - US1-US4: Core interview flow (P1-P2)
@@ -62,7 +63,9 @@ Requirement categories:
 
 **Scope**: Clear boundaries between in-scope (MVP) and out-of-scope (future) features. Constraints explicitly documented. Webhooks deferred to post-MVP (YAGNI).
 
-**Dependencies**: 4 dependencies identified (Study Management with slugs, Firebase Auth, Shared Object Storage, Pipecat-momtest). 6 reasonable assumptions documented (includes recruitment platform trust model, external ID uniqueness, pipecat callback reachability).
+**Dependencies**: 3 dependencies identified (Study Management with slugs, Firebase Auth, Pipecat-momtest). 5 reasonable assumptions documented (includes recruitment platform trust model, external ID uniqueness, pipecat callback reachability).
+
+**Infrastructure**: Shared GCS bucket now in-scope (created via Pulumi IAC in this repo), not a dependency.
 
 ## Notes
 
@@ -101,6 +104,10 @@ No clarifications needed - all critical decisions were made based on:
 - Participant profile dashboard (view history across platforms)
 
 **Required Changes**:
+- **Infrastructure (Pulumi)**:
+  - Create shared GCS bucket for interview artifacts
+  - Configure IAM permissions: Verity service account (read/write) + Pipecat service account (read/write)
+
 - **Verity Backend**:
   - Add `GET /interview/{token}` (public) - pipecat data fetch
   - Add `POST /interview/{token}/complete` (callback) - pipecat completion
@@ -123,7 +130,8 @@ No clarifications needed - all critical decisions were made based on:
   - Support Verity access tokens in WebSocket flow
 
 The backend already has most required endpoints per the OpenAPI spec, so implementation will primarily focus on:
-1. Frontend UI for all new flows (reusable link template, dashboards, sign-in)
-2. Integration orchestration (redirects, callbacks)
-3. Participant identity system (VerityUser, claim flow)
-4. On-the-fly interview creation from reusable links
+1. Infrastructure setup (shared GCS bucket with IAM via Pulumi)
+2. Frontend UI for all new flows (reusable link template, dashboards, sign-in)
+3. Integration orchestration (redirects, callbacks)
+4. Participant identity system (VerityUser, claim flow)
+5. On-the-fly interview creation from reusable links
