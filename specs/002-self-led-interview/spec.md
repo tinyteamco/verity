@@ -105,7 +105,6 @@ As a researcher, I view all interview submissions for my study so I can track pa
 
 1. **Given** I have a study with completed interviews, **When** I navigate to the study details page, **Then** I see a list of all interviews with their completion status and completion timestamp
 2. **Given** an interview has artifacts, **When** I click on the interview, **Then** I can view the transcript inline and download the audio file
-3. **Given** I have both completed and pending interviews, **When** I view the interview list, **Then** I can filter by status (completed/pending)
 
 ---
 
@@ -483,63 +482,62 @@ The **interactive interview component** (pipecat-momtest: https://github.com/tin
 
 - **FR-019**: Researchers MUST be able to view a list of all interviews (pending and completed) for their studies
 - **FR-020**: System MUST display interview status (pending, completed, completion_pending) and completion date if applicable
-- **FR-021**: Researchers MUST be able to filter interviews by status
-- **FR-022**: System MUST show which interview link was used to access each interview
-- **FR-023**: System MUST display transcript content inline for completed interviews
-- **FR-024**: System MUST provide authenticated API endpoints for downloading audio recordings from completed interviews (backend proxies from GCS)
+- **FR-021**: System MUST show which interview link was used to access each interview
+- **FR-022**: System MUST display transcript content inline for completed interviews
+- **FR-023**: System MUST provide authenticated API endpoints for downloading audio recordings from completed interviews (backend proxies from GCS)
 
 **Optional Participant Sign-In**
 
-- **FR-025**: Participants MAY optionally sign in to associate an interview with their account
-- **FR-026**: Participants who sign in MUST be able to view their participation history across all studies
-- **FR-027**: System MUST allow participants to claim previously completed anonymous interviews after signing in
+- **FR-024**: Participants MAY optionally sign in to associate an interview with their account
+- **FR-025**: Participants who sign in MUST be able to view their participation history across all studies
+- **FR-026**: System MUST allow participants to claim previously completed anonymous interviews after signing in
 
 **Security & Privacy**
 
-- **FR-028**: System MUST enforce multi-tenancy: researchers can only view interviews for studies within their organization
-- **FR-029**: System MUST NOT expose participant identity unless they explicitly sign in
-- **FR-030**: Interview links MUST be accessible over HTTPS only (no unencrypted access)
+- **FR-027**: System MUST enforce multi-tenancy: researchers can only view interviews for studies within their organization
+- **FR-028**: System MUST NOT expose participant identity unless they explicitly sign in
+- **FR-029**: Interview links MUST be accessible over HTTPS only (no unencrypted access)
 
 **Integration Requirements (Pipecat-momtest)**
 
-- **FR-031**: System MUST provide public `GET /interview/{access_token}` endpoint that returns study title and interview guide content (no authentication required)
-- **FR-032**: System MUST provide public `POST /interview/{access_token}/complete` endpoint that accepts completion callback with storage paths and streaming transcript
-- **FR-033**: System MUST accept GCS storage path format (`gs://bucket/path`) in completion callback for audio artifacts
-- **FR-034**: System MUST mark interviews as completed and store completion timestamp when receiving completion callback (covered by FR-014)
-- **FR-035**: Generated interview links MUST redirect to pipecat-momtest with access token as query parameter (e.g., `{PIPECAT_BASE_URL}?token={access_token}`)
-- **FR-036**: System MUST support CORS on public interview endpoints to allow cross-origin requests from pipecat-momtest application
-- **FR-037**: System MUST reference artifacts in shared storage via path (no download or copy needed)
+- **FR-030**: System MUST provide public `GET /interview/{access_token}` endpoint that returns study title and interview guide content (no authentication required)
+- **FR-031**: System MUST provide public `POST /interview/{access_token}/complete` endpoint that accepts completion callback with storage paths and streaming transcript
+- **FR-032**: System MUST accept GCS storage path format (`gs://bucket/path`) in completion callback for audio artifacts
+- **FR-033**: System MUST mark interviews as completed and store completion timestamp when receiving completion callback (covered by FR-014)
+- **FR-034**: Generated interview links MUST redirect to pipecat-momtest with access token as query parameter (e.g., `{PIPECAT_BASE_URL}?token={access_token}`)
+- **FR-035**: System MUST support CORS on public interview endpoints to allow cross-origin requests from pipecat-momtest application
+- **FR-036**: System MUST reference artifacts in shared storage via path (no download or copy needed)
 
 **Recruitment Platform Integration**
 
-- **FR-038**: System MUST provide reusable study links using study slug format: `https://verity.com/study/{slug}/start?pid={{PARTICIPANT_ID}}`
-- **FR-039**: System MUST create Interview records on-the-fly when reusable study links are accessed (with or without pid parameter)
-- **FR-040**: System MUST store external_participant_id from pid query parameter when present (nullable if pid absent)
-- **FR-041**: System MUST prevent duplicate interviews for the same external_participant_id + study_id combination when pid is present (show "already completed" message)
-- **FR-042**: System MUST display pre-interview interstitial based on study's participant_identity_flow setting and pid presence:
+- **FR-037**: System MUST provide reusable study links using study slug format: `https://verity.com/study/{slug}/start?pid={{PARTICIPANT_ID}}`
+- **FR-038**: System MUST create Interview records on-the-fly when reusable study links are accessed (with or without pid parameter)
+- **FR-039**: System MUST store external_participant_id from pid query parameter when present (nullable if pid absent)
+- **FR-040**: System MUST prevent duplicate interviews for the same external_participant_id + study_id combination when pid is present (show "already completed" message)
+- **FR-041**: System MUST display pre-interview interstitial based on study's participant_identity_flow setting and pid presence:
   - When pid present (recruitment platform): Skip interstitial, redirect directly to interview (friction reduction)
   - When pid absent AND study setting is "allow_pre_signin" AND user not signed in: Show interstitial with "Continue as Guest" or "Sign In" options
   - Otherwise: Proceed directly to interview
-- **FR-043**: System MUST support webhook configuration per study (webhook_url, webhook_secret, events)
-- **FR-044**: System MUST send completion webhooks to configured URLs with HMAC signature verification
-- **FR-045**: System MUST retry failed webhooks with exponential backoff (3 attempts: immediate, 5min, 1hr)
-- **FR-046**: System MUST log webhook delivery status and provide admin interface for manual retry
+- **FR-042**: System MUST support webhook configuration per study (webhook_url, webhook_secret, events)
+- **FR-043**: System MUST send completion webhooks to configured URLs with HMAC signature verification
+- **FR-044**: System MUST retry failed webhooks with exponential backoff (3 attempts: immediate, 5min, 1hr)
+- **FR-045**: System MUST log webhook delivery status and provide admin interface for manual retry
 
 **Participant Identity & Sign-In**
 
-- **FR-047**: Participants MUST be able to optionally sign in before starting an interview (pre-interview sign-in)
-- **FR-048**: System MUST auto-link interviews to signed-in participants (populate verity_user_id on Interview creation)
-- **FR-049**: System MUST display sign-in/register option on interview completion page for anonymous participants
-- **FR-050**: System MUST allow claiming anonymous interviews by linking them to verity_user_id after authentication
-- **FR-051**: Interview records MUST store BOTH external_participant_id (from platform) AND verity_user_id (from sign-in) when available
-- **FR-052**: System MUST support cross-platform identity reconciliation (same verity_user_id across different external_participant_ids)
-- **FR-053**: Signed-in participants MUST be able to view complete participation history across all platforms and studies
-- **FR-054**: Participation dashboard MUST display platform source for each interview (e.g., "Prolific", "Respondent", "Direct")
-- **FR-055**: System MUST aggregate participation statistics across all platforms for signed-in users
+- **FR-046**: Participants MUST be able to optionally sign in before starting an interview (pre-interview sign-in)
+- **FR-047**: System MUST auto-link interviews to signed-in participants (populate verity_user_id on Interview creation)
+- **FR-048**: System MUST display sign-in/register option on interview completion page for anonymous participants
+- **FR-049**: System MUST allow claiming anonymous interviews by linking them to verity_user_id after authentication
+- **FR-050**: Interview records MUST store BOTH external_participant_id (from platform) AND verity_user_id (from sign-in) when available
+- **FR-051**: System MUST support cross-platform identity reconciliation (same verity_user_id across different external_participant_ids)
+- **FR-052**: Signed-in participants MUST be able to view complete participation history across all platforms and studies
+- **FR-053**: Participation dashboard MUST display platform source for each interview (e.g., "Prolific", "Respondent", "Direct")
+- **FR-054**: System MUST aggregate participation statistics across all platforms for signed-in users
 
 **Study Configuration**
 
-- **FR-056**: Study MUST have configurable participant_identity_flow setting with values: "anonymous" (no identity tracking), "claim_after" (post-interview claim available), or "allow_pre_signin" (pre-interview sign-in for direct links only)
+- **FR-055**: Study MUST have configurable participant_identity_flow setting with values: "anonymous" (no identity tracking), "claim_after" (post-interview claim available), or "allow_pre_signin" (pre-interview sign-in for direct links only)
 
 ### Key Entities
 
