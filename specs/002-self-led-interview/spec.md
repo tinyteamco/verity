@@ -15,6 +15,8 @@
 
 - **Q: How does pipecat avoid App Engine timeouts during finalization?** → **A: Background task (out of scope for Verity)**. Pipecat returns 200 immediately on disconnect, then finalizes WebM container and uploads to shared storage in background task. Completion callback sent to Verity after upload completes. This is a pipecat implementation detail not affecting Verity's interface contract.
 
+- **Q: Should we support both reusable links AND programmatic API for recruitment platforms?** → **A: Reusable links only (YAGNI)**. Reusable link pattern handles all identified use cases: on-the-fly interview creation, participant tracking, deduplication. Programmatic API deferred until real requirement emerges. Can add later if needed.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Generate and Share Interview Link (Priority: P1)
@@ -118,24 +120,7 @@ As a researcher, I generate a reusable study link with a readable slug that recr
 
 ---
 
-### User Story 6 - API for Programmatic Interview Link Generation (Priority: P2)
-
-As an external recruitment platform, I programmatically generate interview links via API when I have a confirmed participant so I can control distribution timing and track individual assignments.
-
-**Why this priority**: Required for platforms that manage scheduling (Respondent.io, UserInterviews) and need to generate links on-demand when sessions are booked. Enables quota management and advanced tracking.
-
-**Independent Test**: Call the API with valid credentials and participant metadata, receive a unique interview URL, and verify the participant can access it. Delivers value for platforms with complex scheduling needs.
-
-**Acceptance Scenarios**:
-
-1. **Given** I have Verity API credentials, **When** I POST to `/api/orgs/{org_id}/studies/{study_id}/interviews` with external_participant_id, **Then** I receive a unique interview URL
-2. **Given** I have generated a link via API, **When** the participant completes the interview, **Then** I receive a webhook notification with the external_participant_id I provided
-3. **Given** I generate multiple links for the same study, **When** I list interviews via API, **Then** I see all generated links with their status and external IDs
-4. **Given** a link is generated but never used, **When** I check its status, **Then** it shows as "pending" with no completion data
-
----
-
-### User Story 7 - Pre-Interview Optional Sign-In (Priority: P2)
+### User Story 6 - Pre-Interview Optional Sign-In (Priority: P2)
 
 As a participant, I have the option to sign in before starting an interview so my participation is automatically tracked across all platforms without needing to claim it afterward.
 
@@ -152,7 +137,7 @@ As a participant, I have the option to sign in before starting an interview so m
 
 ---
 
-### User Story 8 - Post-Interview Claim and Cross-Platform Identity (Priority: P3)
+### User Story 7 - Post-Interview Claim and Cross-Platform Identity (Priority: P3)
 
 As a participant, I can sign in after completing anonymous interviews to claim them and view my complete participation history across all platforms (Prolific, Respondent, direct links) in one dashboard.
 
@@ -169,7 +154,7 @@ As a participant, I can sign in after completing anonymous interviews to claim t
 
 ---
 
-### User Story 9 - Participant Profile Dashboard (Priority: P3)
+### User Story 8 - Participant Profile Dashboard (Priority: P3)
 
 As a signed-in participant, I view my complete participation history across all studies and platforms so I can track my contributions and understand my involvement.
 
@@ -221,9 +206,6 @@ As a signed-in participant, I view my complete participation history across all 
 - What happens when a signed-in participant accesses a link with an external_id?
   - **Handling**: Interview is linked to both verity_user_id AND external_participant_id; enables cross-platform identity reconciliation
 
-- How does the system handle API rate limiting for programmatic link generation?
-  - **Handling**: Standard API rate limits apply (per organization); prevents abuse while allowing legitimate bulk operations; exact limits TBD based on usage patterns
-
 - What happens when a recruitment platform webhook endpoint is unreachable?
   - **Handling**: Retry with exponential backoff (3 attempts over 1 hour); log failure; provide admin interface to manually retry; interview completion proceeds regardless of webhook success
 
@@ -235,13 +217,9 @@ This feature supports two primary integration patterns:
 1. **Pipecat-momtest Integration**: Live interview execution (separate application)
 2. **Recruitment Platform Integration**: Participant sourcing via external platforms
 
-### Recruitment Platform Integration Patterns
+### Recruitment Platform Integration
 
-External recruitment platforms (Prolific, UserTesting, Respondent.io, UserInterviews) integrate with Verity to send participants to studies. Verity supports two patterns based on platform capabilities:
-
-#### Pattern 1: Reusable Study Link (URL Substitution)
-
-**Best for**: Platforms that manage participant distribution via URL redirection (Prolific, UserTesting)
+External recruitment platforms (Prolific, UserTesting, Respondent.io, UserInterviews) integrate with Verity using **reusable study links**.
 
 **How it works**:
 ```
@@ -267,57 +245,11 @@ External recruitment platforms (Prolific, UserTesting, Respondent.io, UserInterv
 
 **Benefits**:
 - Simple integration (no API auth required)
-- Works with platforms that only support URL templates
+- Works with all major recruitment platforms
 - Readable, shareable URLs using study slug
+- On-the-fly interview creation (unlimited participants)
 
-#### Pattern 2: Programmatic API Link Generation
-
-**Best for**: Platforms that manage scheduling and need on-demand link generation (Respondent.io, UserInterviews)
-
-**How it works**:
-```
-1. Platform has Verity API credentials (org-level API key)
-
-2. When participant books session:
-   POST /api/orgs/{org_id}/studies/{study_id}/interviews
-   Authorization: Bearer {api_key}
-   Body: {
-     "external_participant_id": "respondent_user_456",
-     "metadata": {
-       "source": "respondent.io",
-       "session_id": "booking_xyz"
-     }
-   }
-
-3. Verity creates Interview record immediately:
-   Response: {
-     "interview_id": "uuid-123",
-     "interview_url": "https://verity.com/interview/{access_token}",
-     "created_at": "2025-10-10T18:00:00Z"
-   }
-
-4. Platform sends unique URL to participant via email/platform
-
-5. Participant completes → Pipecat callback → Verity
-
-6. Verity webhook to platform:
-   POST {platform_webhook_url}
-   Headers: X-Verity-Signature: {HMAC}
-   Body: {
-     "interview_id": "uuid-123",
-     "external_participant_id": "respondent_user_456",
-     "completed_at": "2025-10-10T19:00:00Z",
-     "metadata": {"session_id": "booking_xyz"}
-   }
-```
-
-**Benefits**:
-- Platform controls when links are generated
-- Supports quota management (max completions)
-- Enables pre-booking workflows
-- Rich metadata tracking
-
-#### Completion Webhooks (Optional)
+**Completion Webhooks (Optional)
 
 Platforms can register webhook URLs to receive completion notifications:
 
@@ -545,36 +477,29 @@ The **interactive interview component** (pipecat-momtest: https://github.com/tin
 - **FR-036**: System MUST support CORS on public interview endpoints to allow cross-origin requests from pipecat-momtest application
 - **FR-037**: System MUST reference artifacts in shared storage via path (no download or copy needed)
 
-**Recruitment Platform Integration (Reusable Links)**
+**Recruitment Platform Integration**
 
 - **FR-038**: System MUST provide reusable study links using study slug format: `https://verity.com/study/{slug}/start?pid={{PARTICIPANT_ID}}`
 - **FR-039**: System MUST create Interview records on-the-fly when reusable study links are accessed with external_participant_id
 - **FR-040**: System MUST store external_participant_id from query parameter when creating interviews via reusable links
 - **FR-041**: System MUST prevent duplicate interviews for the same external_participant_id + study_id combination (show "already completed" message)
 - **FR-042**: System MUST support optional interstitial page before interview showing "Continue as Guest" or "Sign In" options
-
-**Recruitment Platform Integration (API)**
-
-- **FR-043**: System MUST provide authenticated API endpoint `POST /api/orgs/{org_id}/studies/{study_id}/interviews` for programmatic interview link generation
-- **FR-044**: API MUST accept external_participant_id and optional metadata when generating interview links
-- **FR-045**: API MUST return unique interview URL and interview_id upon successful link generation
-- **FR-046**: System MUST enforce organization-level API rate limits for programmatic link generation
-- **FR-047**: System MUST support webhook configuration per study (webhook_url, webhook_secret, events)
-- **FR-048**: System MUST send completion webhooks to configured URLs with HMAC signature verification
-- **FR-049**: System MUST retry failed webhooks with exponential backoff (3 attempts: immediate, 5min, 1hr)
-- **FR-050**: System MUST log webhook delivery status and provide admin interface for manual retry
+- **FR-043**: System MUST support webhook configuration per study (webhook_url, webhook_secret, events)
+- **FR-044**: System MUST send completion webhooks to configured URLs with HMAC signature verification
+- **FR-045**: System MUST retry failed webhooks with exponential backoff (3 attempts: immediate, 5min, 1hr)
+- **FR-046**: System MUST log webhook delivery status and provide admin interface for manual retry
 
 **Participant Identity & Sign-In**
 
-- **FR-051**: Participants MUST be able to optionally sign in before starting an interview (pre-interview sign-in)
-- **FR-052**: System MUST auto-link interviews to signed-in participants (populate verity_user_id on Interview creation)
-- **FR-053**: System MUST display sign-in/register option on interview completion page for anonymous participants
-- **FR-054**: System MUST allow claiming anonymous interviews by linking them to verity_user_id after authentication
-- **FR-055**: Interview records MUST store BOTH external_participant_id (from platform) AND verity_user_id (from sign-in) when available
-- **FR-056**: System MUST support cross-platform identity reconciliation (same verity_user_id across different external_participant_ids)
-- **FR-057**: Signed-in participants MUST be able to view complete participation history across all platforms and studies
-- **FR-058**: Participation dashboard MUST display platform source for each interview (e.g., "Prolific", "Respondent", "Direct")
-- **FR-059**: System MUST aggregate participation statistics across all platforms for signed-in users
+- **FR-047**: Participants MUST be able to optionally sign in before starting an interview (pre-interview sign-in)
+- **FR-048**: System MUST auto-link interviews to signed-in participants (populate verity_user_id on Interview creation)
+- **FR-049**: System MUST display sign-in/register option on interview completion page for anonymous participants
+- **FR-050**: System MUST allow claiming anonymous interviews by linking them to verity_user_id after authentication
+- **FR-051**: Interview records MUST store BOTH external_participant_id (from platform) AND verity_user_id (from sign-in) when available
+- **FR-052**: System MUST support cross-platform identity reconciliation (same verity_user_id across different external_participant_ids)
+- **FR-053**: Signed-in participants MUST be able to view complete participation history across all platforms and studies
+- **FR-054**: Participation dashboard MUST display platform source for each interview (e.g., "Prolific", "Respondent", "Direct")
+- **FR-055**: System MUST aggregate participation statistics across all platforms for signed-in users
 
 ### Key Entities
 
@@ -602,21 +527,20 @@ The **interactive interview component** (pipecat-momtest: https://github.com/tin
 - **SC-004**: Researchers can view all completed interviews for a study and access recordings within 3 clicks
 - **SC-005**: 95% of interview link accesses successfully redirect to pipecat and load the interview
 - **SC-006**: Interview completion rate increases by measuring submissions vs. link accesses (baseline to be established)
-- **SC-007**: External recruitment platforms can generate interview links programmatically in under 2 seconds via API
-- **SC-008**: Reusable study links create interview records on-the-fly without pre-generation (unlimited participants per link)
-- **SC-009**: Participants can sign in and claim anonymous interviews in under 30 seconds
-- **SC-010**: Signed-in participants can view participation history across all platforms in a single dashboard
+- **SC-007**: Reusable study links create interview records on-the-fly without pre-generation (unlimited participants per link)
+- **SC-008**: Participants can sign in and claim anonymous interviews in under 30 seconds
+- **SC-009**: Signed-in participants can view participation history across all platforms in a single dashboard
 
 ## Scope & Constraints
 
 ### In Scope
 
-- Link generation and basic management (manual UI, API, reusable study links)
+- Link generation and basic management (manual UI, reusable study links)
 - Public access to interviews via unique tokens (no authentication required)
-- Pipecat-momtest integration (callback-based completion, artifact download)
+- Pipecat-momtest integration (callback-based completion, shared storage)
 - Interview submission and status tracking (pending, completed, completion_pending)
 - Interview list and detail views for researchers (transcripts inline, audio download)
-- Recruitment platform integration (reusable slug-based links, API, webhooks)
+- Recruitment platform integration (reusable slug-based links, optional webhooks)
 - External participant ID tracking (Prolific, Respondent, etc.)
 - Optional participant sign-in (pre-interview and post-interview claim)
 - Cross-platform identity reconciliation (verity_user_id links multiple external_ids)
@@ -652,7 +576,6 @@ The **interactive interview component** (pipecat-momtest: https://github.com/tin
 - Interview links cannot be edited after creation (must deactivate and create new)
 - Reusable study links require study to have a unique slug (auto-generated from title)
 - External participant IDs are not validated (trusted recruitment platforms assumption)
-- API rate limits apply per organization (exact limits TBD based on usage patterns)
 - Webhook retries limited to 3 attempts over 1 hour (after that, manual retry required)
 - Shared GCS bucket requires IAC configuration granting access to both Verity and pipecat service accounts
 
@@ -664,7 +587,6 @@ The **interactive interview component** (pipecat-momtest: https://github.com/tin
 - **Authentication System**: Firebase Auth for optional participant sign-in (VerityUser accounts) and researcher access control
 - **Shared Object Storage**: GCS bucket accessible by both Verity and pipecat-momtest service accounts (configured via IAC)
 - **Pipecat-momtest**: Separate application for conducting live interviews (https://github.com/tinyteamco/pipecat-momtest) - requires deployment, configuration to call Verity's completion callback, and access to shared GCS bucket
-- **Organization API Keys**: Required for programmatic interview link generation via external platforms
 
 ### Assumptions
 
