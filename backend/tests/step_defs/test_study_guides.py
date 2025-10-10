@@ -300,10 +300,6 @@ def check_200_status(response_data):
 
 @then("the response status is 201")
 def check_201_status(response_data):
-    if response_data["response"].status_code != 201:
-        # Print error details for debugging
-        print(f"Expected 201 but got {response_data['response'].status_code}")
-        print(f"Response body: {response_data['response'].text}")
     assert response_data["response"].status_code == 201
 
 

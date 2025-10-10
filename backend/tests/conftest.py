@@ -117,13 +117,10 @@ def llm_stub() -> Generator[int, None, None]:
         raise RuntimeError(f"LLM stub failed to start on port {stub_port}")
 
     # Set environment variables for pydantic-ai to use the stub
-    os.environ["ANTHROPIC_BASE_URL"] = f"http://localhost:{stub_port}/v1"
+    # Note: Don't include /v1 suffix - the stub endpoint is at /v1/messages
+    os.environ["ANTHROPIC_BASE_URL"] = f"http://localhost:{stub_port}"
     # Set a dummy API key (stub doesn't validate it but pydantic-ai requires one)
     os.environ["ANTHROPIC_API_KEY"] = "test-api-key"
-
-    print(f"\n[DEBUG] LLM Stub started on port {stub_port}")
-    print(f"[DEBUG] ANTHROPIC_BASE_URL={os.environ['ANTHROPIC_BASE_URL']}")
-    print(f"[DEBUG] ANTHROPIC_API_KEY={os.environ['ANTHROPIC_API_KEY']}")
 
     yield stub_port
 
