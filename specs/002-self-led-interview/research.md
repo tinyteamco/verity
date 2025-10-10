@@ -56,19 +56,20 @@ app.add_middleware(
 
 ### 1.3 Session Token Lifetime
 
-**Decision**: **24 hours (86400 seconds)**
+**Decision**: **7 days (604800 seconds)**
 
 **Rationale**:
 1. **Interview Duration**: Mom Test interviews are conversational and thorough (15-30 minutes typical, plus setup time)
 2. **No timeout in pipecat**: WebSocket stays open until client disconnects, no automatic disconnection after inactivity
 3. **Verity's Interview model**: `access_token` is UUID format (not time-limited JWT), single-use (once status is "completed", GET /interview/{access_token} returns 404)
-4. **Security considerations**: Tokens are one-time use (invalidated on completion), 24 hours allows flexibility for scheduling without excessive exposure
+4. **Security considerations**: Tokens are one-time use (invalidated on completion), 7 days allows flexibility for scheduling without excessive exposure
+5. **Abandoned session cleanup**: Expiration is only enforced for abandoned sessions (pending interviews that never complete), not for active interviews
 
 **Implementation Approach**:
 - Add optional `expires_at` timestamp to Interview model
-- Check expiration in `GET /interview/{access_token}` endpoint
-- Return 404 if current_time > expires_at
-- Set expires_at = created_at + 24 hours when generating interview link
+- Check expiration in `GET /interview/{access_token}` endpoint only if status is still "pending"
+- Return 404 if current_time > expires_at AND status is "pending"
+- Set expires_at = created_at + 7 days when generating interview link
 
 ### 1.4 Integration Flow
 
@@ -511,22 +512,8 @@ artifacts_bucket = gcp.storage.Bucket(
     # Security: Prevent accidental public exposure
     public_access_prevention="enforced",
 
-    # Lifecycle management for cost optimization
-    lifecycle_rules=[
-        gcp.storage.BucketLifecycleRuleArgs(
-            action=gcp.storage.BucketLifecycleRuleActionArgs(
-                type="Delete",
-            ),
-            condition=gcp.storage.BucketLifecycleRuleConditionArgs(
-                age=90,  # Delete artifacts after 90 days
-            ),
-        ),
-    ],
-
-    # Enable versioning for accidental deletion protection
-    versioning=gcp.storage.BucketVersioningArgs(
-        enabled=True,
-    ),
+    # Lifecycle: TBD based on usage patterns (defer until storage costs material)
+    # Versioning: Not needed for MVP (artifacts are write-once, rely on GCS default durability)
 )
 
 # Grant Verity backend read/write access

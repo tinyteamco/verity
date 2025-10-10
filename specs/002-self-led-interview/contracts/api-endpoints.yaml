@@ -248,7 +248,7 @@ paths:
           description: Filter by interview status (optional)
           schema:
             type: string
-            enum: [pending, completed, completion_pending]
+            enum: [pending, completed]
       responses:
         '200':
           description: List of interviews
@@ -377,7 +377,7 @@ components:
               example: "123e4567-e89b-12d3-a456-426614174000"
             status:
               type: string
-              enum: [pending, completed, completion_pending]
+              enum: [pending, completed]
               example: "pending"
             created_at:
               type: string
@@ -552,7 +552,7 @@ components:
                 example: 1
               status:
                 type: string
-                enum: [pending, completed, completion_pending]
+                enum: [pending, completed]
                 example: "completed"
               created_at:
                 type: string

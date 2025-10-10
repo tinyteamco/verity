@@ -249,9 +249,11 @@ This section provides a high-level overview of implementation phases. For detail
 
 ---
 
-### Phase 4: Backend API - Participant Identity (~4 hours)
+### Phase 4: Backend API - Participant Identity (~4 hours) **(P2 - Optional for MVP)**
 
 **Deliverables**: 2 participant endpoints (Firebase Auth required)
+
+**Note**: This phase implements P2/P3 user stories (US7-US9: participant identity and dashboard). Can be deferred to second iteration after validating core P1 flow (US1-US2: reusable links + researcher artifact access). Researchers can already track interviews by `external_participant_id` from recruitment platforms without participant sign-in.
 
 **References**:
 - [contracts/api-endpoints.yaml](./contracts/api-endpoints.yaml) - OpenAPI specs
@@ -332,9 +334,11 @@ This section provides a high-level overview of implementation phases. For detail
 
 ---
 
-### Phase 8: Frontend UI - Participant Flows (~3 hours)
+### Phase 8: Frontend UI - Participant Flows (~3 hours) **(P2 - Optional for MVP)**
 
 **Deliverables**: Participant sign-in and claim flows
+
+**Note**: This phase implements P2/P3 user stories (participant-facing UI). Can be deferred to second iteration. Depends on Phase 4 (participant endpoints).
 
 **References**:
 - [quickstart.md § Phase 6](./quickstart.md#phase-6-frontend-ui-components)
@@ -365,16 +369,25 @@ Phase 2: Database Models
     └─→ Phase 5: Researcher Endpoints → Phase 7: Interview List (Frontend)
 ```
 
-**Critical Path**: Phases 1 → 2 → 3 → 5 → 7 (core researcher workflow)
+**Critical Path**: Phases 1 → 2 → 3 → 5 → 7 (core researcher workflow - MVP P1)
+**Optional Phases**: Phases 4, 8 (participant identity - P2, can defer to second iteration)
 **Parallel Work**: After Phase 2, Phases 3-5 can be developed in parallel by different developers
 
 ---
 
 ### Total Effort Estimate
 
-- **Backend**: ~17 hours (Phases 1-5)
-- **Frontend**: ~10 hours (Phases 6-8)
-- **Total**: ~27 hours (excluding testing time, code review)
+**MVP P1 (Core Researcher Flow)**:
+- **Backend**: ~13 hours (Phases 1, 2, 3, 5)
+- **Frontend**: ~7 hours (Phases 6, 7)
+- **P1 Total**: ~20 hours
+
+**P2 (Participant Identity - Optional)**:
+- **Backend**: ~4 hours (Phase 4)
+- **Frontend**: ~3 hours (Phase 8)
+- **P2 Total**: ~7 hours
+
+**Complete Feature Total**: ~27 hours (P1 + P2, excluding testing time, code review)
 
 **Note**: These are implementation estimates only. Add time for:
 - BDD test writing (included in phase estimates)

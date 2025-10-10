@@ -52,22 +52,8 @@ artifacts_bucket = gcp.storage.Bucket(
     # Security: Prevent accidental public exposure
     public_access_prevention="enforced",
 
-    # Lifecycle: Delete after 90 days
-    lifecycle_rules=[
-        gcp.storage.BucketLifecycleRuleArgs(
-            action=gcp.storage.BucketLifecycleRuleActionArgs(
-                type="Delete",
-            ),
-            condition=gcp.storage.BucketLifecycleRuleConditionArgs(
-                age=90,
-            ),
-        ),
-    ],
-
-    # Versioning for accidental deletion protection
-    versioning=gcp.storage.BucketVersioningArgs(
-        enabled=True,
-    ),
+    # Lifecycle: TBD based on usage patterns (defer until storage costs material)
+    # Versioning: Not needed for MVP (artifacts are write-once, rely on GCS default durability)
 )
 
 # Grant Verity backend Object Admin (full CRUD)
@@ -180,7 +166,7 @@ class Interview(Base):
 
     # Interview status
     status: Mapped[str] = mapped_column(
-        Enum("pending", "completed", "completion_pending", name="interview_status_enum"),
+        Enum("pending", "completed", name="interview_status_enum"),
         nullable=False,
         default="pending",
         index=True
@@ -253,9 +239,7 @@ class ParticipantProfile(Base):
     # Platform identities (JSON mapping)
     platform_identities: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
 
-    # Cached stats
-    total_interviews: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    total_minutes_participated: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Note: Stats computed via COUNT/SUM queries on demand (Constitution X: MVP-First)
 
     # Relationship
     user: Mapped["VerityUser"] = relationship("VerityUser", back_populates="profile")
@@ -352,7 +336,7 @@ async def access_reusable_study_link(
                 status="pending",
                 external_participant_id=pid,
                 platform_source=platform_source,
-                expires_at=datetime.now(timezone.utc) + timedelta(hours=24)
+                expires_at=datetime.now(timezone.utc) + timedelta(days=7)
             )
             db.add(interview)
             db.commit()
@@ -363,7 +347,7 @@ async def access_reusable_study_link(
             study_id=study.id,
             access_token=access_token,
             status="pending",
-            expires_at=datetime.now(timezone.utc) + timedelta(hours=24)
+            expires_at=datetime.now(timezone.utc) + timedelta(days=7)
         )
         db.add(interview)
         db.commit()
@@ -741,7 +725,7 @@ Feature: Study Settings with Reusable Link
 export interface Interview {
   id: number;
   study_id: number;
-  status: 'pending' | 'completed' | 'completion_pending';
+  status: 'pending' | 'completed';
   created_at: string;
   completed_at: string | null;
   external_participant_id: string | null;

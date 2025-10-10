@@ -96,10 +96,10 @@ CREATE INDEX idx_studies_slug ON studies(slug);
 - `id: int` - Primary key
 - `study_id: int` - Foreign key to Study (required)
 - `access_token: str` - UUID v4 for public access (unique, required)
-- `status: str` - Enum: `pending`, `completed`, `completion_pending`
+- `status: str` - Enum: `pending`, `completed`
 - `created_at: datetime` - Timestamp when interview was created
 - `completed_at: datetime | None` - Timestamp when interview was completed (nullable)
-- `expires_at: datetime | None` - Token expiration time (24 hours from creation, nullable)
+- `expires_at: datetime | None` - Token expiration time (7 days from creation, for abandoned sessions only, nullable)
 - `external_participant_id: str | None` - From recruitment platform (e.g., Prolific ID, nullable)
 - `platform_source: str | None` - Platform identifier (e.g., "prolific", "respondent", "direct", nullable)
 - `verity_user_id: int | None` - Foreign key to VerityUser (nullable, set on claim)
@@ -111,7 +111,7 @@ CREATE INDEX idx_studies_slug ON studies(slug);
 
 **Validation Rules**:
 - access_token must be UUID v4 format
-- status must be one of: `pending`, `completed`, `completion_pending`
+- status must be one of: `pending`, `completed`
 - completed_at must be after created_at
 - expires_at must be after created_at
 - platform_source must match pattern: `^[a-z0-9_-]+$` if provided
@@ -121,9 +121,9 @@ CREATE INDEX idx_studies_slug ON studies(slug);
 **State Transitions**:
 ```
 pending → completed (via POST /interview/{access_token}/complete)
-pending → completion_pending (pipecat upload started but not confirmed)
-completion_pending → completed (pipecat callback confirms upload)
 ```
+
+**Note**: Simplified state machine for MVP. If callback fails, interview stays pending. No intermediate state for upload-in-progress (Constitution X: MVP-First).
 
 **Relationships**:
 - Belongs to one Study
@@ -144,7 +144,7 @@ Interview(
     status="completed",
     created_at=datetime(2025, 10, 10, 20, 14, 18, tzinfo=timezone.utc),
     completed_at=datetime(2025, 10, 10, 20, 32, 45, tzinfo=timezone.utc),
-    expires_at=datetime(2025, 10, 11, 20, 14, 18, tzinfo=timezone.utc),
+    expires_at=datetime(2025, 10, 17, 20, 14, 18, tzinfo=timezone.utc),  # 7 days for abandoned sessions
     external_participant_id="prolific_abc123",
     platform_source="prolific",
     verity_user_id=5,
@@ -162,7 +162,7 @@ CREATE TABLE interviews (
     id SERIAL PRIMARY KEY,
     study_id INTEGER NOT NULL REFERENCES studies(id) ON DELETE CASCADE,
     access_token VARCHAR(36) UNIQUE NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'completion_pending')),
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed')),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     completed_at TIMESTAMP WITH TIME ZONE,
     expires_at TIMESTAMP WITH TIME ZONE,
@@ -250,17 +250,15 @@ CREATE INDEX idx_verity_users_email ON verity_users(email);
 - `id: int` - Primary key
 - `verity_user_id: int` - Foreign key to VerityUser (unique, required)
 - `platform_identities: dict` - JSON mapping of platform → external ID (e.g., `{"prolific": "abc123", "respondent": "xyz789"}`)
-- `total_interviews: int` - Cached count of completed interviews (default: 0)
-- `total_minutes_participated: int` - Cached sum of interview durations in minutes (default: 0)
+
+**Note**: Stats (total interviews, participation time) computed via COUNT/SUM queries on demand. No caching for MVP scale. Add denormalized stats later if queries become slow (Constitution X: MVP-First).
 
 **Validation Rules**:
 - verity_user_id must be unique (1-to-1 relationship)
 - platform_identities must be valid JSON object
 - platform_identities keys must match pattern: `^[a-z0-9_-]+$`
-- total_interviews must be non-negative
-- total_minutes_participated must be non-negative
 
-**State Transitions**: None (profile record with cached stats)
+**State Transitions**: None (profile record only)
 
 **Relationships**:
 - Belongs to one VerityUser
@@ -276,9 +274,7 @@ ParticipantProfile(
     platform_identities={
         "prolific": "prolific_abc123",
         "respondent": "respondent_xyz789"
-    },
-    total_interviews=7,
-    total_minutes_participated=42
+    }
 )
 ```
 
@@ -287,9 +283,7 @@ ParticipantProfile(
 CREATE TABLE participant_profiles (
     id SERIAL PRIMARY KEY,
     verity_user_id INTEGER UNIQUE NOT NULL REFERENCES verity_users(id) ON DELETE CASCADE,
-    platform_identities JSONB NOT NULL DEFAULT '{}',
-    total_interviews INTEGER NOT NULL DEFAULT 0,
-    total_minutes_participated INTEGER NOT NULL DEFAULT 0
+    platform_identities JSONB NOT NULL DEFAULT '{}'
 );
 
 CREATE INDEX idx_participant_profiles_verity_user_id ON participant_profiles(verity_user_id);
@@ -313,7 +307,7 @@ CREATE INDEX idx_participant_profiles_platform_identities ON participant_profile
      * status = "pending"
      * external_participant_id = "prolific_abc123"
      * platform_source = "prolific" (inferred from pid prefix)
-     * expires_at = now() + 24 hours
+     * expires_at = now() + 7 days
    - Redirects to pipecat URL with access_token
 
 3. Pipecat receives access_token, fetches Interview data from Verity
@@ -330,7 +324,7 @@ WHERE study_id = 1 AND external_participant_id = 'prolific_abc123';
 
 -- Create new interview (if not exists)
 INSERT INTO interviews (study_id, access_token, status, external_participant_id, platform_source, expires_at)
-VALUES (1, '123e4567-e89b-12d3-a456-426614174000', 'pending', 'prolific_abc123', 'prolific', NOW() + INTERVAL '24 hours')
+VALUES (1, '123e4567-e89b-12d3-a456-426614174000', 'pending', 'prolific_abc123', 'prolific', NOW() + INTERVAL '7 days')
 RETURNING *;
 ```
 
