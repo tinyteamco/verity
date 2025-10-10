@@ -1,15 +1,16 @@
 <!--
 Sync Impact Report:
-Version: 1.2.0 → 1.3.0 (MINOR - added E2E error testing guidance)
+Version: 1.3.0 → 1.4.0 (MINOR - added MVP-First Development principle)
 Modified Principles:
-  - Testing Strategy section expanded with network-level error mocking guidance
+  - N/A
 Added Sections:
-  - E2E Error Testing subsection under Testing Strategy
+  - Core Principle X: MVP-First Development (guidance on deferring optimization)
 Removed Sections: N/A
 Templates Requiring Updates:
-  ✅ plan-template.md - Constitution Check compatible (no changes needed)
-  ✅ spec-template.md - No changes needed (user scenarios unaffected)
-  ✅ tasks-template.md - Test task patterns align with error testing principle
+  ✅ plan-template.md - No changes needed (already includes "TBD based on usage" pattern)
+  ✅ spec-template.md - No changes needed (specs can mark features as deferred)
+  ✅ tasks-template.md - No changes needed (task prioritization unaffected)
+  ✅ clarify workflow - Will now skip optimization questions for MVP scope
 Follow-up TODOs: None
 -->
 
@@ -130,6 +131,30 @@ Implementation requirements:
 - Testing error handling for specific exception types
 - Unit tests of business logic isolated from I/O
 
+### X. MVP-First Development
+
+Build for current scale, not imagined future scale. Optimize when metrics show bottlenecks, not before.
+
+**Non-Negotiable Requirements** (always required, even in MVP):
+- Authentication and authorization (Firebase Auth, JWT)
+- Multi-tenancy security (server-side org_id validation)
+- HTTPS for all endpoints
+- BDD tests for all functionality
+- Zero warnings policy (ruff + ty)
+
+**Deferred Until Needed** (add when usage demands):
+- Rate limiting (add when abuse detected)
+- Caching layers (add when latency measurements show need)
+- Advanced observability (structured logging sufficient until scale requires metrics/tracing)
+- Performance optimization (measure first, optimize second)
+- Data retention policies (defer until storage costs become material)
+- Advanced security (HMAC signatures, mutual TLS) beyond auth basics
+
+**Decision Documentation**:
+When deferring features, mark as "TBD based on usage patterns" in specifications. This signals intentional deferral, not overlooked requirements.
+
+**Rationale**: Premature optimization wastes engineering time on problems that may never materialize. Instrument first, observe usage patterns, then optimize based on real data. This principle prevents over-engineering while maintaining quality through non-negotiable requirements.
+
 ## Security Requirements
 
 ### Authentication & Authorization
@@ -248,4 +273,4 @@ For detailed implementation guidance and examples, developers should reference:
 - `/docs/002-architecture/004-security-guidelines.md` - Security patterns and anti-patterns
 - `/backend/docs/test-isolation.md` - Stub service implementation patterns
 
-**Version**: 1.3.0 | **Ratified**: 2025-10-07 | **Last Amended**: 2025-10-10
+**Version**: 1.4.0 | **Ratified**: 2025-10-07 | **Last Amended**: 2025-10-10
