@@ -217,9 +217,7 @@ artifacts_bucket = gcp.storage.Bucket(
     location="EU",  # Multi-region for high availability
     storage_class="STANDARD",  # Standard for frequently accessed data
     # Security: Uniform bucket-level access (IAM-only, no ACLs)
-    uniform_bucket_level_access=gcp.storage.BucketUniformBucketLevelAccessArgs(
-        enabled=True,
-    ),
+    uniform_bucket_level_access=True,
     # Security: Prevent accidental public exposure
     public_access_prevention="enforced",
 )
