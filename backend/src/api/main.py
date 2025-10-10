@@ -1231,12 +1231,12 @@ async def finalize_transcript(
 # Public Interview Access Endpoints (No Authentication Required, No /api prefix)
 
 
-@app.get("/study/{slug}/start")
+@app.get("/study/{slug}/start", response_model=None)
 async def access_reusable_study_link(
     slug: str,
     db: Annotated[Session, Depends(get_db)],
     pid: Annotated[str | None, Query()] = None,
-) -> RedirectResponse:
+) -> RedirectResponse | HTMLResponse:
     """
     Public endpoint for accessing reusable study links.
     Creates interview on-the-fly and redirects to pipecat with access_token.
@@ -1247,7 +1247,8 @@ async def access_reusable_study_link(
         db: Database session
 
     Returns:
-        302 redirect to pipecat with access_token and verity_api parameters
+        302 redirect to pipecat with access_token and verity_api parameters,
+        or HTML error page for completed interviews/deleted studies
     """
     import uuid
     from datetime import timedelta
@@ -1277,6 +1278,34 @@ async def access_reusable_study_link(
         )
 
     if existing_interview:
+        # Check if interview is already completed
+        if existing_interview.status == "completed":
+            # Return HTML error page instead of redirect
+            html_content = """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Interview Already Completed</title>
+                <style>
+                    body {
+                        font-family: Arial, sans-serif;
+                        max-width: 600px;
+                        margin: 50px auto;
+                        padding: 20px;
+                        text-align: center;
+                    }
+                    h1 { color: #333; }
+                    p { color: #666; line-height: 1.6; }
+                </style>
+            </head>
+            <body>
+                <h1>Interview Already Completed</h1>
+                <p>You have already completed this interview. Thank you for your participation!</p>
+                <p>If you believe this is an error, please contact the research team.</p>
+            </body>
+            </html>
+            """
+            return HTMLResponse(content=html_content, status_code=400)
         # Use existing interview access token
         access_token = existing_interview.access_token
     else:

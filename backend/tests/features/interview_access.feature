@@ -31,3 +31,16 @@ Feature: Interview Access
     When a participant accesses GET /study/non-existent-study/start
     Then the response status is 404
     And the error message contains "Study not found"
+
+  Scenario: Participant accesses valid interview link and receives redirect
+    When a participant accesses GET /study/{slug}/start
+    Then the response is a 302 redirect
+    And the redirect Location header contains "access_token="
+    And the redirect Location header contains "verity_api="
+
+  Scenario: Participant tries to access completed interview shows error page
+    Given an interview already exists for study "mobile-banking-study" with pid "prolific_completed" and status "completed"
+    When a participant accesses GET /study/{slug}/start?pid=prolific_completed
+    Then the response status is 400
+    And the response is HTML content
+    And the error page contains "Interview Already Completed"

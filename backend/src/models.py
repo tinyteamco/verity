@@ -1,7 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -197,6 +196,6 @@ class ParticipantProfile(Base):
     verity_user_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("verity_users.id"), unique=True, nullable=False, index=True
     )
-    platform_identities: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}")
+    platform_identities: Mapped[dict] = mapped_column(JSON, nullable=False, server_default="{}")
 
     verity_user: Mapped["VerityUser"] = relationship("VerityUser", back_populates="profile")
