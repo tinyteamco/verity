@@ -414,83 +414,87 @@ The **interactive interview component** (pipecat-momtest: https://github.com/tin
 
 ### Functional Requirements
 
+**Infrastructure**
+
+- **FR-001**: System MUST provision shared GCS bucket via IAC (Pulumi) with read/write IAM permissions for both Verity and pipecat-momtest service accounts
+
 **Participant Access**
 
-- **FR-001**: Participants MUST be able to access an interview using only the reusable study link (no authentication required)
-- **FR-002**: System MUST display reusable study link template in study settings for researchers to copy
-- **FR-003**: System MUST show a clear error message when a study link is invalid or study has been deleted
-- **FR-004**: System MUST prevent access to interviews from studies that have been deleted
+- **FR-002**: Participants MUST be able to access an interview using only the reusable study link (no authentication required)
+- **FR-003**: System MUST display reusable study link template in study settings for researchers to copy
+- **FR-004**: System MUST show a clear error message when a study link is invalid or study has been deleted
+- **FR-005**: System MUST prevent access to interviews from studies that have been deleted
 
 **Interview Completion (via Pipecat-momtest Callback)**
 
-- **FR-005**: System MUST accept completion callbacks from pipecat-momtest containing storage paths, streaming transcript, and completion timestamp
-- **FR-006**: System MUST validate access tokens in completion callbacks match existing pending interviews
-- **FR-007**: System MUST prevent duplicate interview access after completion (show "already completed" message)
-- **FR-008**: System MUST handle idempotent completion callbacks gracefully (no errors on retry)
-- **FR-009**: System MUST store the completion timestamp when receiving completion callback from pipecat-momtest
+- **FR-006**: System MUST accept completion callbacks from pipecat-momtest containing storage paths, streaming transcript, and completion timestamp
+- **FR-007**: System MUST validate access tokens in completion callbacks match existing pending interviews
+- **FR-008**: System MUST prevent duplicate interview access after completion (show "already completed" message)
+- **FR-009**: System MUST handle idempotent completion callbacks gracefully (no errors on retry)
+- **FR-010**: System MUST store the completion timestamp when receiving completion callback from pipecat-momtest
 
 **Artifact Management (Transcripts & Recordings)**
 
-- **FR-010**: System MUST store artifact storage path references (GCS paths) provided in completion callback
-- **FR-011**: System MUST store streaming transcript from completion callback for immediate researcher viewing
-- **FR-012**: Researchers MUST be able to view streaming transcripts inline and download audio recordings via authenticated API endpoints that proxy artifacts from shared storage (e.g., `GET /api/orgs/{org_id}/interviews/{interview_id}/audio`)
-- **FR-013**: System MUST generate batch transcript from stored audio asynchronously (source of truth, higher accuracy than streaming transcript)
+- **FR-011**: System MUST store artifact storage path references (GCS paths) provided in completion callback
+- **FR-012**: System MUST store streaming transcript from completion callback for immediate researcher viewing
+- **FR-013**: Researchers MUST be able to view streaming transcripts inline and download audio recordings via authenticated API endpoints that proxy artifacts from shared storage (e.g., `GET /api/orgs/{org_id}/interviews/{interview_id}/audio`)
+- **FR-014**: System MUST generate batch transcript from stored audio asynchronously (source of truth, higher accuracy than streaming transcript)
 
 **Interview Tracking**
 
-- **FR-014**: Researchers MUST be able to view a list of all interviews (pending and completed) for their studies
-- **FR-015**: System MUST display interview status (pending, completed, completion_pending) and completion date if applicable
-- **FR-016**: System MUST display transcript content inline for completed interviews
-- **FR-017**: System MUST provide authenticated API endpoints for downloading audio recordings from completed interviews (backend proxies from GCS)
+- **FR-015**: Researchers MUST be able to view a list of all interviews (pending and completed) for their studies
+- **FR-016**: System MUST display interview status (pending, completed, completion_pending) and completion date if applicable
+- **FR-017**: System MUST display transcript content inline for completed interviews
+- **FR-018**: System MUST provide authenticated API endpoints for downloading audio recordings from completed interviews (backend proxies from GCS)
 
 **Optional Participant Sign-In**
 
-- **FR-018**: Participants MAY optionally sign in to associate an interview with their account
-- **FR-019**: Participants who sign in MUST be able to view their participation history across all studies
-- **FR-020**: System MUST allow participants to claim previously completed anonymous interviews after signing in
+- **FR-019**: Participants MAY optionally sign in to associate an interview with their account
+- **FR-020**: Participants who sign in MUST be able to view their participation history across all studies
+- **FR-021**: System MUST allow participants to claim previously completed anonymous interviews after signing in
 
 **Security & Privacy**
 
-- **FR-021**: System MUST enforce multi-tenancy: researchers can only view interviews for studies within their organization
-- **FR-022**: System MUST NOT expose participant identity unless they explicitly sign in
-- **FR-023**: Interview links MUST be accessible over HTTPS only (no unencrypted access)
+- **FR-022**: System MUST enforce multi-tenancy: researchers can only view interviews for studies within their organization
+- **FR-023**: System MUST NOT expose participant identity unless they explicitly sign in
+- **FR-024**: Interview links MUST be accessible over HTTPS only (no unencrypted access)
 
 **Integration Requirements (Pipecat-momtest)**
 
-- **FR-024**: System MUST provide public `GET /interview/{access_token}` endpoint that returns study title and interview guide content (no authentication required)
-- **FR-025**: System MUST provide public `POST /interview/{access_token}/complete` endpoint that accepts completion callback with storage paths and streaming transcript
-- **FR-026**: System MUST accept GCS storage path format (`gs://bucket/path`) in completion callback for audio artifacts
-- **FR-027**: System MUST mark interviews as completed and store completion timestamp when receiving completion callback (covered by FR-009)
-- **FR-028**: On-the-fly created interviews MUST redirect to pipecat-momtest with access token as query parameter (e.g., `{PIPECAT_BASE_URL}?token={access_token}`)
-- **FR-029**: System MUST support CORS on public interview endpoints to allow cross-origin requests from pipecat-momtest application
-- **FR-030**: System MUST reference artifacts in shared storage via path (no download or copy needed)
+- **FR-025**: System MUST provide public `GET /interview/{access_token}` endpoint that returns study title and interview guide content (no authentication required)
+- **FR-026**: System MUST provide public `POST /interview/{access_token}/complete` endpoint that accepts completion callback with storage paths and streaming transcript
+- **FR-027**: System MUST accept GCS storage path format (`gs://bucket/path`) in completion callback for audio artifacts
+- **FR-028**: System MUST mark interviews as completed and store completion timestamp when receiving completion callback (covered by FR-010)
+- **FR-029**: On-the-fly created interviews MUST redirect to pipecat-momtest with access token as query parameter (e.g., `{PIPECAT_BASE_URL}?token={access_token}`)
+- **FR-030**: System MUST support CORS on public interview endpoints to allow cross-origin requests from pipecat-momtest application
+- **FR-031**: System MUST reference artifacts in shared storage via path (no download or copy needed)
 
 **Recruitment Platform Integration**
 
-- **FR-031**: System MUST provide reusable study links using study slug format: `https://verity.com/study/{slug}/start?pid={{PARTICIPANT_ID}}`
-- **FR-032**: System MUST create Interview records on-the-fly when reusable study links are accessed (with or without pid parameter)
-- **FR-033**: System MUST store external_participant_id from pid query parameter when present (nullable if pid absent)
-- **FR-034**: System MUST prevent duplicate interviews for the same external_participant_id + study_id combination when pid is present (show "already completed" message)
-- **FR-035**: System MUST display pre-interview interstitial based on study's participant_identity_flow setting and pid presence:
+- **FR-032**: System MUST provide reusable study links using study slug format: `https://verity.com/study/{slug}/start?pid={{PARTICIPANT_ID}}`
+- **FR-033**: System MUST create Interview records on-the-fly when reusable study links are accessed (with or without pid parameter)
+- **FR-034**: System MUST store external_participant_id from pid query parameter when present (nullable if pid absent)
+- **FR-035**: System MUST prevent duplicate interviews for the same external_participant_id + study_id combination when pid is present (show "already completed" message)
+- **FR-036**: System MUST display pre-interview interstitial based on study's participant_identity_flow setting and pid presence:
   - When pid present (recruitment platform): Skip interstitial, redirect directly to interview (friction reduction)
   - When pid absent AND study setting is "allow_pre_signin" AND user not signed in: Show interstitial with "Continue as Guest" or "Sign In" options
   - Otherwise: Proceed directly to interview
 
 **Participant Identity & Sign-In**
 
-- **FR-036**: Participants MUST be able to optionally sign in before starting an interview (pre-interview sign-in)
-- **FR-037**: System MUST auto-link interviews to signed-in participants (populate verity_user_id on Interview creation)
-- **FR-038**: System MUST display sign-in/register option on interview completion page for anonymous participants
-- **FR-039**: System MUST allow claiming anonymous interviews by linking them to verity_user_id after authentication
-- **FR-040**: Interview records MUST store BOTH external_participant_id (from platform) AND verity_user_id (from sign-in) when available
-- **FR-041**: System MUST support cross-platform identity reconciliation (same verity_user_id across different external_participant_ids)
-- **FR-042**: Signed-in participants MUST be able to view complete participation history across all platforms and studies
-- **FR-043**: Participation dashboard MUST display platform source for each interview (e.g., "Prolific", "Respondent", "Direct")
-- **FR-044**: System MUST aggregate participation statistics across all platforms for signed-in users
+- **FR-037**: Participants MUST be able to optionally sign in before starting an interview (pre-interview sign-in)
+- **FR-038**: System MUST auto-link interviews to signed-in participants (populate verity_user_id on Interview creation)
+- **FR-039**: System MUST display sign-in/register option on interview completion page for anonymous participants
+- **FR-040**: System MUST allow claiming anonymous interviews by linking them to verity_user_id after authentication
+- **FR-041**: Interview records MUST store BOTH external_participant_id (from platform) AND verity_user_id (from sign-in) when available
+- **FR-042**: System MUST support cross-platform identity reconciliation (same verity_user_id across different external_participant_ids)
+- **FR-043**: Signed-in participants MUST be able to view complete participation history across all platforms and studies
+- **FR-044**: Participation dashboard MUST display platform source for each interview (e.g., "Prolific", "Respondent", "Direct")
+- **FR-045**: System MUST aggregate participation statistics across all platforms for signed-in users
 
 **Study Configuration**
 
-- **FR-045**: Study MUST have configurable participant_identity_flow setting with values: "anonymous" (no identity tracking), "claim_after" (post-interview claim available), or "allow_pre_signin" (pre-interview sign-in for direct links only)
+- **FR-046**: Study MUST have configurable participant_identity_flow setting with values: "anonymous" (no identity tracking), "claim_after" (post-interview claim available), or "allow_pre_signin" (pre-interview sign-in for direct links only)
 
 ### Key Entities
 
@@ -510,20 +514,15 @@ The **interactive interview component** (pipecat-momtest: https://github.com/tin
 
 ### Measurable Outcomes
 
-- **SC-001**: Researchers can copy the reusable study link template to their clipboard in under 5 seconds
-- **SC-002**: Participants can access an interview within 5 seconds of clicking a link (no authentication delays, no authentication required)
-- **SC-003**: Participants can complete interviews automatically without manual upload steps (pipecat handles recording/transcript)
-- **SC-004**: Researchers can view all completed interviews for a study and access recordings within 3 clicks
-- **SC-005**: 95% of interview link accesses successfully redirect to pipecat and load the interview
-- **SC-006**: Interview completion rate increases by measuring submissions vs. link accesses (baseline to be established)
-- **SC-007**: Reusable study links create interview records on-the-fly without pre-generation (unlimited participants per link)
-- **SC-008**: Participants can sign in and claim anonymous interviews in under 30 seconds
-- **SC-009**: Signed-in participants can view participation history across all platforms in a single dashboard
+- **SC-001**: Participants can complete interviews without manual artifact upload (pipecat handles recording/transcript automatically)
+- **SC-002**: Researchers can view completed interviews and access artifacts (transcripts inline, audio downloadable)
+- **SC-003**: Reusable study links create interview records on-the-fly (unlimited participants per link)
 
 ## Scope & Constraints
 
 ### In Scope
 
+- Shared GCS bucket creation via IAC (Pulumi) with IAM permissions for both Verity and pipecat-momtest service accounts
 - Reusable study link template display (copy from study settings)
 - On-the-fly interview creation when participants access reusable links
 - Public access to interviews via unique tokens (no authentication required)
@@ -566,7 +565,6 @@ The **interactive interview component** (pipecat-momtest: https://github.com/tin
 - One audio recording per interview (no multi-part submissions in MVP)
 - Reusable study links require study to have a unique slug (auto-generated from title)
 - External participant IDs are not validated (trusted recruitment platforms assumption)
-- Shared GCS bucket requires IAC configuration granting access to both Verity and pipecat service accounts
 
 ## Dependencies & Assumptions
 
@@ -574,13 +572,11 @@ The **interactive interview component** (pipecat-momtest: https://github.com/tin
 
 - **Study Management**: Studies with interview guides and unique slugs must exist before interview links can be generated
 - **Authentication System**: Firebase Auth for optional participant sign-in (VerityUser accounts) and researcher access control
-- **Shared Object Storage**: GCS bucket accessible by both Verity and pipecat-momtest service accounts (configured via IAC)
-- **Pipecat-momtest**: Separate application for conducting live interviews (https://github.com/tinyteamco/pipecat-momtest) - requires deployment, configuration to call Verity's completion callback, and access to shared GCS bucket
+- **Pipecat-momtest**: Separate application for conducting live interviews (https://github.com/tinyteamco/pipecat-momtest) - requires deployment and configuration to call Verity's completion callback
 
 ### Assumptions
 
 - Pipecat-momtest application is deployed and accessible (handles live recording and transcription)
-- Both Verity and pipecat have read/write access to shared GCS bucket (configured via IAC)
 - Pipecat finalizes WebM container asynchronously after participant disconnect (background task)
 - Researchers will distribute interview links via recruitment platforms (Prolific, Respondent), email, messaging, or social media
 - Recruitment platforms are trusted (no HMAC verification on reusable links in MVP)
