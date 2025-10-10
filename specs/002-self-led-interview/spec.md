@@ -21,6 +21,8 @@
 
 - **Q: How does the system decide whether to show pre-interview sign-in?** → **A: Study-level setting + pid presence**. Study has `participant_identity_flow` setting (anonymous/claim_after/allow_pre_signin). **Key rule: When pid is present (recruitment platform), ALWAYS skip pre-interview sign-in to reduce friction.** Pre-interview interstitial only shows for direct links (no pid) when setting is "allow_pre_signin". Post-interview claim availability depends on study setting. This prioritizes frictionless entry for recruitment platforms.
 
+- **Q: How do researchers access audio artifacts stored in shared GCS bucket?** → **A: API proxy pattern**. Authenticated endpoints like `GET /api/orgs/{org_id}/interviews/{interview_id}/audio` stream audio from GCS through Verity backend. Rationale: Simpler than signed URL generation for MVP scale (dozens to hundreds of researchers, occasional downloads), standard RESTful pattern, auth checks inline with existing patterns. No separate "download URL" endpoints needed.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Generate and Share Interview Link (Priority: P1)
@@ -433,6 +435,16 @@ The **interactive interview component** (pipecat-momtest: https://github.com/tin
 - Pipecat can finalize WebM asynchronously without blocking disconnect
 - Single source of truth for artifacts (no download/sync failures)
 
+**Researcher Artifact Access**:
+- Researchers access artifacts via authenticated API proxy endpoints
+- Backend streams artifacts from GCS: `GET /api/orgs/{org_id}/interviews/{interview_id}/audio`
+- Rationale for MVP proxy pattern vs signed URLs:
+  - Simpler implementation (standard RESTful pattern)
+  - No signed URL generation/expiry logic
+  - Auth checks inline with existing patterns
+  - Sufficient for current scale (dozens to hundreds of researchers, occasional downloads)
+  - Defer to signed URLs only if bandwidth becomes measurable bottleneck
+
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
@@ -464,7 +476,7 @@ The **interactive interview component** (pipecat-momtest: https://github.com/tin
 
 - **FR-015**: System MUST store artifact storage path references (GCS paths) provided in completion callback
 - **FR-016**: System MUST store streaming transcript from completion callback for immediate researcher viewing
-- **FR-017**: Researchers MUST be able to view streaming transcripts inline and download audio recordings from shared storage
+- **FR-017**: Researchers MUST be able to view streaming transcripts inline and download audio recordings via authenticated API endpoints that proxy artifacts from shared storage (e.g., `GET /api/orgs/{org_id}/interviews/{interview_id}/audio`)
 - **FR-018**: System MUST generate batch transcript from stored audio asynchronously (source of truth, higher accuracy than streaming transcript)
 
 **Interview Tracking**
@@ -474,7 +486,7 @@ The **interactive interview component** (pipecat-momtest: https://github.com/tin
 - **FR-021**: Researchers MUST be able to filter interviews by status
 - **FR-022**: System MUST show which interview link was used to access each interview
 - **FR-023**: System MUST display transcript content inline for completed interviews
-- **FR-024**: System MUST provide download links for audio recordings from completed interviews
+- **FR-024**: System MUST provide authenticated API endpoints for downloading audio recordings from completed interviews (backend proxies from GCS)
 
 **Optional Participant Sign-In**
 
