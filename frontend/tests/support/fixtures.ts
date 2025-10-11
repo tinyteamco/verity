@@ -207,4 +207,89 @@ export class TestFixtures {
 
     return org.org_id
   }
+
+  async getStudyId(orgId: string, studyTitle: string): Promise<string> {
+    const token = await this.page.evaluate(() => localStorage.getItem('firebase_token'))
+
+    // Fetch all studies for the org and find the one with matching title
+    const response = await this.page.request.get(`http://localhost:${this.backendPort}/api/orgs/${orgId}/studies`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    if (!response.ok()) {
+      throw new Error(`Failed to fetch studies: ${response.status()} ${await response.text()}`)
+    }
+
+    const studies = await response.json()
+    const study = studies.find((s: any) => s.title === studyTitle)
+
+    if (!study) {
+      throw new Error(`Study ${studyTitle} not found`)
+    }
+
+    return study.study_id
+  }
+
+  async getStudySlug(orgId: string, studyTitle: string): Promise<string> {
+    const token = await this.page.evaluate(() => localStorage.getItem('firebase_token'))
+
+    // Fetch study details to get slug
+    const studyId = await this.getStudyId(orgId, studyTitle)
+    const response = await this.page.request.get(`http://localhost:${this.backendPort}/api/orgs/${orgId}/studies/${studyId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    if (!response.ok()) {
+      throw new Error(`Failed to fetch study details: ${response.status()} ${await response.text()}`)
+    }
+
+    const study = await response.json()
+    return study.slug
+  }
+
+  async seedCompletedInterviews(
+    orgName: string,
+    studyTitle: string,
+    interviews: Array<{
+      external_participant_id?: string;
+      platform_source?: string;
+      has_transcript?: boolean;
+      has_recording?: boolean;
+    }>
+  ): Promise<void> {
+    const orgId = await this.getOrganizationId(orgName)
+    const studyId = await this.getStudyId(orgId, studyTitle)
+
+    // Use backend test endpoint to create completed interviews directly
+    for (const interview of interviews) {
+      const response = await this.page.request.post(
+        `http://localhost:${this.backendPort}/api/test/studies/${studyId}/interviews`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            external_participant_id: interview.external_participant_id || null,
+            platform_source: interview.platform_source || null,
+            transcript_url: interview.has_transcript !== false
+              ? `gs://verity-artifacts-dev/interviews/test/transcript.txt`
+              : null,
+            recording_url: interview.has_recording !== false
+              ? `gs://verity-artifacts-dev/interviews/test/recording.wav`
+              : null,
+          },
+        }
+      )
+
+      if (!response.ok()) {
+        throw new Error(`Failed to create interview: ${response.status()} ${await response.text()}`)
+      }
+    }
+  }
 }

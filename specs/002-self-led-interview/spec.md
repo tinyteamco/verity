@@ -1,0 +1,593 @@
+# Feature Specification: Self-Led Interview Execution
+
+**Feature Branch**: `002-self-led-interview`
+**Created**: 2025-10-10
+**Status**: Draft
+**Input**: User description: "Self-Led Interview Execution"
+
+## Clarifications
+
+### Session 2025-10-10
+
+- **Q: How should artifacts be transferred from pipecat-momtest to Verity?** → **A: Shared storage pattern**. Pipecat writes artifacts to shared GCS bucket and provides storage paths in completion callback. Verity references the same storage (no download needed). Rationale: Avoids HTTP upload timeouts for large audio files, eliminates intermediate storage complexity, simpler than credential management for direct upload.
+
+- **Q: What is the source of truth for transcripts?** → **A: Audio recording**. Pipecat provides streaming transcript (real-time, lower accuracy) in completion callback. Verity will generate batch transcript from stored audio later (higher accuracy, source of truth). Streaming transcript enables immediate viewing; batch transcript used for analysis.
+
+- **Q: How does pipecat avoid App Engine timeouts during finalization?** → **A: Background task (out of scope for Verity)**. Pipecat returns 200 immediately on disconnect, then finalizes WebM container and uploads to shared storage in background task. Completion callback sent to Verity after upload completes. This is a pipecat implementation detail not affecting Verity's interface contract.
+
+- **Q: Should we support both reusable links AND programmatic API for recruitment platforms?** → **A: Reusable links only (YAGNI)**. Reusable link pattern handles all identified use cases: on-the-fly interview creation, participant tracking, deduplication. Programmatic API deferred until real requirement emerges. Can add later if needed.
+
+- **Q: What happens when reusable link is accessed without pid parameter?** → **A: pid is optional**. If present, stores external_participant_id and enables deduplication by external_participant_id + study_id. If absent, creates anonymous interview (no external_participant_id). This makes reusable links flexible for both recruitment platforms AND direct distribution.
+
+- **Q: How does the system decide whether to show pre-interview sign-in?** → **A: Study-level setting + pid presence**. Study has `participant_identity_flow` setting (anonymous/claim_after/allow_pre_signin). **Key rule: When pid is present (recruitment platform), ALWAYS skip pre-interview sign-in to reduce friction.** Pre-interview interstitial only shows for direct links (no pid) when setting is "allow_pre_signin". Post-interview claim availability depends on study setting. This prioritizes frictionless entry for recruitment platforms.
+
+- **Q: How do researchers access audio artifacts stored in shared GCS bucket?** → **A: API proxy pattern**. Authenticated endpoints like `GET /api/orgs/{org_id}/interviews/{interview_id}/audio` stream audio from GCS through Verity backend. Rationale: Simpler than signed URL generation for MVP scale (dozens to hundreds of researchers, occasional downloads), standard RESTful pattern, auth checks inline with existing patterns. No separate "download URL" endpoints needed.
+
+- **Q: Should webhooks be included for recruitment platform completion notifications?** → **A: Defer to post-MVP (YAGNI)**. Webhooks are automation convenience, not core requirement. Most platforms track completion on their side. Manual process works for MVP: researcher checks Verity for completions. Add webhooks later if platforms actually request it or manual checking becomes painful. Rationale: Reduces complexity, removes technical barrier for non-technical researchers, aligns with MVP-First principle.
+
+- **Q: Should we support both pre-generated links AND on-the-fly reusable links?** → **A: On-the-fly reusable links only (YAGNI)**. Reusable study link pattern handles all MVP use cases: recruitment platforms (with pid), direct distribution (without pid), interview tracking (Interview records auto-created), pipecat integration (access_tokens generated per interview). Pre-generated links add complexity without clear value: unnecessary generation UI, link management dashboard, ShareLink entity, campaign tracking. Defer pre-generated links until researchers need link-level metadata or campaign tracking. Rationale: Simpler UI (copy template URL from study settings), simpler data model (no ShareLink entity), fewer requirements (46 vs 51), aligns with MVP-First principle.
+
+## User Scenarios & Testing *(mandatory)*
+
+### User Story 1 - Share Reusable Study Link (Priority: P1)
+
+As a researcher, I copy my study's reusable link template so that participants can access the interview without needing an account or login.
+
+**Why this priority**: This is the foundation of the self-led interview flow. Without the ability to share links, no interviews can happen. Reusable links enable both recruitment platform integration (with pid) and direct distribution (without pid).
+
+**Independent Test**: Can be fully tested by creating a study, copying the reusable link template, accessing it, and verifying it creates an interview on-the-fly. Delivers immediate value by enabling researchers to distribute interviews.
+
+**Acceptance Scenarios**:
+
+1. **Given** I have a study with an interview guide, **When** I view study settings, **Then** I see a reusable link template I can copy: `https://verity.com/study/{slug}/start?pid={{PARTICIPANT_ID}}`
+2. **Given** I share the link with a participant (with or without pid), **When** they access it, **Then** Verity creates an interview on-the-fly and redirects to pipecat
+3. **Given** I use the link for recruitment platforms, **When** I provide the template to Prolific/Respondent, **Then** they can substitute their participant IDs and send participants to my study
+
+---
+
+### User Story 2 - Participant Access & Redirect (Priority: P1)
+
+As a participant, I click an interview link and Verity redirects me to the interview application with my unique access token.
+
+**Why this priority**: This is Verity's core responsibility for participant access. Without correct redirect behavior, participants cannot reach the interview interface. Testable entirely within Verity (no pipecat dependency).
+
+**Independent Test**: Access an interview link and verify Verity returns 302 redirect with correct URL format. Test error cases (completed, invalid token) show proper error pages. Fully testable via BDD without pipecat deployment.
+
+**Acceptance Scenarios**:
+
+1. **Given** I have a valid interview link, **When** I access it, **Then** Verity returns 302 redirect to `{PIPECAT_BASE_URL}?token={access_token}`
+2. **Given** an interview is already completed, **When** I try to access the link, **Then** Verity shows "Interview already completed" page (no redirect)
+3. **Given** a link is invalid or expired, **When** I access it, **Then** Verity shows error message page (no redirect)
+4. **Given** a study has been deleted, **When** I try to access an interview link for it, **Then** Verity shows "Study no longer available" message
+
+---
+
+### User Story 2.5 - Interview Data API Contract (Priority: P1)
+
+As the pipecat-momtest application, I fetch interview data via Verity's public API to conduct the interview.
+
+**Why this priority**: This is the interface contract pipecat depends on. Without this working, pipecat cannot retrieve interview guides. Testable entirely within Verity via API endpoint tests.
+
+**Independent Test**: Call the public API endpoints with various tokens and verify responses match contract. Fully testable via BDD without pipecat deployment.
+
+**Acceptance Scenarios**:
+
+1. **Given** pipecat calls `GET /interview/{token}`, **When** token is valid, **Then** Verity returns 200 with `{study_title, interview_guide}`
+2. **Given** pipecat calls with completed interview token, **When** request is made, **Then** Verity returns 410 Gone
+3. **Given** pipecat calls with invalid token, **When** request is made, **Then** Verity returns 404
+4. **Given** study has been deleted, **When** pipecat fetches interview data, **Then** Verity returns 410 Gone
+
+---
+
+### User Story 3 - Completion Callback Handling (Priority: P2)
+
+As the system, I accept completion callbacks from pipecat with storage paths to artifacts, mark interviews complete, and make recordings available to researchers.
+
+**Why this priority**: This completes the interview lifecycle from Verity's perspective. Verity must correctly process completion callbacks to make artifacts available. Testable via mock callback requests.
+
+**Independent Test**: Send mock completion callback with storage paths to Verity and verify interview is marked complete and artifacts are accessible. Fully testable via BDD with stub requests (no pipecat dependency).
+
+**Acceptance Scenarios**:
+
+1. **Given** Verity receives `POST /interview/{token}/complete` with storage paths, **When** callback is valid, **Then** marks interview completed and stores artifact references
+2. **Given** completion callback includes streaming transcript, **When** processed, **Then** transcript is immediately viewable by researcher
+3. **Given** completion callback includes audio storage path, **When** processed, **Then** audio is downloadable by researcher
+4. **Given** pipecat retries completion callback, **When** interview already complete, **Then** Verity returns 200 (idempotent, no error)
+5. **Given** storage paths reference missing files, **When** researcher tries to access them, **Then** marks interview as "completion_pending" and logs error
+
+---
+
+### User Story 4 - View Interview Submissions (Priority: P2)
+
+As a researcher, I view all interview submissions for my study so I can track participation and access recordings and transcripts for analysis.
+
+**Why this priority**: This enables researchers to see the results of their interviews. While important, it's secondary to getting interviews out to participants (US1-US3). Can initially be a simple list view.
+
+**Independent Test**: After participants complete interviews (from US3), log in as the researcher and verify all completed interviews appear in a list with access to transcripts and recordings. Delivers value by providing visibility into collected data.
+
+**Acceptance Scenarios**:
+
+1. **Given** I have a study with completed interviews, **When** I navigate to the study details page, **Then** I see a list of all interviews with their completion status and completion timestamp
+2. **Given** an interview has artifacts, **When** I click on the interview, **Then** I can view the transcript inline and download the audio file
+
+---
+
+### User Story 5 - Reusable Study Link for Recruitment Platforms (Priority: P2)
+
+As a researcher, I generate a reusable study link with a readable slug that recruitment platforms can use to dynamically send participants to my study without pre-generating individual interview links.
+
+**Why this priority**: Critical for integration with external recruitment platforms (Prolific, UserTesting, Respondent) that manage participant distribution and need a single reusable URL. This enables scalable participant recruitment without manual link generation.
+
+**Independent Test**: Configure a study with a reusable link, substitute a participant ID into the URL template, access it, and verify a new interview is created on-the-fly. Delivers value by enabling platform integrations.
+
+**Acceptance Scenarios**:
+
+1. **Given** I have created a study with slug "freelancer-tool-selection", **When** I view study settings, **Then** I see a reusable link template: `https://verity.com/study/freelancer-tool-selection/start?pid={{PARTICIPANT_ID}}`
+2. **Given** a recruitment platform uses the reusable link with pid=prolific_123, **When** the participant clicks it, **Then** Verity creates a new interview on-the-fly with external_participant_id and redirects to pipecat
+3. **Given** someone accesses the reusable link without a pid parameter, **When** they click it, **Then** Verity creates an anonymous interview (no external_participant_id) and redirects to pipecat
+4. **Given** the same participant ID accesses the link twice, **When** the second access occurs, **Then** they see "Interview already completed" (no duplicate interviews)
+5. **Given** an interview was completed via reusable link with pid, **When** I view interviews, **Then** I see the external participant ID (e.g., "prolific_123") associated with the interview
+
+---
+
+### User Story 6 - Pre-Interview Optional Sign-In (Priority: P2)
+
+As a participant accessing a direct link (no pid), I have the option to sign in before starting an interview when the study allows pre-sign-in, so my participation is automatically tracked.
+
+**Why this priority**: Improves user experience for repeat participants and enables Verity to build a participant database. Only applies to direct links (no pid) when study setting is "allow_pre_signin". Recruitment platform links (with pid) skip pre-interview sign-in for frictionless entry.
+
+**Independent Test**: Access a direct interview link (no pid) for a study with "allow_pre_signin" setting and verify interstitial appears with sign-in option. Delivers value by simplifying participation tracking for direct distribution.
+
+**Acceptance Scenarios**:
+
+1. **Given** I access a direct link (no pid) for a study with "allow_pre_signin", **When** the interstitial page loads, **Then** I see options: "Continue as Guest" or "Sign In"
+2. **Given** I access a recruitment platform link (with pid), **When** processing the link, **Then** Verity skips pre-interview sign-in and redirects directly to pipecat (friction reduction)
+3. **Given** I choose "Sign In" and authenticate on interstitial, **When** I complete the interview, **Then** it automatically appears in my participation history
+4. **Given** I am already signed in to Verity, **When** I access a direct link (no pid), **Then** my session is recognized and the interview is auto-linked (no interstitial shown)
+
+---
+
+### User Story 7 - Post-Interview Claim and Cross-Platform Identity (Priority: P3)
+
+As a participant, I can sign in after completing anonymous interviews to claim them and view my complete participation history across all platforms (Prolific, Respondent, direct links) in one dashboard when the study allows post-interview claim.
+
+**Why this priority**: Enables Verity to build participant profiles and provide value to repeat participants. Supports cross-platform identity reconciliation. Only available for studies with "claim_after" or "allow_pre_signin" settings. Nice-to-have feature that can be deferred.
+
+**Independent Test**: Complete multiple anonymous interviews from different sources (for studies with claim enabled), sign in once, and verify all interviews appear in a unified dashboard with their original platform sources visible.
+
+**Acceptance Scenarios**:
+
+1. **Given** I have completed an interview anonymously from Prolific (external_id: prolific_123) for a study with "claim_after" setting, **When** I see the thank-you page, **Then** I see "Sign In to Track My Interviews" option
+2. **Given** I click "Sign In to Track My Interviews" and authenticate, **When** claim succeeds, **Then** the interview is linked to my Verity account
+3. **Given** I am signed in and complete an interview from Respondent (external_id: respondent_789), **When** I view my dashboard, **Then** I see both Prolific and Respondent interviews with their platform sources labeled
+4. **Given** I have completed an interview for a study with "anonymous" setting, **When** I see the thank-you page, **Then** no claim option is shown (respects study setting)
+
+---
+
+### User Story 8 - Participant Profile Dashboard (Priority: P3)
+
+As a signed-in participant, I view my complete participation history across all studies and platforms so I can track my contributions and understand my involvement.
+
+**Why this priority**: Provides value to engaged participants and helps Verity build a participant community. Can be deferred until participant sign-in patterns are established.
+
+**Independent Test**: Sign in as a participant who has completed interviews across multiple platforms and verify all participation data is visible. Delivers value for participant engagement and retention.
+
+**Acceptance Scenarios**:
+
+1. **Given** I am signed in as a participant, **When** I navigate to "My Participation", **Then** I see a list of all interviews I've completed with study titles and dates
+2. **Given** I view my participation history, **When** I see an interview, **Then** I can identify which platform it came from (Prolific, Respondent, direct link, etc.)
+3. **Given** I have completed interviews across 3 different platforms, **When** I view my profile stats, **Then** I see total participation count aggregated across all sources
+4. **Given** I want to review a past interview, **When** I click on it, **Then** I can view the study title and date (but not transcript - that belongs to the researcher)
+
+---
+
+### Edge Cases
+
+- What happens when a participant tries to access the same interview link twice (after completion)?
+  - **Handling**: Verity checks interview status before redirect; if completed, show message "This interview has already been completed" instead of redirecting to pipecat
+
+- What happens when pipecat-momtest's completion callback fails to reach Verity?
+  - **Handling**: Pipecat retries the callback with exponential backoff; Verity handles idempotent completion (FR-034) so duplicate calls don't cause errors; artifacts remain in shared storage accessible by both apps
+
+- What happens when storage paths in completion callback reference missing files?
+  - **Handling**: Verity marks interview as "completion_pending"; logs error with storage path for debugging; provides admin interface to verify storage and update paths; researcher sees "artifacts pending" status until resolved
+
+- What happens when a researcher deletes a study with a reusable link?
+  - **Handling**: Reusable study link becomes invalid; participants see "This study is no longer available" message from Verity (before redirect to pipecat)
+
+- How does the system handle participants navigating away mid-interview?
+  - **Handling**: Pipecat-momtest handles this; on disconnect, saves recording/transcript and sends completion callback to Verity; partial interviews are stored as completed
+
+- What happens when pipecat-momtest is unavailable (deployment down)?
+  - **Handling**: Verity redirect fails; participant sees browser error; no graceful degradation in MVP; reusable study link remains accessible once pipecat is back online
+
+- What happens when multiple researchers from the same organization try to view the same interview simultaneously?
+  - **Handling**: Standard concurrent read access; no locking needed for viewing
+
+- How does the system handle reusable study links shared on social media or public forums?
+  - **Handling**: Links work for anyone with the URL; no additional restrictions in MVP; when pid absent, each access creates new interview (no deduplication); rate limiting may be added later
+
+- What happens when the same external participant ID accesses a reusable study link multiple times?
+  - **Handling**: First access creates interview and redirects; subsequent accesses show "Interview already completed" (deduplication by external_participant_id + study_id)
+
+- What happens when a reusable study link is accessed without a pid parameter?
+  - **Handling**: Creates anonymous interview (no external_participant_id); each access creates a new interview (no deduplication); useful for direct distribution where participant tracking isn't needed
+
+- How does the system prevent participant ID spoofing on reusable links?
+  - **Handling**: No validation in MVP - reusable links are for trusted recruitment platforms; external_id is stored for tracking, not authentication; future enhancement could add HMAC signatures
+
+- What happens when a signed-in participant accesses a link with an external_id?
+  - **Handling**: Interview is linked to both verity_user_id AND external_participant_id; enables cross-platform identity reconciliation
+
+## Integration Architecture
+
+### Overview
+
+This feature supports two primary integration patterns:
+1. **Pipecat-momtest Integration**: Live interview execution (separate application)
+2. **Recruitment Platform Integration**: Participant sourcing via external platforms
+
+### Recruitment Platform Integration
+
+External recruitment platforms (Prolific, UserTesting, Respondent.io, UserInterviews) integrate with Verity using **reusable study links**. The `pid` parameter is **optional**, making the same link work for both recruitment platforms AND direct distribution.
+
+**How it works (with pid - recruitment platform)**:
+```
+1. Researcher creates study with slug: "freelancer-tool-selection"
+2. Verity provides template URL:
+   https://verity.com/study/freelancer-tool-selection/start?pid={{PARTICIPANT_ID}}
+
+3. Platform substitutes participant ID:
+   Prolific uses: https://verity.com/study/freelancer-tool-selection/start?pid={{%PROLIFIC_PID%}}
+   UserTesting uses: https://verity.com/study/freelancer-tool-selection/start?pid={{tester_id}}
+
+4. When participant clicks:
+   - Verity creates Interview record on-the-fly
+   - Stores external_participant_id (e.g., "prolific_abc123")
+   - Generates unique access_token
+   - Redirects 302 to: https://interview.verity.com?token={access_token}
+
+5. Participant completes interview → Pipecat callback → Verity
+```
+
+**How it works (without pid - direct distribution)**:
+```
+1. Researcher shares: https://verity.com/study/freelancer-tool-selection/start
+2. When participant clicks:
+   - Verity creates Interview record on-the-fly (anonymous, no external_participant_id)
+   - Generates unique access_token
+   - Redirects 302 to: https://interview.verity.com?token={access_token}
+3. Same interview flow as above
+```
+
+**Deduplication**:
+- **With pid**: external_participant_id + study_id ensures one interview per participant per study
+- **Without pid**: Each access creates new interview (no deduplication)
+
+**Benefits**:
+- Simple integration (no API auth required)
+- Works with all major recruitment platforms
+- Readable, shareable URLs using study slug
+- On-the-fly interview creation (unlimited participants)
+- Flexible: Same link works for platforms AND direct distribution
+
+### Interactive Interview Component (Pipecat-momtest)
+
+The **interactive interview component** (pipecat-momtest: https://github.com/tinyteamco/pipecat-momtest) is a **separate application** and is **out of scope** for this feature. This feature focuses on the orchestration layer: link generation, interview access, and results collection.
+
+**Architectural Decision**: Verity and pipecat-momtest communicate via URL-passing using a "pull" pattern where the interview component fetches data from Verity and posts completion back.
+
+### Integration Flow
+
+```
+1. Participant accesses reusable study link (with or without pid)
+   └─> Verity creates Interview record on-the-fly with access_token
+
+2. Verity redirects to pipecat
+   └─> Redirect URL: https://interview.verity.com?token={access_token}
+
+3. Pipecat-momtest fetches interview data
+   └─> GET https://api.verity.com/interview/{access_token}
+       Response: {
+         "study_title": "Freelancer Tool Selection Research",
+         "interview_guide": "# Welcome\n\nThank you for participating...\n\n## Section 1: Background\n\n1. Tell me about..."
+       }
+
+4. Pipecat-momtest conducts live interview
+   └─> WebSocket connection, real-time transcription, AI conversation
+
+5. Interview completes (participant disconnects)
+   └─> Pipecat returns 200 immediately to client
+   └─> Background task: finalize WebM, write to shared GCS bucket
+
+6. Pipecat-momtest notifies Verity of completion
+   └─> POST https://api.verity.com/interview/{access_token}/complete
+       Body: {
+         "session_id": "uuid-123",
+         "transcript_streaming": "Interviewer: Welcome...\nParticipant: Hi...",
+         "audio_storage_path": "gs://shared-bucket/interviews/{session_id}/recording.webm",
+         "completed_at": "2025-10-10T18:30:00Z"
+       }
+
+7. Verity processes completion
+   └─> Store streaming transcript (immediate viewing)
+   └─> Store audio storage path reference
+   └─> Mark interview as completed
+   └─> (Later) Generate batch transcript from audio (async job)
+```
+
+### API Contracts
+
+#### Verity → Pipecat (Interview Data Fetch)
+
+**Endpoint**: `GET /interview/{access_token}`
+- **Auth**: None required (public access via unique token)
+- **Response**:
+```json
+{
+  "study_title": "Freelancer Tool Selection Research",
+  "interview_guide": "# Welcome\n\nThank you for participating...\n\n## Section 1: Background\n\n1. Tell me about..."
+}
+```
+- **Errors**:
+  - `404`: Invalid or expired access token
+  - `410`: Interview already completed
+
+**Notes**:
+- `study_title`: Display name of the study
+- `interview_guide`: Markdown content from the study's interview guide (replaces hardcoded prompts in pipecat)
+- System prompt behavior: Pipecat determines how to use the guide (current implementation has hardcoded system prompt in `_system.md`)
+
+#### Pipecat → Verity (Completion Callback)
+
+**Endpoint**: `POST /interview/{access_token}/complete`
+- **Auth**: None required (callback from trusted interview component)
+- **Body**:
+```json
+{
+  "session_id": "uuid-abc-123",
+  "transcript_streaming": "Interviewer: Welcome to the study...\nParticipant: Hi, thanks...",
+  "audio_storage_path": "gs://shared-bucket/interviews/{session_id}/recording.webm",
+  "completed_at": "2025-10-10T18:30:00Z"
+}
+```
+- **Response**: `200 OK`
+- **Errors**:
+  - `404`: Invalid access token
+  - `409`: Interview already marked complete (idempotent, returns 200)
+
+**Notes**:
+- `transcript_streaming`: Real-time transcript from pipecat (lower accuracy, immediate availability)
+- `audio_storage_path`: GCS path to finalized audio file in shared bucket
+- Verity will generate batch transcript from audio asynchronously (source of truth)
+
+### Implementation Notes
+
+**Shared Storage Architecture**:
+- Both Verity and pipecat-momtest access same GCS bucket (`gs://shared-bucket/interviews/`)
+- IAC grants both applications read/write access to this bucket (one-time configuration)
+- Pipecat writes finalized artifacts directly to GCS (no HTTP upload to Verity)
+- Verity references storage paths (no download, just path storage)
+- Avoids HTTP upload timeouts, eliminates intermediate storage complexity
+
+**Current Pipecat-momtest Architecture**:
+- Hardcoded interview scripts in `/backend/src/momtest/prompts/*.md`
+- WebSocket endpoint: `/ws/{momtest_id}/{session_id}`
+- Completion handler currently blocks on finalization (causes App Engine timeouts)
+- Saves to local storage or environment-specific bucket
+
+**Required Changes to Pipecat-momtest** (out of scope for Verity):
+1. Fetch interview guide dynamically from Verity `GET /interview/{token}`
+2. Make disconnect handler non-blocking (return 200 immediately)
+3. Background task: finalize WebM container → write to shared GCS bucket → POST completion callback
+4. Use Verity access tokens in WebSocket flow
+5. Include streaming transcript and storage path in completion callback
+
+**Required Changes to Verity**:
+1. Add `GET /interview/{token}` endpoint (public, returns guide data)
+2. Add `POST /interview/{token}/complete` endpoint (accepts storage paths, not URLs)
+3. Store artifact storage path references (no download needed)
+4. Generate batch transcript from stored audio (async job)
+5. Generate redirect URLs to pipecat-momtest with access token
+
+**Configuration**:
+- Environment variable: `PIPECAT_BASE_URL` (e.g., `https://interview.verity.com`)
+- Shared GCS bucket: `gs://shared-bucket/interviews/` (configured via IAC)
+
+**Rationale for Shared Storage**:
+- Avoids HTTP upload timeouts for large audio files (5-10 MB for 5-10 minute interviews)
+- Eliminates credential complexity (both apps access same bucket via service accounts)
+- Pipecat can finalize WebM asynchronously without blocking disconnect
+- Single source of truth for artifacts (no download/sync failures)
+
+**Researcher Artifact Access**:
+- Researchers access artifacts via authenticated API proxy endpoints
+- Backend streams artifacts from GCS: `GET /api/orgs/{org_id}/interviews/{interview_id}/audio`
+- Rationale for MVP proxy pattern vs signed URLs:
+  - Simpler implementation (standard RESTful pattern)
+  - No signed URL generation/expiry logic
+  - Auth checks inline with existing patterns
+  - Sufficient for current scale (dozens to hundreds of researchers, occasional downloads)
+  - Defer to signed URLs only if bandwidth becomes measurable bottleneck
+
+## Requirements *(mandatory)*
+
+### Functional Requirements
+
+**Infrastructure**
+
+- **FR-001**: System MUST provision shared GCS bucket via IAC (Pulumi) with read/write IAM permissions for both Verity and pipecat-momtest service accounts
+
+**Participant Access**
+
+- **FR-002**: Participants MUST be able to access an interview using only the reusable study link (no authentication required)
+- **FR-003**: System MUST display reusable study link template in study settings for researchers to copy
+- **FR-004**: System MUST show a clear error message when a study link is invalid or study has been deleted
+- **FR-005**: System MUST prevent access to interviews from studies that have been deleted
+
+**Interview Completion (via Pipecat-momtest Callback)**
+
+- **FR-006**: System MUST accept completion callbacks from pipecat-momtest containing storage paths, streaming transcript, and completion timestamp
+- **FR-007**: System MUST validate access tokens in completion callbacks match existing pending interviews
+- **FR-008**: System MUST prevent duplicate interview access after completion (show "already completed" message)
+- **FR-009**: System MUST handle idempotent completion callbacks gracefully (no errors on retry)
+- **FR-010**: System MUST store the completion timestamp when receiving completion callback from pipecat-momtest
+
+**Artifact Management (Transcripts & Recordings)**
+
+- **FR-011**: System MUST store artifact storage path references (GCS paths) provided in completion callback
+- **FR-012**: System MUST store streaming transcript from completion callback for immediate researcher viewing
+- **FR-013**: Researchers MUST be able to view streaming transcripts inline and download audio recordings via authenticated API endpoints that proxy artifacts from shared storage (e.g., `GET /api/orgs/{org_id}/interviews/{interview_id}/audio`)
+- **FR-014**: System MUST generate batch transcript from stored audio asynchronously (source of truth, higher accuracy than streaming transcript)
+
+**Interview Tracking**
+
+- **FR-015**: Researchers MUST be able to view a list of all interviews (pending and completed) for their studies
+- **FR-016**: System MUST display interview status (pending, completed, completion_pending) and completion date if applicable
+- **FR-017**: System MUST display transcript content inline for completed interviews
+- **FR-018**: System MUST provide authenticated API endpoints for downloading audio recordings from completed interviews (backend proxies from GCS)
+
+**Optional Participant Sign-In**
+
+- **FR-019**: Participants MAY optionally sign in to associate an interview with their account
+- **FR-020**: Participants who sign in MUST be able to view their participation history across all studies
+- **FR-021**: System MUST allow participants to claim previously completed anonymous interviews after signing in
+
+**Security & Privacy**
+
+- **FR-022**: System MUST enforce multi-tenancy: researchers can only view interviews for studies within their organization
+- **FR-023**: System MUST NOT expose participant identity unless they explicitly sign in
+- **FR-024**: Interview links MUST be accessible over HTTPS only (no unencrypted access)
+
+**Integration Requirements (Pipecat-momtest)**
+
+- **FR-025**: System MUST provide public `GET /interview/{access_token}` endpoint that returns study title and interview guide content (no authentication required)
+- **FR-026**: System MUST provide public `POST /interview/{access_token}/complete` endpoint that accepts completion callback with storage paths and streaming transcript
+- **FR-027**: System MUST accept GCS storage path format (`gs://bucket/path`) in completion callback for audio artifacts
+- **FR-028**: System MUST mark interviews as completed and store completion timestamp when receiving completion callback (covered by FR-010)
+- **FR-029**: On-the-fly created interviews MUST redirect to pipecat-momtest with access token as query parameter (e.g., `{PIPECAT_BASE_URL}?token={access_token}`)
+- **FR-030**: System MUST support CORS on public interview endpoints to allow cross-origin requests from pipecat-momtest application
+- **FR-031**: System MUST reference artifacts in shared storage via path (no download or copy needed)
+
+**Recruitment Platform Integration**
+
+- **FR-032**: System MUST provide reusable study links using study slug format: `https://verity.com/study/{slug}/start?pid={{PARTICIPANT_ID}}`
+- **FR-033**: System MUST create Interview records on-the-fly when reusable study links are accessed (with or without pid parameter)
+- **FR-034**: System MUST store external_participant_id from pid query parameter when present (nullable if pid absent)
+- **FR-035**: System MUST prevent duplicate interviews for the same external_participant_id + study_id combination when pid is present (show "already completed" message)
+- **FR-036**: System MUST display pre-interview interstitial based on study's participant_identity_flow setting and pid presence:
+  - When pid present (recruitment platform): Skip interstitial, redirect directly to interview (friction reduction)
+  - When pid absent AND study setting is "allow_pre_signin" AND user not signed in: Show interstitial with "Continue as Guest" or "Sign In" options
+  - Otherwise: Proceed directly to interview
+
+**Participant Identity & Sign-In**
+
+- **FR-037**: Participants MUST be able to optionally sign in before starting an interview (pre-interview sign-in)
+- **FR-038**: System MUST auto-link interviews to signed-in participants (populate verity_user_id on Interview creation)
+- **FR-039**: System MUST display sign-in/register option on interview completion page for anonymous participants
+- **FR-040**: System MUST allow claiming anonymous interviews by linking them to verity_user_id after authentication
+- **FR-041**: Interview records MUST store BOTH external_participant_id (from platform) AND verity_user_id (from sign-in) when available
+- **FR-042**: System MUST support cross-platform identity reconciliation (same verity_user_id across different external_participant_ids)
+- **FR-043**: Signed-in participants MUST be able to view complete participation history across all platforms and studies
+- **FR-044**: Participation dashboard MUST display platform source for each interview (e.g., "Prolific", "Respondent", "Direct")
+- **FR-045**: System MUST aggregate participation statistics across all platforms for signed-in users
+
+**Study Configuration**
+
+- **FR-046**: Study MUST have configurable participant_identity_flow setting with values: "anonymous" (no identity tracking), "claim_after" (post-interview claim available), or "allow_pre_signin" (pre-interview sign-in for direct links only)
+
+### Key Entities
+
+- **Study**: Represents a research study with interview guide. Contains title, unique slug (for reusable links), interview guide content (markdown), participant_identity_flow setting (anonymous/claim_after/allow_pre_signin). Belongs to one Organization. Has many Interviews.
+
+- **Interview**: Represents a single participant's response session for a study. Contains access token, status (pending/completed/completion_pending), completion timestamp, pipecat session ID, external_participant_id (from recruitment platform, nullable), verity_user_id (from sign-in, nullable), source platform identifier, and optional metadata. Linked to exactly one Study. Created on-the-fly when participants access reusable study links. Can have both external_participant_id AND verity_user_id for cross-platform identity reconciliation.
+
+- **Transcript**: Text artifact from a completed interview showing conversation between participant and AI interviewer. Two types: (1) **Streaming transcript** from pipecat (real-time, lower accuracy, immediate availability) stored directly in database; (2) **Batch transcript** generated from audio (higher accuracy, source of truth) created asynchronously. Linked to exactly one Interview.
+
+- **Recording**: Audio file artifact from a completed interview. Contains file metadata (format, storage path) and GCS path reference (`gs://shared-bucket/interviews/{session_id}/recording.webm`). Audio stored in shared GCS bucket accessible by both Verity and pipecat. Linked to exactly one Interview.
+
+- **VerityUser**: Represents a signed-in participant's identity. Contains email (unique), name, Firebase UID, created_at timestamp. Enables cross-platform participation tracking. Separate from Organization users (researchers).
+
+- **ParticipantProfile**: Extended profile data for VerityUser. Contains demographics (optional), preferences, total participation count, platform affiliations (maps verity_user_id to external_participant_ids from different platforms). Enables participant discovery and matching for future studies.
+
+## Success Criteria *(mandatory)*
+
+### Measurable Outcomes
+
+- **SC-001**: Participants can complete interviews without manual artifact upload (pipecat handles recording/transcript automatically)
+- **SC-002**: Researchers can view completed interviews and access artifacts (transcripts inline, audio downloadable)
+- **SC-003**: Reusable study links create interview records on-the-fly (unlimited participants per link)
+
+## Scope & Constraints
+
+### In Scope
+
+- Shared GCS bucket creation via IAC (Pulumi) with IAM permissions for both Verity and pipecat-momtest service accounts
+- Reusable study link template display (copy from study settings)
+- On-the-fly interview creation when participants access reusable links
+- Public access to interviews via unique tokens (no authentication required)
+- Pipecat-momtest integration (callback-based completion, shared storage)
+- Interview submission and status tracking (pending, completed, completion_pending)
+- Interview list and detail views for researchers (transcripts inline, audio download)
+- Recruitment platform integration (reusable slug-based links with optional pid parameter)
+- External participant ID tracking (Prolific, Respondent, etc.)
+- Optional participant sign-in (pre-interview and post-interview claim)
+- Cross-platform identity reconciliation (verity_user_id links multiple external_ids)
+- Participant profile dashboard (view participation history across platforms)
+
+### Out of Scope (Separate Components/Future Features)
+
+**Separate Application (Not Part of This Feature)**:
+- Interactive interview component (live recording, transcription UI) - separate app
+- In-browser audio recording interface - handled by separate component
+- Real-time transcript display during interview - handled by separate component
+
+**Deferred to Future Iterations**:
+- Pre-generated interview links with individual link management (ShareLink entity, link generation UI, deactivation, campaign tracking)
+- Webhook integration for recruitment platforms (completion notifications with HMAC signatures)
+- Link expiration dates and auto-deactivation
+- Live interview progress tracking from Verity dashboard (real-time status updates)
+- Multi-file uploads per interview (single transcript + audio only)
+- Advanced analytics (completion rates, drop-off analysis, platform comparison)
+- Email notifications when interviews are completed
+- AI-generated interview summaries and insights
+- Participant demographic filtering and matching for researchers
+- Participant incentive/compensation tracking
+- Interview quota limits per study (unlimited in MVP)
+- HMAC signature verification for reusable links (trusted platforms only in MVP)
+- Participant consent management and GDPR compliance tooling
+
+### Constraints
+
+- Pipecat-momtest handles recording and writes to shared GCS bucket (no size limit imposed by Verity)
+- Only audio file formats supported (WebM from pipecat, no video)
+- Two transcripts per interview: streaming (immediate, lower accuracy) and batch (async, source of truth)
+- One audio recording per interview (no multi-part submissions in MVP)
+- Reusable study links require study to have a unique slug (auto-generated from title)
+- External participant IDs are not validated (trusted recruitment platforms assumption)
+
+## Dependencies & Assumptions
+
+### Dependencies
+
+- **Study Management**: Studies with interview guides and unique slugs must exist before interview links can be generated
+- **Authentication System**: Firebase Auth for optional participant sign-in (VerityUser accounts) and researcher access control
+- **Pipecat-momtest**: Separate application for conducting live interviews (https://github.com/tinyteamco/pipecat-momtest) - requires deployment and configuration to call Verity's completion callback
+
+### Assumptions
+
+- Pipecat-momtest application is deployed and accessible (handles live recording and transcription)
+- Pipecat finalizes WebM container asynchronously after participant disconnect (background task)
+- Researchers will distribute interview links via recruitment platforms (Prolific, Respondent), email, messaging, or social media
+- Recruitment platforms are trusted (no HMAC verification on reusable links in MVP)
+- External participant IDs from platforms are unique within that platform's namespace
+- Pipecat-momtest produces artifacts in compatible format (WebM audio, plain text streaming transcript)
+- Network connectivity is sufficient for real-time WebSocket communication during interviews
+- Participants complete interviews in a single session via pipecat-momtest (no save/resume in MVP)
+- Organization members have sufficient permissions to generate links for studies they can access
+- Pipecat-momtest callback URLs are reachable from Verity's backend (no firewall blocking)
+- Participants who sign in use valid email addresses (Firebase Auth handles validation)
+
+## Open Questions
+
+None. All critical decisions have been made based on industry standards and the existing backend implementation.

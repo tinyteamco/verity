@@ -23,9 +23,12 @@ def current_user_headers():
 
 
 @given("a test organization with ID 1 exists")
-def create_test_organization(client, super_admin_token):
+def create_test_organization(client, super_admin_token, request):
     """Create test organization for the scenarios"""
     import uuid
+
+    from src.models import Organization
+    from tests.conftest import TestingSessionLocal
 
     headers = {"Authorization": f"Bearer {super_admin_token}"}
     unique_id = str(uuid.uuid4())[:8]
@@ -41,16 +44,26 @@ def create_test_organization(client, super_admin_token):
     )
     assert response.status_code == 201
 
+    # Get the actual org ID from database
+    with TestingSessionLocal() as db:
+        org = db.query(Organization).filter(Organization.name == "test-organization").first()
+        assert org is not None
+        request.test_org_id = org.id
+
 
 @given(
     parsers.parse('a study with ID {study_id:d} titled "{title}" exists in organization {org_id:d}')
 )
-def create_test_study(client, super_admin_token, study_id, title, org_id):
+def create_test_study(client, super_admin_token, study_id, title, org_id, request):
     """Create a test study - we'll use the conftest testing session"""
+    import re
+
     from firebase_admin import auth
-    from src.models import Organization, User
+    from src.models import Organization, Study, User
     from tests.conftest import TestingSessionLocal
-    from tests.test_helpers import sign_in_user
+
+    # Use the actual org_id stored from previous step
+    actual_org_id = getattr(request, "test_org_id", org_id)
 
     # Create a temporary user to create the study
     try:
@@ -68,21 +81,8 @@ def create_test_study(client, super_admin_token, study_id, title, org_id):
         db_session = TestingSessionLocal()
         try:
             # Find the test organization
-            org = (
-                db_session.query(Organization)
-                .filter(Organization.display_name == "Test Organization")
-                .first()
-            )
-            if not org:
-                # If not found, create it
-                org = Organization(
-                    name="test-organization",
-                    display_name="Test Organization",
-                    description="Test organization",
-                )
-                db_session.add(org)
-                db_session.commit()
-                db_session.refresh(org)
+            org = db_session.query(Organization).filter(Organization.id == actual_org_id).first()
+            assert org is not None, f"Organization {actual_org_id} not found"
 
             user = User(
                 firebase_uid="temp-study-creator",
@@ -93,13 +93,24 @@ def create_test_study(client, super_admin_token, study_id, title, org_id):
             db_session.add(user)
             db_session.commit()
 
-            # Create study using this temp user
-            temp_token = sign_in_user("temp@example.com", "testpass123")
-            headers = {"Authorization": f"Bearer {temp_token}"}
-            response = client.post(
-                f"/orgs/{org_id}/studies", json={"title": title}, headers=headers
+            # Create study directly in database with proper slug
+            slug = re.sub(r"[^\w\s-]", "", title.lower())
+            slug = re.sub(r"[-\s]+", "-", slug)
+            # Make slug unique per test
+            slug = f"{slug}-{hash(request.node.name) % 10000}"
+
+            study = Study(
+                title=title,
+                slug=slug,
+                participant_identity_flow="anonymous",
+                organization_id=actual_org_id,
             )
-            assert response.status_code == 201
+            db_session.add(study)
+            db_session.commit()
+            db_session.refresh(study)
+
+            # Store the actual study ID for later use
+            request.test_study_id = study.id
 
         finally:
             db_session.close()
@@ -225,21 +236,24 @@ def create_study_different_org(client, super_admin_token, study_id):
 
 
 @given(parsers.parse('a study guide exists for study {study_id:d} with content "{content}"'))
-def create_study_guide(client, org_user_token, study_id, content):
+def create_study_guide(client, org_user_token, study_id, content, request):
     """Create a study guide with the given content"""
+    actual_study_id = getattr(request, "test_study_id", study_id)
     headers = {"Authorization": f"Bearer {org_user_token}"}
     response = client.put(
-        f"/studies/{study_id}/guide",
+        f"/studies/{actual_study_id}/guide",
         json={"content_md": content},
         headers=headers,
     )
     assert response.status_code == 200
 
 
-@when(parsers.parse('they PUT /studies/{study_id}/guide with content "{content}"'))
-def put_study_guide(client, response_data, current_user_headers, study_id, content):
+@when(parsers.parse('they PUT /studies/{study_id:d}/guide with content "{content}"'))
+def put_study_guide(client, response_data, current_user_headers, study_id, content, request):
+    # Only use actual_study_id for IDs 1-10 (test references), leave 999+ as-is (nonexistent)
+    actual_study_id = getattr(request, "test_study_id", study_id) if study_id < 100 else study_id
     response = client.put(
-        f"/studies/{study_id}/guide",
+        f"/studies/{actual_study_id}/guide",
         json={"content_md": content},
         headers=current_user_headers,
     )
@@ -247,16 +261,20 @@ def put_study_guide(client, response_data, current_user_headers, study_id, conte
     response_data["json"] = response.json() if response.status_code in [200, 201] else None
 
 
-@when(parsers.parse("they GET /studies/{study_id}/guide"))
-def get_study_guide(client, response_data, current_user_headers, study_id):
-    response = client.get(f"/studies/{study_id}/guide", headers=current_user_headers)
+@when(parsers.parse("they GET /studies/{study_id:d}/guide"))
+def get_study_guide(client, response_data, current_user_headers, study_id, request):
+    # Only use actual_study_id for IDs 1-10 (test references), leave 999+ as-is (nonexistent)
+    actual_study_id = getattr(request, "test_study_id", study_id) if study_id < 100 else study_id
+    response = client.get(f"/studies/{actual_study_id}/guide", headers=current_user_headers)
     response_data["response"] = response
     response_data["json"] = response.json() if response.status_code == 200 else None
 
 
-@when(parsers.parse("an unauthenticated user gets /studies/{study_id}/guide"))
-def get_study_guide_unauthenticated(client, response_data, study_id):
-    response = client.get(f"/studies/{study_id}/guide")
+@when(parsers.parse("an unauthenticated user gets /studies/{study_id:d}/guide"))
+def get_study_guide_unauthenticated(client, response_data, study_id, request):
+    # Only use actual_study_id for IDs 1-10 (test references), leave 999+ as-is (nonexistent)
+    actual_study_id = getattr(request, "test_study_id", study_id) if study_id < 100 else study_id
+    response = client.get(f"/studies/{actual_study_id}/guide")
     response_data["response"] = response
     response_data["json"] = response.json() if response.status_code == 200 else None
 
@@ -333,9 +351,10 @@ def set_super_admin_user(current_user_headers, super_admin_token):
 
 
 @when(parsers.parse('they POST /orgs/{org_id:d}/studies/generate with topic "{topic}"'))
-def post_generate_study(client, response_data, current_user_headers, org_id, topic):
+def post_generate_study(client, response_data, current_user_headers, org_id, topic, request):
+    actual_org_id = getattr(request, "test_org_id", org_id)
     response = client.post(
-        f"/orgs/{org_id}/studies/generate",
+        f"/orgs/{actual_org_id}/studies/generate",
         json={"topic": topic},
         headers=current_user_headers,
     )

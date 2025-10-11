@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -48,6 +48,10 @@ class Study(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     title: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    slug: Mapped[str] = mapped_column(String(63), nullable=False, unique=True, index=True)
+    participant_identity_flow: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="anonymous"
+    )
     organization_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("organizations.id"), nullable=False
     )
@@ -81,6 +85,12 @@ class InterviewGuide(Base):
 
 class Interview(Base):
     __tablename__ = "interviews"
+    __table_args__ = (
+        # Composite index for fast deduplication lookups
+        Index("ix_interviews_study_external_pid", "study_id", "external_participant_id"),
+        # Composite index for interview list queries (by study, status, completion date)
+        Index("ix_interviews_study_status_completed", "study_id", "status", "completed_at"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     study_id: Mapped[int] = mapped_column(
@@ -93,11 +103,24 @@ class Interview(Base):
     )  # pending, completed
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    external_participant_id: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, index=True
+    )
+    platform_source: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    verity_user_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("verity_users.id"), nullable=True, index=True
+    )
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     transcript_url: Mapped[str | None] = mapped_column(String, nullable=True)
     recording_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    pipecat_session_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     study: Mapped["Study"] = relationship("Study", back_populates="interviews")
+    verity_user: Mapped["VerityUser | None"] = relationship(
+        "VerityUser", back_populates="interviews"
+    )
     audio_recording: Mapped["AudioRecording | None"] = relationship(
         "AudioRecording", back_populates="interview", uselist=False
     )
@@ -154,3 +177,31 @@ class TranscriptSegment(Base):
     sequence: Mapped[int] = mapped_column(Integer, nullable=False)
 
     transcript: Mapped["Transcript"] = relationship("Transcript", back_populates="segments")
+
+
+class VerityUser(Base):
+    __tablename__ = "verity_users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    firebase_uid: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    last_sign_in: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    interviews: Mapped[list["Interview"]] = relationship("Interview", back_populates="verity_user")
+    profile: Mapped["ParticipantProfile | None"] = relationship(
+        "ParticipantProfile", back_populates="verity_user", uselist=False
+    )
+
+
+class ParticipantProfile(Base):
+    __tablename__ = "participant_profiles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    verity_user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("verity_users.id"), unique=True, nullable=False, index=True
+    )
+    platform_identities: Mapped[dict] = mapped_column(JSON, nullable=False, server_default="{}")
+
+    verity_user: Mapped["VerityUser"] = relationship("VerityUser", back_populates="profile")

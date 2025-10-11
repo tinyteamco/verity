@@ -1,21 +1,15 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getApiUrl } from '../lib/api'
-
-interface Study {
-  study_id: string
-  title: string
-  description: string | null
-  org_id: string
-  created_at: string
-  updated_at: string | null
-}
+import { StudySettings } from '../components/StudySettings'
+import type { Study } from '../types/study'
 
 export function StudyDetailPage() {
   const { orgId, studyId } = useParams<{ orgId: string; studyId: string }>()
   const navigate = useNavigate()
   const [study, setStudy] = useState<Study | null>(null)
   const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState<'overview' | 'settings' | 'interviews'>('overview')
   const [showEditModal, setShowEditModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [title, setTitle] = useState('')
@@ -133,41 +127,104 @@ export function StudyDetailPage() {
   }
 
   return (
-    <div data-testid="study-detail-page">
-      <h1 data-testid="study-detail-title">{study.title}</h1>
-
-      <div style={{ marginBottom: '2rem' }}>
-        <button
-          data-testid="edit-study-button"
-          onClick={() => setShowEditModal(true)}
-        >
-          Edit Study
-        </button>
-        <button
-          data-testid="delete-study-button"
-          onClick={() => setShowDeleteModal(true)}
-          style={{ marginLeft: '0.5rem' }}
-        >
-          Delete Study
-        </button>
+    <div data-testid="study-detail-page" className="p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 data-testid="study-detail-title" className="text-3xl font-bold">{study.title}</h1>
+          {study.description && (
+            <p className="text-muted-foreground mt-1">{study.description}</p>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <button
+            data-testid="edit-study-button"
+            onClick={() => setShowEditModal(true)}
+            className="px-4 py-2 border rounded hover:bg-muted"
+          >
+            Edit Study
+          </button>
+          <button
+            data-testid="delete-study-button"
+            onClick={() => setShowDeleteModal(true)}
+            className="px-4 py-2 border rounded hover:bg-destructive hover:text-destructive-foreground"
+          >
+            Delete Study
+          </button>
+        </div>
       </div>
 
-      {study.description && (
-        <div data-testid="study-detail-description" style={{ marginBottom: '2rem' }}>
-          <h3>Description</h3>
-          <p>{study.description}</p>
+      {/* Tabs */}
+      <div className="border-b">
+        <nav className="flex gap-4">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`px-4 py-2 border-b-2 transition-colors ${
+              activeTab === 'overview'
+                ? 'border-primary font-medium'
+                : 'border-transparent hover:border-muted-foreground'
+            }`}
+            data-testid="overview-tab"
+          >
+            Overview
+          </button>
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`px-4 py-2 border-b-2 transition-colors ${
+              activeTab === 'settings'
+                ? 'border-primary font-medium'
+                : 'border-transparent hover:border-muted-foreground'
+            }`}
+            data-testid="settings-tab"
+          >
+            Settings
+          </button>
+          <button
+            onClick={() => setActiveTab('interviews')}
+            className={`px-4 py-2 border-b-2 transition-colors ${
+              activeTab === 'interviews'
+                ? 'border-primary font-medium'
+                : 'border-transparent hover:border-muted-foreground'
+            }`}
+            data-testid="interviews-tab"
+          >
+            Interviews
+          </button>
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'overview' && (
+        <div className="space-y-4">
+          <div data-testid="interview-guide-section">
+            <h2 className="text-xl font-semibold mb-2">Interview Guide</h2>
+            <p className="text-muted-foreground">Interview guide management coming soon...</p>
+          </div>
         </div>
       )}
 
-      <div data-testid="interview-guide-section" style={{ marginBottom: '2rem' }}>
-        <h2>Interview Guide</h2>
-        <p style={{ color: '#666' }}>Interview guide management coming soon...</p>
-      </div>
+      {activeTab === 'settings' && (
+        <div data-testid="settings-section">
+          <StudySettings study={study} />
+        </div>
+      )}
 
-      <div data-testid="interviews-section">
-        <h2>Interviews</h2>
-        <p style={{ color: '#666' }}>Interview management coming soon...</p>
-      </div>
+      {activeTab === 'interviews' && (
+        <div data-testid="interviews-section" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Interviews</h2>
+            <Link
+              to={`/orgs/${orgId}/studies/${studyId}/interviews`}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
+              data-testid="view-interviews-link"
+            >
+              View All Interviews
+            </Link>
+          </div>
+          <p className="text-muted-foreground">
+            View completed interviews, transcripts, and recordings
+          </p>
+        </div>
+      )}
 
       {/* Edit Modal */}
       {showEditModal && (

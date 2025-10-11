@@ -10,6 +10,9 @@ MINIO_ENDPOINT = "http://localhost:9000"
 MINIO_ACCESS_KEY = "minioadmin"
 MINIO_SECRET_KEY = "minioadmin"
 APP_ENV = "development"
+GCS_BUCKET_NAME = "verity-artifacts-dev"
+PIPECAT_URL = "http://localhost:8080"
+VERITY_API_BASE = "http://localhost:8000/api"
 
 [tasks."check:format"]
 description = "Check code formatting"

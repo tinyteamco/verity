@@ -1,0 +1,590 @@
+openapi: 3.0.3
+info:
+  title: Verity Self-Led Interview API
+  version: 1.0.0
+  description: API endpoints for self-led interview execution feature
+
+paths:
+  /study/{slug}/start:
+    get:
+      summary: Access reusable study link (creates interview on-the-fly)
+      description: |
+        Public endpoint that creates an Interview record on-the-fly when a participant
+        accesses a reusable study link. Redirects to pipecat with access_token.
+      operationId: accessReusableStudyLink
+      security: []  # Public endpoint
+      tags:
+        - Public Interview Access
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          description: Unique study slug (URL-friendly identifier)
+          schema:
+            type: string
+            pattern: '^[a-z0-9-]+$'
+            minLength: 3
+            maxLength: 63
+            example: "mobile-banking-study"
+        - name: pid
+          in: query
+          required: false
+          description: External participant ID from recruitment platform (optional)
+          schema:
+            type: string
+            maxLength: 255
+            example: "prolific_abc123"
+      responses:
+        '302':
+          description: Redirect to pipecat interview interface with access_token
+          headers:
+            Location:
+              schema:
+                type: string
+                example: "https://pipecat.verity.com/?access_token=123e4567-e89b-12d3-a456-426614174000&verity_api=https://verity.com/api"
+        '404':
+          description: Study not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limit exceeded (deduplication: participant already has pending interview)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /interview/{access_token}:
+    get:
+      summary: Fetch interview data for pipecat
+      description: |
+        Public endpoint for pipecat to fetch interview guide and metadata.
+        Called by pipecat after participant is redirected from Verity.
+      operationId: getInterviewData
+      security: []  # Public endpoint (access_token acts as credential)
+      tags:
+        - Public Interview Access
+      parameters:
+        - name: access_token
+          in: path
+          required: true
+          description: Interview access token (UUID v4)
+          schema:
+            type: string
+            format: uuid
+            example: "123e4567-e89b-12d3-a456-426614174000"
+      responses:
+        '200':
+          description: Interview data with study guide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InterviewData'
+        '404':
+          description: Interview not found or already completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '410':
+          description: Interview access token expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /interview/{access_token}/complete:
+    post:
+      summary: Mark interview as completed (pipecat callback)
+      description: |
+        Public endpoint for pipecat to notify Verity that interview is complete
+        and artifacts have been uploaded to GCS. Idempotent.
+      operationId: completeInterview
+      security: []  # Public endpoint (access_token acts as credential)
+      tags:
+        - Public Interview Access
+      parameters:
+        - name: access_token
+          in: path
+          required: true
+          description: Interview access token (UUID v4)
+          schema:
+            type: string
+            format: uuid
+            example: "123e4567-e89b-12d3-a456-426614174000"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InterviewCompletionRequest'
+      responses:
+        '200':
+          description: Interview marked as completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InterviewCompletionResponse'
+        '400':
+          description: Interview already completed or invalid state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Interview not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /interview/{access_token}/claim:
+    post:
+      summary: Claim anonymous interview (post-interview account creation)
+      description: |
+        Participant endpoint to link completed interview to VerityUser account.
+        Can be called after interview completion to track participation across platforms.
+      operationId: claimInterview
+      security:
+        - FirebaseAuth: []
+      tags:
+        - Participant Identity
+      parameters:
+        - name: access_token
+          in: path
+          required: true
+          description: Interview access token (UUID v4)
+          schema:
+            type: string
+            format: uuid
+            example: "123e4567-e89b-12d3-a456-426614174000"
+      responses:
+        '200':
+          description: Interview successfully claimed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClaimInterviewResponse'
+        '400':
+          description: Interview not completed or already claimed by another user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Invalid or missing Firebase Auth token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Interview not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/participant/dashboard:
+    get:
+      summary: Get participant dashboard (interview history)
+      description: |
+        Participant endpoint to view all claimed interviews across platforms.
+        Returns metadata only (no transcripts or audio).
+      operationId: getParticipantDashboard
+      security:
+        - FirebaseAuth: []
+      tags:
+        - Participant Identity
+      responses:
+        '200':
+          description: Participant dashboard data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParticipantDashboard'
+        '401':
+          description: Invalid or missing Firebase Auth token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Participant profile not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/orgs/{org_id}/studies/{study_id}/interviews:
+    get:
+      summary: List interviews for study (researcher endpoint)
+      description: |
+        Researcher endpoint to view all interviews for a study.
+        Requires org-level authorization.
+      operationId: listStudyInterviews
+      security:
+        - FirebaseAuth: []
+      tags:
+        - Researcher Endpoints
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          description: Organization ID
+          schema:
+            type: integer
+            example: 5
+        - name: study_id
+          in: path
+          required: true
+          description: Study ID
+          schema:
+            type: integer
+            example: 1
+        - name: status
+          in: query
+          required: false
+          description: Filter by interview status (optional)
+          schema:
+            type: string
+            enum: [pending, completed]
+      responses:
+        '200':
+          description: List of interviews
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InterviewListResponse'
+        '401':
+          description: Invalid or missing Firebase Auth token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: User does not belong to organization
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Study not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/orgs/{org_id}/interviews/{interview_id}/artifacts/{filename}:
+    get:
+      summary: Download interview artifact (researcher endpoint)
+      description: |
+        Researcher endpoint to stream interview artifacts (audio/transcript).
+        Uses API proxy pattern - streams from GCS through Verity backend.
+      operationId: downloadInterviewArtifact
+      security:
+        - FirebaseAuth: []
+      tags:
+        - Researcher Endpoints
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          description: Organization ID
+          schema:
+            type: integer
+            example: 5
+        - name: interview_id
+          in: path
+          required: true
+          description: Interview ID
+          schema:
+            type: integer
+            example: 42
+        - name: filename
+          in: path
+          required: true
+          description: Artifact filename
+          schema:
+            type: string
+            enum: [recording.wav, transcript.txt]
+            example: "recording.wav"
+      responses:
+        '200':
+          description: Artifact file stream
+          content:
+            audio/wav:
+              schema:
+                type: string
+                format: binary
+            text/plain:
+              schema:
+                type: string
+                example: "user: Tell me about your app idea.\nassistant: ..."
+        '401':
+          description: Invalid or missing Firebase Auth token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: User does not belong to organization
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Interview or artifact not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    FirebaseAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Firebase Auth ID token (obtained from Firebase SDK)
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        detail:
+          type: string
+          description: Human-readable error message
+          example: "Interview not found"
+      required:
+        - detail
+
+    InterviewData:
+      type: object
+      properties:
+        interview:
+          type: object
+          properties:
+            interview_id:
+              type: integer
+              example: 42
+            study_id:
+              type: integer
+              example: 1
+            access_token:
+              type: string
+              format: uuid
+              example: "123e4567-e89b-12d3-a456-426614174000"
+            status:
+              type: string
+              enum: [pending, completed]
+              example: "pending"
+            created_at:
+              type: string
+              format: date-time
+              example: "2025-10-10T20:14:18Z"
+          required:
+            - interview_id
+            - study_id
+            - access_token
+            - status
+            - created_at
+        study:
+          type: object
+          properties:
+            title:
+              type: string
+              example: "Mobile Banking App Usability Study"
+            interview_guide:
+              type: object
+              properties:
+                content_md:
+                  type: string
+                  description: Markdown content for interview guide
+                  example: "# Interview Guide\n\n## Learning Goals\n1. ..."
+                updated_at:
+                  type: string
+                  format: date-time
+                  example: "2025-10-10T19:00:00Z"
+              required:
+                - content_md
+                - updated_at
+          required:
+            - title
+            - interview_guide
+      required:
+        - interview
+        - study
+
+    InterviewCompletionRequest:
+      type: object
+      properties:
+        transcript_url:
+          type: string
+          format: uri
+          description: GCS URL to transcript file
+          example: "https://storage.googleapis.com/verity-artifacts-prod/iv_042/transcript.txt"
+        recording_url:
+          type: string
+          format: uri
+          description: GCS URL to audio file (optional)
+          example: "https://storage.googleapis.com/verity-artifacts-prod/iv_042/recording.wav"
+        notes:
+          type: string
+          description: Optional notes from pipecat
+          example: "Interview completed successfully. Duration: 18 minutes."
+      required:
+        - transcript_url
+
+    InterviewCompletionResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Interview completed successfully"
+      required:
+        - message
+
+    ClaimInterviewResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [claimed, already_claimed]
+          example: "claimed"
+        verity_user_id:
+          type: integer
+          example: 5
+        total_interviews:
+          type: integer
+          description: Total number of claimed interviews for this user
+          example: 7
+      required:
+        - status
+        - verity_user_id
+        - total_interviews
+
+    ParticipantDashboard:
+      type: object
+      properties:
+        verity_user:
+          type: object
+          properties:
+            email:
+              type: string
+              format: email
+              example: "participant@example.com"
+            display_name:
+              type: string
+              nullable: true
+              example: "Jane Doe"
+            member_since:
+              type: string
+              format: date-time
+              example: "2025-10-10T20:35:00Z"
+          required:
+            - email
+            - member_since
+        stats:
+          type: object
+          properties:
+            total_interviews:
+              type: integer
+              example: 7
+            total_minutes:
+              type: integer
+              description: Total participation time in minutes
+              example: 42
+            platforms_connected:
+              type: array
+              items:
+                type: string
+              example: ["prolific", "respondent"]
+          required:
+            - total_interviews
+            - total_minutes
+            - platforms_connected
+        interviews:
+          type: array
+          items:
+            type: object
+            properties:
+              study_title:
+                type: string
+                example: "Mobile Banking App Usability Study"
+              platform_source:
+                type: string
+                example: "prolific"
+              external_id:
+                type: string
+                nullable: true
+                example: "...c123"  # Masked for privacy
+              completed_at:
+                type: string
+                format: date-time
+                example: "2025-10-10T20:32:45Z"
+              duration_minutes:
+                type: integer
+                example: 18
+            required:
+              - study_title
+              - platform_source
+              - completed_at
+              - duration_minutes
+      required:
+        - verity_user
+        - stats
+        - interviews
+
+    InterviewListResponse:
+      type: object
+      properties:
+        interviews:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+                example: 42
+              study_id:
+                type: integer
+                example: 1
+              status:
+                type: string
+                enum: [pending, completed]
+                example: "completed"
+              created_at:
+                type: string
+                format: date-time
+                example: "2025-10-10T20:14:18Z"
+              completed_at:
+                type: string
+                format: date-time
+                nullable: true
+                example: "2025-10-10T20:32:45Z"
+              external_participant_id:
+                type: string
+                nullable: true
+                example: "prolific_abc123"
+              platform_source:
+                type: string
+                nullable: true
+                example: "prolific"
+              has_transcript:
+                type: boolean
+                description: Whether transcript artifact exists
+                example: true
+              has_recording:
+                type: boolean
+                description: Whether audio artifact exists
+                example: true
+            required:
+              - id
+              - study_id
+              - status
+              - created_at
+              - has_transcript
+              - has_recording
+      required:
+        - interviews

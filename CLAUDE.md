@@ -156,6 +156,8 @@ act --container-architecture linux/amd64  # Test GitHub Actions locally
 - ✅ CI/CD for infrastructure via GitHub Actions
 - ✅ Workload Identity Federation (no JSON keys)
 
+- ✅ Self-led interview execution (reusable study links, interview lifecycle, artifact management)
+
 ### In Progress
 - 🔄 Infrastructure deployment to GCP (Pulumi setup complete, awaiting bootstrap)
 
@@ -212,3 +214,117 @@ mise exec -- pulumi preview  # View planned changes
 - `/docs/002-architecture/` - Technical architecture decisions and patterns
 - `/docs/003-plans/` - Implementation plans and roadmaps
   - `/docs/003-plans/002-infrastructure-as-code/` - IaC design decisions
+- `/specs/002-self-led-interview/` - Self-led interview feature specification and implementation
+
+## Self-Led Interview Feature
+
+The self-led interview feature enables researchers to share reusable study links with participants who complete interviews via an AI interviewer (pipecat).
+
+### Key Models
+
+**Interview Model** (`backend/src/models.py`):
+- `access_token` (UUID v4) - Single-use token for interview access
+- `status` - Interview state: `pending` or `completed`
+- `external_participant_id` - Optional ID from recruitment platforms (e.g., Prolific, Respondent)
+- `platform_source` - Recruitment platform identifier (inferred from pid prefix)
+- `expires_at` - Token expiration timestamp (default: 7 days)
+- `transcript_url`, `recording_url` - GCS URLs for artifacts
+- `verity_user_id` - Optional link to VerityUser (for participant claim flow)
+- `claimed_at` - Timestamp when participant claimed interview
+- `pipecat_session_id` - Pipecat session identifier
+- `notes` - Additional metadata from pipecat
+
+**Study Model Extensions**:
+- `slug` (String(63), unique) - URL-friendly identifier for reusable links
+- `participant_identity_flow` - Identity tracking behavior: `anonymous`, `claim_after`, or `allow_pre_signin`
+
+**VerityUser Model** (for participant identity):
+- `firebase_uid` (unique) - Firebase Auth UID for participants
+- `email` (unique) - Participant email
+- `display_name` - Optional display name
+- `created_at`, `last_sign_in` - Timestamps
+
+**ParticipantProfile Model** (for cross-platform tracking):
+- `verity_user_id` (unique FK) - Link to VerityUser
+- `platform_identities` (JSON) - Map of platform → external_participant_id
+
+### Public Endpoints (No Authentication)
+
+**Study Access** - `GET /study/{slug}/start?pid={PARTICIPANT_ID}`:
+- Creates interview on-the-fly with deduplication by `external_participant_id`
+- Infers `platform_source` from pid prefix (e.g., `prolific_abc123` → `prolific`)
+- Returns 302 redirect to pipecat with `access_token` parameter (pipecat gets VERITY_API_BASE from its own config)
+- Returns HTML error page for completed interviews
+
+**Interview Data** - `GET /api/interview/{access_token}`:
+- Called by pipecat after participant redirect
+- Returns study title and interview guide (markdown) for conducting interview
+- Returns 410 Gone if interview completed or token expired
+- Returns 404 if interview not found
+
+**Completion Callback** - `POST /api/interview/{access_token}/complete`:
+- Called by pipecat after interview completion
+- Updates interview status to `completed` and stores artifact URLs
+- Idempotent (safe for pipecat to retry)
+- Accepts: `transcript_url` (GCS URL), `recording_url` (GCS URL), `notes` (optional metadata)
+
+**Claim Interview** - `POST /api/interview/{access_token}/claim`:
+- Called by participants who sign in after completing anonymous interviews
+- Links interview to VerityUser via `verity_user_id`
+- Updates `platform_identities` in ParticipantProfile
+- Requires Firebase Auth with `tenant: "interviewee"` claim
+
+### Authenticated Endpoints (Organization Users)
+
+**List Interviews** - `GET /api/orgs/{org_id}/studies/{study_id}/interviews`:
+- Returns completed interviews only with metadata (external_participant_id, platform_source, artifact flags)
+- Server-side org verification (multi-tenancy security)
+
+**Download Artifact** - `GET /api/orgs/{org_id}/interviews/{interview_id}/artifacts/{filename}`:
+- Streams interview artifacts from GCS (API proxy pattern)
+- Supports `transcript.txt` and `recording.wav`
+- Server-side org verification (multi-tenancy security)
+- Returns StreamingResponse with appropriate Content-Type
+
+### Logging Events
+
+Structured logging is added for all interview lifecycle events:
+- `interview_created` - New interview created via reusable link
+- `interview_access_existing` - Existing interview found (deduplication)
+- `interview_access_denied` - Access denied (completed interview)
+- `interview_completed` - Interview marked completed by pipecat
+- `interview_completion_idempotent` - Completion callback for already-completed interview
+- `interview_claimed` - Interview claimed by participant
+
+All log entries include relevant context: `interview_id`, `study_id`, `study_slug`, `external_participant_id`, `platform_source`, `access_token`, `event`.
+
+### Security Considerations
+
+- **Multi-tenancy**: All authenticated endpoints verify org_id server-side (never trust client)
+- **Access tokens**: UUID v4 tokens are cryptographically secure single-use identifiers
+- **Artifact access**: Proxied through backend with org-level authorization
+- **Token expiration**: Interviews expire after 7 days by default
+- **Deduplication**: Same `external_participant_id` cannot create multiple pending interviews
+
+### Integration with Pipecat
+
+1. **Participant clicks reusable link**: `GET /study/{slug}/start?pid={PARTICIPANT_ID}`
+2. **Verity creates interview** and redirects to: `{PIPECAT_URL}/?access_token={TOKEN}` (pipecat gets VERITY_API_BASE from its environment config)
+3. **Pipecat fetches interview data**: `GET {VERITY_API_BASE}/interview/{TOKEN}`
+4. **Pipecat conducts interview** using study title and interview guide
+5. **Pipecat uploads artifacts to GCS** and stores URLs
+6. **Pipecat notifies completion**: `POST {VERITY_API_BASE}/interview/{TOKEN}/complete` with artifact URLs
+
+### Environment Variables
+
+- `PIPECAT_URL` - Pipecat frontend URL (default: `http://localhost:8080`)
+- `VERITY_API_BASE` - Verity API base URL (default: `http://localhost:8000/api`)
+- `GCS_BUCKET_NAME` - GCS bucket for interview artifacts (set by Pulumi output)
+
+### Database Indexes
+
+Composite indexes for performance:
+- `(study_id, external_participant_id)` - Fast deduplication lookups
+- `(study_id, status, completed_at)` - Fast interview list queries
+
+See `/specs/002-self-led-interview/` for complete feature specification, implementation plan, and tasks breakdown.

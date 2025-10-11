@@ -1,12 +1,13 @@
+import logging
 import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from firebase_admin import auth
 from scalar_fastapi import get_scalar_api_reference
 from sqlalchemy.exc import IntegrityError
@@ -62,6 +63,9 @@ from ..schemas import (
 )
 from ..storage import generate_audio_object_name, get_storage_client
 
+# Configure structured logging
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -87,7 +91,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "http://localhost:3000",
-    ],  # Vite dev server + potential prod
+        "http://localhost:8080",  # Pipecat local dev
+    ],  # Vite dev server + potential prod + pipecat
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -473,9 +478,21 @@ async def create_study(
         if not user_in_org:
             raise HTTPException(status_code=403, detail="User not in organization")
 
+    # Generate slug from title
+    import re
+    import uuid
+
+    slug = re.sub(r"[^\w\s-]", "", study_data.title.lower())
+    slug = re.sub(r"[-\s]+", "-", slug)
+    # Ensure uniqueness by appending a short UUID if slug already exists
+    base_slug = slug[:50]  # Limit to 50 chars to leave room for UUID
+    existing = db.query(Study).filter(Study.slug.like(f"{base_slug}%")).count()
+    slug = f"{base_slug}-{str(uuid.uuid4())[:8]}" if existing > 0 else base_slug
+
     study = Study(
         title=study_data.title,
         description=study_data.description,
+        slug=slug,
         organization_id=org_id,
     )
     db.add(study)
@@ -486,6 +503,8 @@ async def create_study(
         study_id=str(study.id),
         title=study.title,
         description=study.description,
+        slug=study.slug,
+        participant_identity_flow=study.participant_identity_flow,
         org_id=str(study.organization_id),
         created_at=study.created_at,
         updated_at=study.updated_at,
@@ -518,10 +537,22 @@ async def generate_study_from_topic(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate study title: {e!s}") from e
 
+    # Generate slug from title
+    import re
+    import uuid
+
+    slug = re.sub(r"[^\w\s-]", "", title.lower())
+    slug = re.sub(r"[-\s]+", "-", slug)
+    # Ensure uniqueness by appending a short UUID if slug already exists
+    base_slug = slug[:50]  # Limit to 50 chars to leave room for UUID
+    existing = db.query(Study).filter(Study.slug.like(f"{base_slug}%")).count()
+    slug = f"{base_slug}-{str(uuid.uuid4())[:8]}" if existing > 0 else base_slug
+
     # Create study with generated title and topic as description
     study = Study(
         title=title,
         description=request.topic,
+        slug=slug,
         organization_id=org_id,
     )
     db.add(study)
@@ -557,6 +588,8 @@ async def generate_study_from_topic(
             study_id=str(study.id),
             title=study.title,
             description=study.description,
+            slug=study.slug,
+            participant_identity_flow=study.participant_identity_flow,
             org_id=str(study.organization_id),
             created_at=study.created_at,
             updated_at=study.updated_at,
@@ -593,6 +626,8 @@ async def list_studies(
             study_id=str(study.id),
             title=study.title,
             description=study.description,
+            slug=study.slug,
+            participant_identity_flow=study.participant_identity_flow,
             org_id=str(study.organization_id),
             created_at=study.created_at,
             updated_at=study.updated_at,
@@ -630,6 +665,8 @@ async def get_study(
         study_id=str(study.id),
         title=study.title,
         description=study.description,
+        slug=study.slug,
+        participant_identity_flow=study.participant_identity_flow,
         org_id=str(study.organization_id),
         created_at=study.created_at,
         updated_at=study.updated_at,
@@ -673,6 +710,8 @@ async def update_study(
         study_id=str(study.id),
         title=study.title,
         description=study.description,
+        slug=study.slug,
+        participant_identity_flow=study.participant_identity_flow,
         org_id=str(study.organization_id),
         created_at=study.created_at,
         updated_at=study.updated_at,
@@ -783,6 +822,159 @@ async def get_study_guide(
         content_md=guide.content_md,
         updated_at=guide.updated_at,
     )
+
+
+# Researcher Interview Endpoints (Authenticated, Org-Scoped)
+
+
+@api_router.get("/orgs/{org_id}/studies/{study_id}/interviews")
+async def list_study_interviews(
+    org_id: int,
+    study_id: int,
+    org_user: Annotated[OrgUser, Depends(get_org_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    """
+    List all completed interviews for a study (researcher endpoint).
+
+    Requires org-level authorization via Firebase Auth.
+    Only returns completed interviews with artifact metadata.
+
+    Args:
+        org_id: Organization ID from URL
+        study_id: Study ID from URL
+        org_user: Authenticated organization user
+        db: Database session
+
+    Returns:
+        Dictionary with interviews list
+
+    Raises:
+        403: User does not belong to organization
+        404: Study not found
+    """
+    # Server-side org verification (CRITICAL for multi-tenancy)
+    if org_user.organization_id != org_id:
+        raise HTTPException(status_code=403, detail="User does not belong to organization")
+
+    # Verify study exists and belongs to organization
+    study = db.query(Study).filter(Study.id == study_id, Study.organization_id == org_id).first()
+
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
+
+    # Get completed interviews only
+    interviews = (
+        db.query(Interview)
+        .filter(Interview.study_id == study_id, Interview.status == "completed")
+        .order_by(Interview.completed_at.desc())
+        .all()
+    )
+
+    # Return interview list with artifact flags
+    return {
+        "interviews": [
+            {
+                "id": interview.id,
+                "study_id": interview.study_id,
+                "status": interview.status,
+                "created_at": interview.created_at.isoformat(),
+                "completed_at": interview.completed_at.isoformat()
+                if interview.completed_at
+                else None,
+                "external_participant_id": interview.external_participant_id,
+                "platform_source": interview.platform_source,
+                "has_transcript": interview.transcript_url is not None,
+                "has_recording": interview.recording_url is not None,
+            }
+            for interview in interviews
+        ]
+    }
+
+
+@api_router.get("/orgs/{org_id}/interviews/{interview_id}/artifacts/{filename}")
+async def download_interview_artifact(
+    org_id: int,
+    interview_id: int,
+    filename: str,
+    org_user: Annotated[OrgUser, Depends(get_org_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> StreamingResponse:
+    """
+    Stream interview artifact from GCS (researcher endpoint).
+
+    Uses API proxy pattern - streams from GCS through backend.
+    Requires org-level authorization via Firebase Auth.
+
+    Args:
+        org_id: Organization ID from URL
+        interview_id: Interview ID from URL
+        filename: Artifact filename (transcript.txt or recording.wav)
+        org_user: Authenticated organization user
+        db: Database session
+
+    Returns:
+        StreamingResponse with artifact content
+
+    Raises:
+        403: User does not belong to organization
+        404: Interview or artifact not found
+    """
+    # Server-side org verification (CRITICAL for multi-tenancy)
+    if org_user.organization_id != org_id:
+        raise HTTPException(status_code=403, detail="User does not belong to organization")
+
+    # Verify interview belongs to organization
+    interview = (
+        db.query(Interview)
+        .join(Study)
+        .filter(Interview.id == interview_id, Study.organization_id == org_id)
+        .first()
+    )
+
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+
+    # Get artifact URL based on filename
+    if filename == "transcript.txt":
+        artifact_url = interview.transcript_url
+    elif filename == "recording.wav":
+        artifact_url = interview.recording_url
+    else:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+
+    if not artifact_url:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+
+    # Parse GCS URL to extract bucket and object path
+    # Format: https://storage.googleapis.com/bucket-name/path/to/object
+    # OR: gs://bucket-name/path/to/object
+    if artifact_url.startswith("gs://"):
+        parts = artifact_url.replace("gs://", "").split("/", 1)
+    elif "storage.googleapis.com" in artifact_url:
+        parts = artifact_url.split("storage.googleapis.com/")[1].split("/", 1)
+    else:
+        raise HTTPException(status_code=500, detail="Invalid artifact URL format")
+
+    if len(parts) != 2:
+        raise HTTPException(status_code=500, detail="Invalid artifact URL format")
+
+    bucket_name, object_path = parts
+
+    # Stream from GCS using service
+    from .services import GCSService
+
+    gcs_service = GCSService()
+
+    # Get content type based on filename
+    content_type = gcs_service.get_content_type(filename)
+
+    # Stream artifact
+    async def stream_generator() -> AsyncGenerator[bytes, None]:
+        async for chunk in gcs_service.stream_artifact(bucket_name, object_path):
+            yield chunk
+
+    return StreamingResponse(stream_generator(), media_type=content_type)
 
 
 # Interview Management Endpoints
@@ -931,12 +1123,44 @@ async def get_interview_public(
     access_token: str,
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
-    """Access interview via link (public endpoint)"""
+    """
+    Fetch interview data for pipecat (public endpoint).
+
+    Called by pipecat after participant is redirected from Verity.
+    Returns study title and interview guide for conducting the interview.
+
+    Args:
+        access_token: Interview access token (UUID v4)
+        db: Database session
+
+    Returns:
+        Interview data with study guide
+
+    Raises:
+        404: Interview not found
+        410 Gone: Interview already completed or token expired
+    """
     # Get the interview by access token
     interview = db.query(Interview).filter(Interview.access_token == access_token).first()
 
-    if not interview or interview.status == "completed":
-        raise HTTPException(status_code=404, detail="Interview not found or already completed")
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+
+    # Check if interview is already completed
+    if interview.status == "completed":
+        raise HTTPException(status_code=410, detail="Interview already completed")
+
+    # Check if interview token has expired
+    if interview.expires_at:
+        # Ensure both datetimes are timezone-aware for comparison
+        now_utc = datetime.now(UTC)
+        expires_at = (
+            interview.expires_at
+            if interview.expires_at.tzinfo
+            else interview.expires_at.replace(tzinfo=UTC)
+        )
+        if expires_at < now_utc:
+            raise HTTPException(status_code=410, detail="Interview access token expired")
 
     # Get the study and interview guide
     study = db.query(Study).filter(Study.id == interview.study_id).first()
@@ -978,8 +1202,19 @@ async def complete_interview(
     if not interview:
         raise HTTPException(status_code=404, detail="Interview not found")
 
+    # Idempotent: If already completed, return 200 without updating
+    # This allows pipecat to safely retry the callback
     if interview.status == "completed":
-        raise HTTPException(status_code=400, detail="Interview already completed")
+        logger.info(
+            "Interview completion callback - already completed (idempotent)",
+            extra={
+                "event": "interview_completion_idempotent",
+                "interview_id": interview.id,
+                "study_id": interview.study_id,
+                "access_token": access_token,
+            },
+        )
+        return {"message": "Interview completed successfully"}
 
     # Update interview with completion data
     interview.status = "completed"
@@ -989,6 +1224,19 @@ async def complete_interview(
     interview.notes = completion_data.notes
 
     db.commit()
+
+    logger.info(
+        "Interview completed",
+        extra={
+            "event": "interview_completed",
+            "interview_id": interview.id,
+            "study_id": interview.study_id,
+            "access_token": access_token,
+            "has_transcript": completion_data.transcript_url is not None,
+            "has_recording": completion_data.recording_url is not None,
+            "has_notes": completion_data.notes is not None,
+        },
+    )
 
     return {"message": "Interview completed successfully"}
 
@@ -1012,6 +1260,17 @@ async def claim_interview(
     # Associate interview with current user
     interview.interviewee_firebase_uid = current_user.firebase_uid
     db.commit()
+
+    logger.info(
+        "Interview claimed by participant",
+        extra={
+            "event": "interview_claimed",
+            "interview_id": interview.id,
+            "study_id": interview.study_id,
+            "access_token": access_token,
+            "firebase_uid": current_user.firebase_uid,
+        },
+    )
 
     return {"message": "Interview claimed successfully"}
 
@@ -1215,6 +1474,142 @@ async def finalize_transcript(
         full_text=transcript.full_text,
         created_at=transcript.created_at,
     )
+
+
+# Public Interview Access Endpoints (No Authentication Required, No /api prefix)
+
+
+@app.get("/study/{slug}/start", response_model=None)
+async def access_reusable_study_link(
+    slug: str,
+    db: Annotated[Session, Depends(get_db)],
+    pid: Annotated[str | None, Query()] = None,
+) -> RedirectResponse | HTMLResponse:
+    """
+    Public endpoint for accessing reusable study links.
+    Creates interview on-the-fly and redirects to pipecat with access_token.
+
+    Args:
+        slug: Study slug (URL-friendly identifier)
+        pid: Optional external participant ID from recruitment platform
+        db: Database session
+
+    Returns:
+        302 redirect to pipecat with access_token parameter,
+        or HTML error page for completed interviews/deleted studies
+    """
+    import uuid
+    from datetime import timedelta
+
+    # Get environment variables
+    pipecat_url = os.getenv("PIPECAT_URL", "http://localhost:8080")
+
+    # Look up study by slug
+    study = db.query(Study).filter(Study.slug == slug).first()
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
+
+    # Infer platform_source from pid prefix if provided
+    platform_source = None
+    if pid and "_" in pid:
+        # Extract platform from pid prefix (e.g., "prolific_abc123" -> "prolific")
+        platform_source = pid.split("_")[0]
+
+    # Check for existing interview (deduplication)
+    existing_interview = None
+    if pid:
+        existing_interview = (
+            db.query(Interview)
+            .filter(Interview.study_id == study.id, Interview.external_participant_id == pid)
+            .first()
+        )
+
+    if existing_interview:
+        # Check if interview is already completed
+        if existing_interview.status == "completed":
+            logger.info(
+                "Interview access denied - already completed",
+                extra={
+                    "event": "interview_access_denied",
+                    "interview_id": existing_interview.id,
+                    "study_id": study.id,
+                    "study_slug": slug,
+                    "external_participant_id": pid,
+                    "platform_source": platform_source,
+                    "reason": "interview_completed",
+                },
+            )
+            # Return HTML error page instead of redirect
+            html_content = """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Interview Already Completed</title>
+                <style>
+                    body {
+                        font-family: Arial, sans-serif;
+                        max-width: 600px;
+                        margin: 50px auto;
+                        padding: 20px;
+                        text-align: center;
+                    }
+                    h1 { color: #333; }
+                    p { color: #666; line-height: 1.6; }
+                </style>
+            </head>
+            <body>
+                <h1>Interview Already Completed</h1>
+                <p>You have already completed this interview. Thank you for your participation!</p>
+                <p>If you believe this is an error, please contact the research team.</p>
+            </body>
+            </html>
+            """
+            return HTMLResponse(content=html_content, status_code=400)
+        # Use existing interview access token (deduplication)
+        logger.info(
+            "Interview access - existing interview found",
+            extra={
+                "event": "interview_access_existing",
+                "interview_id": existing_interview.id,
+                "study_id": study.id,
+                "study_slug": slug,
+                "external_participant_id": pid,
+                "platform_source": platform_source,
+            },
+        )
+        access_token = existing_interview.access_token
+    else:
+        # Create new interview
+        access_token = str(uuid.uuid4())
+        interview = Interview(
+            study_id=study.id,
+            access_token=access_token,
+            status="pending",
+            external_participant_id=pid,
+            platform_source=platform_source,
+            expires_at=datetime.now(UTC) + timedelta(days=7),
+        )
+        db.add(interview)
+        db.commit()
+        db.refresh(interview)
+
+        logger.info(
+            "Interview created",
+            extra={
+                "event": "interview_created",
+                "interview_id": interview.id,
+                "study_id": study.id,
+                "study_slug": slug,
+                "external_participant_id": pid,
+                "platform_source": platform_source,
+                "access_token": access_token,
+            },
+        )
+
+    # Redirect to pipecat with access_token only
+    # Pipecat will get VERITY_API_BASE from its own config
+    redirect_url = f"{pipecat_url}/?access_token={access_token}"
+    return RedirectResponse(url=redirect_url, status_code=302)
 
 
 # Test-only endpoints (only available in test/development environments)

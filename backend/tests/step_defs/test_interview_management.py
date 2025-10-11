@@ -33,6 +33,8 @@ def get_unique_email(prefix: str, request) -> str:
 @given("a test organization with ID 1 exists")
 def create_test_organization(client, super_admin_token, request):
     """Create test organization for the scenarios"""
+    from tests.conftest import TestingSessionLocal
+
     headers = {"Authorization": f"Bearer {super_admin_token}"}
 
     # Use unique name per test to avoid conflicts
@@ -50,14 +52,28 @@ def create_test_organization(client, super_admin_token, request):
     )
     assert response.status_code == 201
 
+    # Get the actual org ID from database
+    with TestingSessionLocal() as db:
+        org = (
+            db.query(Organization)
+            .filter(Organization.name == org_name.lower().replace(" ", "-"))
+            .first()
+        )
+        assert org is not None
+        request.test_org_id = org.id
+
 
 @given(
     parsers.parse('a study with ID {study_id:d} titled "{title}" exists in organization {org_id:d}')
 )
 def create_test_study(client, super_admin_token, study_id, title, org_id, request):
     """Create a test study with unique user for this test"""
+    import re
+
     from tests.conftest import TestingSessionLocal
-    from tests.test_helpers import sign_in_user
+
+    # Use the actual org_id stored from previous step
+    actual_org_id = getattr(request, "test_org_id", org_id)
 
     # Create unique user for this test
     temp_uid = get_unique_uid("temp-study-creator", request)
@@ -75,11 +91,11 @@ def create_test_study(client, super_admin_token, study_id, title, org_id, reques
     # Set custom claims
     auth.set_custom_user_claims(temp_uid, {"tenant": "organization"})
 
-    # Create database user entry
+    # Create database user entry and study directly
     with TestingSessionLocal() as db:
         existing_user = db.query(User).filter(User.firebase_uid == temp_uid).first()
         if not existing_user:
-            org = db.query(Organization).filter(Organization.id == org_id).first()
+            org = db.query(Organization).filter(Organization.id == actual_org_id).first()
             if org:
                 temp_user = User(
                     firebase_uid=temp_uid,
@@ -90,24 +106,35 @@ def create_test_study(client, super_admin_token, study_id, title, org_id, reques
                 db.add(temp_user)
                 db.commit()
 
-    # Sign in and create study
-    token = sign_in_user(temp_email, "testpass123")
-    headers = {"Authorization": f"Bearer {token}"}
+        # Create study directly in database with proper slug
+        slug = re.sub(r"[^\w\s-]", "", title.lower())
+        slug = re.sub(r"[-\s]+", "-", slug)
+        # Make slug unique per test
+        slug = f"{slug}-{hash(request.node.name) % 10000}"
 
-    response = client.post(
-        f"/orgs/{org_id}/studies",
-        json={"title": title, "description": "Test study description"},
-        headers=headers,
-    )
-    assert response.status_code == 201
+        study = Study(
+            title=title,
+            description="Test study description",
+            slug=slug,
+            participant_identity_flow="anonymous",
+            organization_id=actual_org_id,
+        )
+        db.add(study)
+        db.commit()
+        db.refresh(study)
 
-    # Create an interview guide for the study
-    guide_response = client.put(
-        f"/studies/{study_id}/guide",
-        json={"content_md": "# Test Interview Guide\n\nThis is a test guide."},
-        headers=headers,
-    )
-    assert guide_response.status_code == 200
+        # Store the actual study ID for later use
+        request.test_study_id = study.id
+
+        # Create interview guide
+        from src.models import InterviewGuide
+
+        guide = InterviewGuide(
+            study_id=study.id,
+            content_md="# Test Interview Guide\n\nThis is a test guide.",
+        )
+        db.add(guide)
+        db.commit()
 
 
 @given(parsers.parse('a signed-in organization user with role "{role}"'))
@@ -115,6 +142,9 @@ def signed_in_organization_user(client, role, request):
     """Create and sign in a unique organization user for this test"""
     from tests.conftest import TestingSessionLocal
     from tests.test_helpers import sign_in_user
+
+    # Use the actual org_id stored from previous step
+    actual_org_id = getattr(request, "test_org_id", 1)
 
     # Create unique user for this test
     user_uid = get_unique_uid(f"test-{role}", request)
@@ -136,7 +166,7 @@ def signed_in_organization_user(client, role, request):
     with TestingSessionLocal() as db:
         existing_user = db.query(User).filter(User.firebase_uid == user_uid).first()
         if not existing_user:
-            org = db.query(Organization).filter(Organization.id == 1).first()
+            org = db.query(Organization).filter(Organization.id == actual_org_id).first()
             if org:
                 user = User(
                     firebase_uid=user_uid,
@@ -218,6 +248,8 @@ def signed_in_interviewee_user(request, firebase_uid: str) -> AuthUser:
 @given("a study with ID 2 exists in a different organization")
 def study_in_different_org(db: Session, request):
     """Create a study in a different organization for this test"""
+    import re
+
     # Create unique organization for this test
     org_name = f"Other Organization {hash(request.node.name) % 10000}"
     org_slug = org_name.lower().replace(" ", "-")
@@ -228,16 +260,24 @@ def study_in_different_org(db: Session, request):
     db.commit()
     db.refresh(other_org)
 
-    # Create study in other organization
+    # Create study in other organization with proper slug
     study_title = f"Other Study {hash(request.node.name) % 10000}"
+    slug = re.sub(r"[^\w\s-]", "", study_title.lower())
+    slug = re.sub(r"[-\s]+", "-", slug)
+
     study = Study(
         title=study_title,
         description="Study in different org",
+        slug=slug,
+        participant_identity_flow="anonymous",
         organization_id=other_org.id,
     )
     db.add(study)
     db.commit()
     db.refresh(study)
+
+    # Store the other study ID for later use
+    request.test_other_study_id = study.id
     return study
 
 
@@ -330,7 +370,8 @@ def interview_associated_with_user(request, db: Session, firebase_uid: str) -> N
 def post_generate_interview_link(request, client) -> None:
     """POST to generate interview link"""
     headers = getattr(request, "test_auth_headers", {})
-    response = client.post("/studies/1/interviews", headers=headers)
+    study_id = getattr(request, "test_study_id", 1)
+    response = client.post(f"/studies/{study_id}/interviews", headers=headers)
     request.test_response = response
 
 
@@ -338,7 +379,8 @@ def post_generate_interview_link(request, client) -> None:
 def get_list_interviews(request, client) -> None:
     """GET list of interviews"""
     headers = getattr(request, "test_auth_headers", {})
-    response = client.get("/studies/1/interviews", headers=headers)
+    study_id = getattr(request, "test_study_id", 1)
+    response = client.get(f"/studies/{study_id}/interviews", headers=headers)
     request.test_response = response
 
 
@@ -346,13 +388,14 @@ def get_list_interviews(request, client) -> None:
 def get_specific_interview(request, client, db) -> None:
     """GET specific interview by ID"""
     headers = getattr(request, "test_auth_headers", {})
+    study_id = getattr(request, "test_study_id", 1)
 
     # Find the interview that was created for this test
-    interview = db.query(Interview).filter(Interview.study_id == 1).first()
-    assert interview is not None, "No interview found for study 1"
+    interview = db.query(Interview).filter(Interview.study_id == study_id).first()
+    assert interview is not None, f"No interview found for study {study_id}"
 
     interview_id = interview.id
-    response = client.get(f"/studies/1/interviews/{interview_id}", headers=headers)
+    response = client.get(f"/studies/{study_id}/interviews/{interview_id}", headers=headers)
     request.test_response = response
 
 
@@ -368,14 +411,16 @@ def post_generate_interview_link_nonexistent_study(request, client) -> None:
 def get_interviews_different_org(request, client) -> None:
     """GET interviews from different organization"""
     headers = getattr(request, "test_auth_headers", {})
-    response = client.get("/studies/2/interviews", headers=headers)
+    other_study_id = getattr(request, "test_other_study_id", 2)
+    response = client.get(f"/studies/{other_study_id}/interviews", headers=headers)
     request.test_response = response
 
 
 @when("an unauthenticated user posts to /studies/1/interviews")
 def post_interview_link_unauthenticated(request, client) -> None:
     """POST interview link without authentication"""
-    response = client.post("/studies/1/interviews")
+    study_id = getattr(request, "test_study_id", 1)
+    response = client.post(f"/studies/{study_id}/interviews")
     request.test_response = response
 
 
@@ -605,6 +650,10 @@ def db():
 
 
 @pytest.fixture
-def study_in_db(db):
+def study_in_db(db, request):
     """Study fixture for database tests"""
-    return db.query(Study).filter(Study.id == 1).first()
+    study_id = getattr(request, "test_study_id", None)
+    if study_id:
+        return db.query(Study).filter(Study.id == study_id).first()
+    # Fallback to first study if no ID stored
+    return db.query(Study).first()

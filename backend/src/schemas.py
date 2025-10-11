@@ -100,6 +100,8 @@ class StudyResponse(BaseModel):
     study_id: str
     title: str
     description: str | None
+    slug: str
+    participant_identity_flow: str
     org_id: str
     created_at: datetime
     updated_at: datetime | None
