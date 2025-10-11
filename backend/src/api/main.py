@@ -1,3 +1,4 @@
+import logging
 import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -61,6 +62,9 @@ from ..schemas import (
     UserResponse,
 )
 from ..storage import generate_audio_object_name, get_storage_client
+
+# Configure structured logging
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -1201,6 +1205,15 @@ async def complete_interview(
     # Idempotent: If already completed, return 200 without updating
     # This allows pipecat to safely retry the callback
     if interview.status == "completed":
+        logger.info(
+            "Interview completion callback - already completed (idempotent)",
+            extra={
+                "event": "interview_completion_idempotent",
+                "interview_id": interview.id,
+                "study_id": interview.study_id,
+                "access_token": access_token,
+            },
+        )
         return {"message": "Interview completed successfully"}
 
     # Update interview with completion data
@@ -1211,6 +1224,19 @@ async def complete_interview(
     interview.notes = completion_data.notes
 
     db.commit()
+
+    logger.info(
+        "Interview completed",
+        extra={
+            "event": "interview_completed",
+            "interview_id": interview.id,
+            "study_id": interview.study_id,
+            "access_token": access_token,
+            "has_transcript": completion_data.transcript_url is not None,
+            "has_recording": completion_data.recording_url is not None,
+            "has_notes": completion_data.notes is not None,
+        },
+    )
 
     return {"message": "Interview completed successfully"}
 
@@ -1234,6 +1260,17 @@ async def claim_interview(
     # Associate interview with current user
     interview.interviewee_firebase_uid = current_user.firebase_uid
     db.commit()
+
+    logger.info(
+        "Interview claimed by participant",
+        extra={
+            "event": "interview_claimed",
+            "interview_id": interview.id,
+            "study_id": interview.study_id,
+            "access_token": access_token,
+            "firebase_uid": current_user.firebase_uid,
+        },
+    )
 
     return {"message": "Interview claimed successfully"}
 
@@ -1491,6 +1528,18 @@ async def access_reusable_study_link(
     if existing_interview:
         # Check if interview is already completed
         if existing_interview.status == "completed":
+            logger.info(
+                "Interview access denied - already completed",
+                extra={
+                    "event": "interview_access_denied",
+                    "interview_id": existing_interview.id,
+                    "study_id": study.id,
+                    "study_slug": slug,
+                    "external_participant_id": pid,
+                    "platform_source": platform_source,
+                    "reason": "interview_completed",
+                },
+            )
             # Return HTML error page instead of redirect
             html_content = """
             <!DOCTYPE html>
@@ -1517,7 +1566,18 @@ async def access_reusable_study_link(
             </html>
             """
             return HTMLResponse(content=html_content, status_code=400)
-        # Use existing interview access token
+        # Use existing interview access token (deduplication)
+        logger.info(
+            "Interview access - existing interview found",
+            extra={
+                "event": "interview_access_existing",
+                "interview_id": existing_interview.id,
+                "study_id": study.id,
+                "study_slug": slug,
+                "external_participant_id": pid,
+                "platform_source": platform_source,
+            },
+        )
         access_token = existing_interview.access_token
     else:
         # Create new interview
@@ -1532,6 +1592,20 @@ async def access_reusable_study_link(
         )
         db.add(interview)
         db.commit()
+        db.refresh(interview)
+
+        logger.info(
+            "Interview created",
+            extra={
+                "event": "interview_created",
+                "interview_id": interview.id,
+                "study_id": study.id,
+                "study_slug": slug,
+                "external_participant_id": pid,
+                "platform_source": platform_source,
+                "access_token": access_token,
+            },
+        )
 
     # Redirect to pipecat with access_token and verity_api
     redirect_url = f"{pipecat_url}/?access_token={access_token}&verity_api={verity_api_base}"

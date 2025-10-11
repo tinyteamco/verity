@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -85,6 +85,12 @@ class InterviewGuide(Base):
 
 class Interview(Base):
     __tablename__ = "interviews"
+    __table_args__ = (
+        # Composite index for fast deduplication lookups
+        Index("ix_interviews_study_external_pid", "study_id", "external_participant_id"),
+        # Composite index for interview list queries (by study, status, completion date)
+        Index("ix_interviews_study_status_completed", "study_id", "status", "completed_at"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     study_id: Mapped[int] = mapped_column(

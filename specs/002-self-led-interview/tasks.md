@@ -364,14 +364,14 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T141 [P] [Polish] Add structured logging for interview lifecycle events (creation, access, completion, claim) in backend
-- [ ] T142 [P] [Polish] Add error handling and user-friendly error pages for interview access errors
-- [ ] T143 [P] [Polish] Update CLAUDE.md with feature implementation notes (new models, endpoints, frontend components)
-- [ ] T144 [P] [Polish] Add API documentation comments to all new endpoints
-- [ ] T145 [P] [Polish] Run quickstart.md validation against implemented code
-- [ ] T146 [P] [Polish] Code cleanup and refactoring for consistency
-- [ ] T147 [P] [Polish] Performance optimization for interview list queries (add composite indexes if needed)
-- [ ] T148 [Polish] Run full test suite (backend BDD + frontend E2E) and verify zero warnings
+- [X] T141 [P] [Polish] Add structured logging for interview lifecycle events (creation, access, completion, claim) in backend
+- [X] T142 [P] [Polish] Add error handling and user-friendly error pages for interview access errors
+- [X] T143 [P] [Polish] Update CLAUDE.md with feature implementation notes (new models, endpoints, frontend components)
+- [X] T144 [P] [Polish] Add API documentation comments to all new endpoints
+- [X] T145 [P] [Polish] Run quickstart.md validation against implemented code
+- [X] T146 [P] [Polish] Code cleanup and refactoring for consistency
+- [X] T147 [P] [Polish] Performance optimization for interview list queries (add composite indexes if needed)
+- [X] T148 [Polish] Run full test suite (backend BDD + frontend E2E) and verify zero warnings
 
 ---
 
