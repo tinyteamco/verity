@@ -191,21 +191,21 @@
 
 ### BDD Tests for User Story 4 (WRITE FIRST, ENSURE THEY FAIL) ⚠️
 
-- [ ] T067 [P] [US4] Write Gherkin scenario "Researcher views list of completed interviews for study" in backend/tests/features/researcher_interview_list.feature
-- [ ] T068 [P] [US4] Write Gherkin scenario "Researcher clicks interview to view transcript inline" in backend/tests/features/researcher_interview_list.feature
-- [ ] T069 [P] [US4] Write Gherkin scenario "Researcher downloads audio file from interview" in backend/tests/features/researcher_interview_list.feature
-- [ ] T070 [P] [US4] Write Gherkin scenario "Researcher cannot access interviews from other organization returns 403" in backend/tests/features/researcher_interview_list.feature
-- [ ] T071 [US4] Implement step definitions for researcher_interview_list.feature in backend/tests/step_defs/test_researcher_interview_list.py
-- [ ] T072 [US4] Run tests to verify they FAIL (expected behavior before implementation)
+- [X] T067 [P] [US4] Write Gherkin scenario "Researcher views list of completed interviews for study" in backend/tests/features/researcher_interview_list.feature
+- [X] T068 [P] [US4] Write Gherkin scenario "Researcher clicks interview to view transcript inline" in backend/tests/features/researcher_interview_list.feature
+- [X] T069 [P] [US4] Write Gherkin scenario "Researcher downloads audio file from interview" in backend/tests/features/researcher_interview_list.feature
+- [X] T070 [P] [US4] Write Gherkin scenario "Researcher cannot access interviews from other organization returns 403" in backend/tests/features/researcher_interview_list.feature
+- [X] T071 [US4] Implement step definitions for researcher_interview_list.feature in backend/tests/step_defs/test_researcher_interview_list.py
+- [X] T072 [US4] Run tests to verify they FAIL (expected behavior before implementation)
 
 ### Backend Implementation for User Story 4
 
-- [ ] T073 [P] [US4] Create GCSService class in backend/src/api/services/gcs_service.py with stream_artifact method (API proxy pattern)
-- [ ] T074 [P] [US4] Create GET /api/orgs/{org_id}/studies/{study_id}/interviews endpoint in backend/src/api/routers/org_interviews.py
-- [ ] T075 [P] [US4] Add org-level access control check in org_interviews.py (server-side verification)
-- [ ] T076 [P] [US4] Create GET /api/orgs/{org_id}/interviews/{interview_id}/artifacts/{filename} endpoint in backend/src/api/routers/org_interviews.py
-- [ ] T077 [US4] Add cross-org 403 denial tests in backend/tests/features/researcher_interview_list.feature
-- [ ] T078 [US4] Run BDD tests to verify US4 backend implementation passes
+- [X] T073 [P] [US4] Create GCSService class in backend/src/api/services/gcs_service.py with stream_artifact method (API proxy pattern)
+- [X] T074 [P] [US4] Create GET /api/orgs/{org_id}/studies/{study_id}/interviews endpoint in backend/src/api/routers/org_interviews.py
+- [X] T075 [P] [US4] Add org-level access control check in org_interviews.py (server-side verification)
+- [X] T076 [P] [US4] Create GET /api/orgs/{org_id}/interviews/{interview_id}/artifacts/{filename} endpoint in backend/src/api/routers/org_interviews.py
+- [X] T077 [US4] Add cross-org 403 denial tests in backend/tests/features/researcher_interview_list.feature
+- [X] T078 [US4] Run BDD tests to verify US4 backend implementation passes
 
 ### Frontend Implementation for User Story 4
 
