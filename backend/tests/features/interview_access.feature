@@ -10,7 +10,6 @@ Feature: Interview Access
     When a participant accesses GET /study/{slug}/start?pid=prolific_abc123
     Then the response is a 302 redirect
     And the redirect Location header contains "access_token="
-    And the redirect Location header contains "verity_api="
     And an interview is created with external_participant_id "prolific_abc123"
     And the interview platform_source is "prolific"
 
@@ -36,7 +35,6 @@ Feature: Interview Access
     When a participant accesses GET /study/{slug}/start
     Then the response is a 302 redirect
     And the redirect Location header contains "access_token="
-    And the redirect Location header contains "verity_api="
 
   Scenario: Participant tries to access completed interview shows error page
     Given an interview already exists for study "mobile-banking-study" with pid "prolific_completed" and status "completed"

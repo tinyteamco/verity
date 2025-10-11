@@ -253,7 +253,7 @@ The self-led interview feature enables researchers to share reusable study links
 **Study Access** - `GET /study/{slug}/start?pid={PARTICIPANT_ID}`:
 - Creates interview on-the-fly with deduplication by `external_participant_id`
 - Infers `platform_source` from pid prefix (e.g., `prolific_abc123` → `prolific`)
-- Returns 302 redirect to pipecat with `access_token` and `verity_api` parameters
+- Returns 302 redirect to pipecat with `access_token` parameter (pipecat gets VERITY_API_BASE from its own config)
 - Returns HTML error page for completed interviews
 
 **Interview Data** - `GET /api/interview/{access_token}`:
@@ -309,7 +309,7 @@ All log entries include relevant context: `interview_id`, `study_id`, `study_slu
 ### Integration with Pipecat
 
 1. **Participant clicks reusable link**: `GET /study/{slug}/start?pid={PARTICIPANT_ID}`
-2. **Verity creates interview** and redirects to: `{PIPECAT_URL}/?access_token={TOKEN}&verity_api={VERITY_API_BASE}`
+2. **Verity creates interview** and redirects to: `{PIPECAT_URL}/?access_token={TOKEN}` (pipecat gets VERITY_API_BASE from its environment config)
 3. **Pipecat fetches interview data**: `GET {VERITY_API_BASE}/interview/{TOKEN}`
 4. **Pipecat conducts interview** using study title and interview guide
 5. **Pipecat uploads artifacts to GCS** and stores URLs

@@ -1495,7 +1495,7 @@ async def access_reusable_study_link(
         db: Database session
 
     Returns:
-        302 redirect to pipecat with access_token and verity_api parameters,
+        302 redirect to pipecat with access_token parameter,
         or HTML error page for completed interviews/deleted studies
     """
     import uuid
@@ -1503,7 +1503,6 @@ async def access_reusable_study_link(
 
     # Get environment variables
     pipecat_url = os.getenv("PIPECAT_URL", "http://localhost:8080")
-    verity_api_base = os.getenv("VERITY_API_BASE", "http://localhost:8000/api")
 
     # Look up study by slug
     study = db.query(Study).filter(Study.slug == slug).first()
@@ -1607,8 +1606,9 @@ async def access_reusable_study_link(
             },
         )
 
-    # Redirect to pipecat with access_token and verity_api
-    redirect_url = f"{pipecat_url}/?access_token={access_token}&verity_api={verity_api_base}"
+    # Redirect to pipecat with access_token only
+    # Pipecat will get VERITY_API_BASE from its own config
+    redirect_url = f"{pipecat_url}/?access_token={access_token}"
     return RedirectResponse(url=redirect_url, status_code=302)
 
 

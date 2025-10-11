@@ -172,14 +172,6 @@ def redirect_contains_access_token(request):
     assert "access_token=" in location
 
 
-@then('the redirect Location header contains "verity_api="')
-def redirect_contains_verity_api(request):
-    """Check redirect Location header contains verity_api"""
-    response = request.test_response
-    location = response.headers.get("Location", "")
-    assert "verity_api=" in location
-
-
 @then('an interview is created with external_participant_id "prolific_abc123"')
 def interview_created_with_pid(client, request):
     """Check interview was created with external_participant_id"""
