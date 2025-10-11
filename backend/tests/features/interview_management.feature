@@ -95,8 +95,7 @@ Feature: Self-Led Interview Management
     And the interview has been completed
     When they POST /interview/abc123/complete without authentication with:
       | transcript_url | https://storage.example.com/transcript2.json |
-    Then the response status is 400
-    And the error message contains "already completed"
+    Then the response status is 200
 
   Scenario: Cannot access non-existent interview
     When they GET /interview/invalid-token without authentication

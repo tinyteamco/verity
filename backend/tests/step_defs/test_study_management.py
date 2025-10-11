@@ -129,14 +129,22 @@ def unauthenticated_user(auth_headers):
 @given(parsers.parse('a study exists with title "{title}"'))
 def create_study_with_title(title: str, client: TestClient, test_data):
     """Create a study with specific title"""
+    import re
+
     from tests.conftest import TestingSessionLocal
 
     db_session = TestingSessionLocal()
     try:
         org_id = test_data["current_org_id"]
 
+        # Generate slug from title
+        slug = re.sub(r"[^\w\s-]", "", title.lower())
+        slug = re.sub(r"[-\s]+", "-", slug)
+
         study = Study(
             title=title,
+            slug=slug,
+            participant_identity_flow="anonymous",
             organization_id=org_id,
         )
         db_session.add(study)
@@ -151,6 +159,8 @@ def create_study_with_title(title: str, client: TestClient, test_data):
 @given(parsers.parse('a study exists in a different organization with title "{title}"'))
 def create_study_other_org(title: str, client: TestClient, test_data):
     """Create a study in a different organization"""
+    import re
+
     from tests.conftest import TestingSessionLocal
 
     db_session = TestingSessionLocal()
@@ -165,9 +175,15 @@ def create_study_other_org(title: str, client: TestClient, test_data):
         db_session.commit()
         db_session.refresh(other_org)
 
+        # Generate slug from title
+        slug = re.sub(r"[^\w\s-]", "", title.lower())
+        slug = re.sub(r"[-\s]+", "-", slug)
+
         # Create study in the other org
         study = Study(
             title=title,
+            slug=slug,
+            participant_identity_flow="anonymous",
             organization_id=other_org.id,
         )
         db_session.add(study)

@@ -18,6 +18,8 @@ scenarios("../features/audio_upload.feature")
 @given("a test organization with ID 1 exists")
 def create_test_organization(client: Any, super_admin_token: str, request: Any) -> None:
     """Create test organization for the scenarios."""
+    from tests.conftest import TestingSessionLocal
+
     headers = {"Authorization": f"Bearer {super_admin_token}"}
 
     # Use unique name per test to avoid conflicts
@@ -35,6 +37,16 @@ def create_test_organization(client: Any, super_admin_token: str, request: Any) 
     )
     assert response.status_code == 201
 
+    # Get the actual org ID from database
+    with TestingSessionLocal() as db:
+        org = (
+            db.query(Organization)
+            .filter(Organization.name == org_name.lower().replace(" ", "-"))
+            .first()
+        )
+        assert org is not None
+        request.test_org_id = org.id
+
 
 @given(
     parsers.parse('a study with ID {study_id:d} titled "{title}" exists in organization {org_id:d}')
@@ -44,7 +56,9 @@ def create_test_study(
 ) -> None:
     """Create a test study with unique user for this test."""
     from tests.conftest import TestingSessionLocal
-    from tests.test_helpers import sign_in_user
+
+    # Use the actual org_id stored from previous step
+    actual_org_id = getattr(request, "test_org_id", org_id)
 
     # Create unique user for this test
     temp_uid = get_unique_uid("temp-study-creator", request)
@@ -63,11 +77,11 @@ def create_test_study(
     # Set custom claims
     auth.set_custom_user_claims(temp_uid, {"tenant": "organization"})
 
-    # Create database user entry
+    # Create database user entry and study directly in database
     with TestingSessionLocal() as db:
         existing_user = db.query(User).filter(User.firebase_uid == temp_uid).first()
         if not existing_user:
-            org = db.query(Organization).filter(Organization.id == org_id).first()
+            org = db.query(Organization).filter(Organization.id == actual_org_id).first()
             if org:
                 temp_user = User(
                     firebase_uid=temp_uid,
@@ -78,11 +92,29 @@ def create_test_study(
                 db.add(temp_user)
                 db.commit()
 
-    # Create study using authenticated user
-    token = sign_in_user(temp_email, temp_password)
-    headers = {"Authorization": f"Bearer {token}"}
-    response = client.post(f"/orgs/{org_id}/studies", json={"title": title}, headers=headers)
-    assert response.status_code == 201
+        # Create study directly in database with proper slug
+        import re
+
+        from src.models import Study
+
+        # Generate slug from title
+        slug = re.sub(r"[^\w\s-]", "", title.lower())
+        slug = re.sub(r"[-\s]+", "-", slug)
+        # Make slug unique per test
+        slug = f"{slug}-{hash(request.node.name) % 10000}"
+
+        study = Study(
+            title=title,
+            slug=slug,
+            participant_identity_flow="anonymous",
+            organization_id=actual_org_id,
+        )
+        db.add(study)
+        db.commit()
+        db.refresh(study)
+
+        # Store the actual study ID for later use
+        request.test_study_id = study.id
 
 
 def get_unique_email(prefix: str, request: Any) -> str:
@@ -98,9 +130,12 @@ def create_test_interview(access_token: str, study_id: int, request: Any) -> Non
     """Create a test interview with specific access token."""
     from tests.conftest import TestingSessionLocal
 
+    # Use the actual study_id stored from previous step
+    actual_study_id = getattr(request, "test_study_id", study_id)
+
     with TestingSessionLocal() as db:
         interview = Interview(
-            study_id=study_id,
+            study_id=actual_study_id,
             access_token=access_token,
             status="pending",
         )

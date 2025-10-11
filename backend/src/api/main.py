@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from firebase_admin import auth
 from scalar_fastapi import get_scalar_api_reference
 from sqlalchemy.exc import IntegrityError
@@ -474,9 +474,21 @@ async def create_study(
         if not user_in_org:
             raise HTTPException(status_code=403, detail="User not in organization")
 
+    # Generate slug from title
+    import re
+    import uuid
+
+    slug = re.sub(r"[^\w\s-]", "", study_data.title.lower())
+    slug = re.sub(r"[-\s]+", "-", slug)
+    # Ensure uniqueness by appending a short UUID if slug already exists
+    base_slug = slug[:50]  # Limit to 50 chars to leave room for UUID
+    existing = db.query(Study).filter(Study.slug.like(f"{base_slug}%")).count()
+    slug = f"{base_slug}-{str(uuid.uuid4())[:8]}" if existing > 0 else base_slug
+
     study = Study(
         title=study_data.title,
         description=study_data.description,
+        slug=slug,
         organization_id=org_id,
     )
     db.add(study)
@@ -521,10 +533,22 @@ async def generate_study_from_topic(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate study title: {e!s}") from e
 
+    # Generate slug from title
+    import re
+    import uuid
+
+    slug = re.sub(r"[^\w\s-]", "", title.lower())
+    slug = re.sub(r"[-\s]+", "-", slug)
+    # Ensure uniqueness by appending a short UUID if slug already exists
+    base_slug = slug[:50]  # Limit to 50 chars to leave room for UUID
+    existing = db.query(Study).filter(Study.slug.like(f"{base_slug}%")).count()
+    slug = f"{base_slug}-{str(uuid.uuid4())[:8]}" if existing > 0 else base_slug
+
     # Create study with generated title and topic as description
     study = Study(
         title=title,
         description=request.topic,
+        slug=slug,
         organization_id=org_id,
     )
     db.add(study)
@@ -794,6 +818,159 @@ async def get_study_guide(
         content_md=guide.content_md,
         updated_at=guide.updated_at,
     )
+
+
+# Researcher Interview Endpoints (Authenticated, Org-Scoped)
+
+
+@api_router.get("/orgs/{org_id}/studies/{study_id}/interviews")
+async def list_study_interviews(
+    org_id: int,
+    study_id: int,
+    org_user: Annotated[OrgUser, Depends(get_org_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    """
+    List all completed interviews for a study (researcher endpoint).
+
+    Requires org-level authorization via Firebase Auth.
+    Only returns completed interviews with artifact metadata.
+
+    Args:
+        org_id: Organization ID from URL
+        study_id: Study ID from URL
+        org_user: Authenticated organization user
+        db: Database session
+
+    Returns:
+        Dictionary with interviews list
+
+    Raises:
+        403: User does not belong to organization
+        404: Study not found
+    """
+    # Server-side org verification (CRITICAL for multi-tenancy)
+    if org_user.organization_id != org_id:
+        raise HTTPException(status_code=403, detail="User does not belong to organization")
+
+    # Verify study exists and belongs to organization
+    study = db.query(Study).filter(Study.id == study_id, Study.organization_id == org_id).first()
+
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
+
+    # Get completed interviews only
+    interviews = (
+        db.query(Interview)
+        .filter(Interview.study_id == study_id, Interview.status == "completed")
+        .order_by(Interview.completed_at.desc())
+        .all()
+    )
+
+    # Return interview list with artifact flags
+    return {
+        "interviews": [
+            {
+                "id": interview.id,
+                "study_id": interview.study_id,
+                "status": interview.status,
+                "created_at": interview.created_at.isoformat(),
+                "completed_at": interview.completed_at.isoformat()
+                if interview.completed_at
+                else None,
+                "external_participant_id": interview.external_participant_id,
+                "platform_source": interview.platform_source,
+                "has_transcript": interview.transcript_url is not None,
+                "has_recording": interview.recording_url is not None,
+            }
+            for interview in interviews
+        ]
+    }
+
+
+@api_router.get("/orgs/{org_id}/interviews/{interview_id}/artifacts/{filename}")
+async def download_interview_artifact(
+    org_id: int,
+    interview_id: int,
+    filename: str,
+    org_user: Annotated[OrgUser, Depends(get_org_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> StreamingResponse:
+    """
+    Stream interview artifact from GCS (researcher endpoint).
+
+    Uses API proxy pattern - streams from GCS through backend.
+    Requires org-level authorization via Firebase Auth.
+
+    Args:
+        org_id: Organization ID from URL
+        interview_id: Interview ID from URL
+        filename: Artifact filename (transcript.txt or recording.wav)
+        org_user: Authenticated organization user
+        db: Database session
+
+    Returns:
+        StreamingResponse with artifact content
+
+    Raises:
+        403: User does not belong to organization
+        404: Interview or artifact not found
+    """
+    # Server-side org verification (CRITICAL for multi-tenancy)
+    if org_user.organization_id != org_id:
+        raise HTTPException(status_code=403, detail="User does not belong to organization")
+
+    # Verify interview belongs to organization
+    interview = (
+        db.query(Interview)
+        .join(Study)
+        .filter(Interview.id == interview_id, Study.organization_id == org_id)
+        .first()
+    )
+
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+
+    # Get artifact URL based on filename
+    if filename == "transcript.txt":
+        artifact_url = interview.transcript_url
+    elif filename == "recording.wav":
+        artifact_url = interview.recording_url
+    else:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+
+    if not artifact_url:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+
+    # Parse GCS URL to extract bucket and object path
+    # Format: https://storage.googleapis.com/bucket-name/path/to/object
+    # OR: gs://bucket-name/path/to/object
+    if artifact_url.startswith("gs://"):
+        parts = artifact_url.replace("gs://", "").split("/", 1)
+    elif "storage.googleapis.com" in artifact_url:
+        parts = artifact_url.split("storage.googleapis.com/")[1].split("/", 1)
+    else:
+        raise HTTPException(status_code=500, detail="Invalid artifact URL format")
+
+    if len(parts) != 2:
+        raise HTTPException(status_code=500, detail="Invalid artifact URL format")
+
+    bucket_name, object_path = parts
+
+    # Stream from GCS using service
+    from .services import GCSService
+
+    gcs_service = GCSService()
+
+    # Get content type based on filename
+    content_type = gcs_service.get_content_type(filename)
+
+    # Stream artifact
+    async def stream_generator() -> AsyncGenerator[bytes, None]:
+        async for chunk in gcs_service.stream_artifact(bucket_name, object_path):
+            yield chunk
+
+    return StreamingResponse(stream_generator(), media_type=content_type)
 
 
 # Interview Management Endpoints
