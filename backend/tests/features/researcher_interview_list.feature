@@ -55,3 +55,11 @@ Feature: Researcher Interview Submissions
     Then the response status is 200
     And the response contains 1 interview
     And all interviews have status "completed"
+
+  Scenario: Researcher views external participant ID in interview list
+    Given a signed-in organization user with role "admin"
+    And a completed interview exists for study 1 with external_participant_id "prolific_test123"
+    When they GET /api/orgs/1/studies/1/interviews
+    Then the response status is 200
+    And the response contains a list of interviews
+    And the interview with external_participant_id "prolific_test123" is in the list

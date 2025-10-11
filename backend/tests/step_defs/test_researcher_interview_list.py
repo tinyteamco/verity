@@ -308,6 +308,34 @@ def interview_with_recording(db: Session, interview_id: int, request):
     # Interview already created in background with recording URL
 
 
+@given(
+    parsers.parse(
+        'a completed interview exists for study {study_id:d} with external_participant_id "{pid}"'
+    )
+)
+def completed_interview_with_external_pid(db: Session, study_id: int, pid: str, request):
+    """Create a completed interview with external participant ID"""
+    import uuid
+
+    # Use the actual study_id stored from previous step
+    actual_study_id = getattr(request, "test_study_id", study_id)
+
+    interview = Interview(
+        study_id=actual_study_id,
+        access_token=f"token-{uuid.uuid4()}",
+        status="completed",
+        completed_at=datetime.now(UTC),
+        external_participant_id=pid,
+        platform_source=pid.split("_")[0] if "_" in pid else None,
+        transcript_url=f"https://storage.googleapis.com/verity-artifacts/iv_{actual_study_id}/transcript.txt",
+        recording_url=f"https://storage.googleapis.com/verity-artifacts/iv_{actual_study_id}/recording.wav",
+    )
+    db.add(interview)
+    db.commit()
+    db.refresh(interview)
+    request.test_interview_id = interview.id
+
+
 # When step definitions
 
 
@@ -424,6 +452,26 @@ def error_message_is(request, expected_message: str):
     response = request.test_response
     data = response.json()
     assert data["detail"] == expected_message
+
+
+@then(parsers.parse('the interview with external_participant_id "{pid}" is in the list'))
+def interview_with_external_pid_in_list(request, pid: str):
+    """Check that an interview with the specified external_participant_id is in the list"""
+    response = request.test_response
+    data = response.json()
+    interviews = data["interviews"]
+
+    # Find interview with matching external_participant_id
+    matching_interview = None
+    for interview in interviews:
+        if interview.get("external_participant_id") == pid:
+            matching_interview = interview
+            break
+
+    assert matching_interview is not None, (
+        f"No interview found with external_participant_id '{pid}'"
+    )
+    assert matching_interview["external_participant_id"] == pid
 
 
 # Fixtures

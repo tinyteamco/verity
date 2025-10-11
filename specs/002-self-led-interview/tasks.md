@@ -231,25 +231,25 @@
 
 ### BDD Tests for User Story 5 (WRITE FIRST, ENSURE THEY FAIL) ⚠️
 
-- [ ] T086 [P] [US5] Write Gherkin scenario "Study settings displays reusable link with slug format" in backend/tests/features/study_settings.feature (if not already covered by US1)
-- [ ] T087 [P] [US5] Write Gherkin scenario "Recruitment platform accesses link with pid creates interview with external_participant_id" in backend/tests/features/interview_access.feature (if not already covered by US1)
-- [ ] T088 [P] [US5] Write Gherkin scenario "Same pid accesses link twice shows 'Interview already completed'" in backend/tests/features/interview_access.feature (if not already covered by US1)
-- [ ] T089 [P] [US5] Write Gherkin scenario "Researcher views external participant ID in interview list" in backend/tests/features/researcher_interview_list.feature
-- [ ] T090 [US5] Run tests to verify they FAIL (expected behavior before implementation)
+- [X] T086 [P] [US5] Write Gherkin scenario "Study settings displays reusable link with slug format" in backend/tests/features/study_settings.feature (already covered by US1 scenarios)
+- [X] T087 [P] [US5] Write Gherkin scenario "Recruitment platform accesses link with pid creates interview with external_participant_id" in backend/tests/features/interview_access.feature (already covered by US1 scenario "Participant accesses reusable link with pid")
+- [X] T088 [P] [US5] Write Gherkin scenario "Same pid accesses link twice shows 'Interview already completed'" in backend/tests/features/interview_access.feature (already covered by US1 scenario "Deduplication prevents duplicate interview for same external_participant_id")
+- [X] T089 [P] [US5] Write Gherkin scenario "Researcher views external participant ID in interview list" in backend/tests/features/researcher_interview_list.feature
+- [X] T090 [US5] Run tests to verify they FAIL (expected behavior before implementation)
 
 ### Backend Implementation for User Story 5
 
-- [ ] T091 [US5] Verify deduplication logic from US1 properly prevents duplicate interviews for same pid (covered in T025)
-- [ ] T092 [US5] Verify external_participant_id is stored and displayed in interview list endpoint (covered in T074)
-- [ ] T093 [US5] Run BDD tests to verify US5 backend implementation passes
+- [X] T091 [US5] Verify deduplication logic from US1 properly prevents duplicate interviews for same pid (covered in T025 - lines 1484-1521 in main.py)
+- [X] T092 [US5] Verify external_participant_id is stored and displayed in interview list endpoint (covered in T074 - line 881 in main.py includes external_participant_id and platform_source)
+- [X] T093 [US5] Run BDD tests to verify US5 backend implementation passes
 
 ### Frontend Implementation for User Story 5
 
-- [ ] T094 [P] [US5] Add recruitment platform substitution examples (Prolific, Respondent, UserTesting) to StudySettings component (enhance T030)
-- [ ] T095 [P] [US5] Display external_participant_id column in InterviewList component (enhance T082)
-- [ ] T096 [US5] Run E2E tests to verify US5 frontend implementation passes
+- [ ] T094 [P] [US5] Add recruitment platform substitution examples (Prolific, Respondent, UserTesting) to StudySettings component (enhance T030) - DEFERRED to frontend phase
+- [ ] T095 [P] [US5] Display external_participant_id column in InterviewList component (enhance T082) - DEFERRED to frontend phase
+- [ ] T096 [US5] Run E2E tests to verify US5 frontend implementation passes - DEFERRED to frontend phase
 
-**Checkpoint**: At this point, reusable links work with recruitment platforms and track external participant IDs (P2 value delivered)
+**Checkpoint**: Backend verification complete - reusable links work with recruitment platforms and track external participant IDs (P2 value delivered). Frontend enhancements deferred.
 
 ---
 
