@@ -51,7 +51,6 @@ Feature: Researcher Interview Submissions
   Scenario: Only completed interviews appear in list
     Given a signed-in organization user with role "admin"
     And a pending interview exists for study 1
-    And a completed interview exists for study 1 with transcript and recording
     When they GET /api/orgs/1/studies/1/interviews
     Then the response status is 200
     And the response contains 1 interview

@@ -315,12 +315,10 @@ def interview_with_recording(db: Session, interview_id: int, request):
 def get_study_interviews(request, client, org_id: int, study_id: int):
     """GET list of interviews for a study"""
     headers = getattr(request, "test_auth_headers", {})
-    # Use the actual org_id and study_id stored from previous steps
-    actual_org_id = getattr(request, "test_org_id", org_id)
-    actual_study_id = getattr(request, "test_study_id", study_id)
-    response = client.get(
-        f"/api/orgs/{actual_org_id}/studies/{actual_study_id}/interviews", headers=headers
-    )
+    # Use org_id and study_id from URL parameters (not from stored values)
+    # This allows testing cross-org access control
+    # Note: client has base_url="http://testserver/api", so don't include /api prefix
+    response = client.get(f"/orgs/{org_id}/studies/{study_id}/interviews", headers=headers)
     request.test_response = response
 
 
@@ -330,11 +328,11 @@ def get_study_interviews(request, client, org_id: int, study_id: int):
 def get_interview_artifact(request, client, org_id: int, interview_id: int, filename: str):
     """GET artifact for an interview"""
     headers = getattr(request, "test_auth_headers", {})
-    # Use the actual org_id and interview_id stored from previous steps
-    actual_org_id = getattr(request, "test_org_id", org_id)
-    actual_interview_id = getattr(request, "test_interview_id", interview_id)
+    # Use org_id and interview_id from URL parameters (not from stored values)
+    # This allows testing cross-org access control
+    # Note: client has base_url="http://testserver/api", so don't include /api prefix
     response = client.get(
-        f"/api/orgs/{actual_org_id}/interviews/{actual_interview_id}/artifacts/{filename}",
+        f"/orgs/{org_id}/interviews/{interview_id}/artifacts/{filename}",
         headers=headers,
     )
     request.test_response = response

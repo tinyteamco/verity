@@ -298,3 +298,46 @@ def interviewee_token(test_interviewee_user):
     from tests.test_helpers import sign_in_user
 
     return sign_in_user("testinterviewee@example.com", "testpass123")
+
+
+@pytest.fixture(autouse=True)
+def mock_gcs_service(monkeypatch):
+    """Mock GCS service for all tests to avoid authentication issues."""
+    from collections.abc import AsyncGenerator
+
+    # Mock GCS service class
+    class MockGCSService:
+        async def stream_artifact(
+            self, bucket_name: str, object_path: str, chunk_size: int = 1024 * 1024
+        ) -> AsyncGenerator[bytes, None]:
+            """Mock stream_artifact that returns test data."""
+            # Return test data based on the artifact type
+            if "transcript.txt" in object_path:
+                test_data = b"This is a test transcript.\nLine 2 of the transcript."
+            elif "recording.wav" in object_path:
+                # Return some fake audio data
+                test_data = b"RIFF" + b"\x00" * 44 + b"fake audio data"
+            else:
+                test_data = b"test artifact data"
+
+            # Yield in chunks
+            for i in range(0, len(test_data), chunk_size):
+                yield test_data[i : i + chunk_size]
+
+        def get_content_type(self, filename: str) -> str:
+            """Get content type based on filename extension."""
+            if filename.endswith(".txt"):
+                return "text/plain; charset=utf-8"
+            elif filename.endswith(".wav"):
+                return "audio/wav"
+            elif filename.endswith(".mp3"):
+                return "audio/mpeg"
+            elif filename.endswith(".json"):
+                return "application/json"
+            else:
+                return "application/octet-stream"
+
+    # Patch the GCSService class at the package level where it's exported
+    # The import in main.py is: from .services import GCSService
+    # which resolves to src.api.services.__init__:GCSService
+    monkeypatch.setattr("src.api.services.GCSService", MockGCSService)
